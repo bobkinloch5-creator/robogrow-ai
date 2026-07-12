@@ -69,21 +69,22 @@ const FAQ = () => {
 
             <AccordionItem value="item-7" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
-                How are payments processed?
+                Do I need to pay anything?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                All payments are securely processed through PayPal. We don't store your payment information. Prompt purchases are instant and automatically added to your balance.
+                Never. Bloxsmith is completely free to use — we don't collect any payment information and there's nothing to buy.
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="item-8" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
-                Do prompts expire?
+                Are there any usage limits?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                No! Once purchased, prompts remain in your account indefinitely. Use them at your own pace.
+                Use Bloxsmith as much as you like. Fair-use limits may apply to keep the service fast for everyone, but there's no cost and nothing expires.
               </AccordionContent>
             </AccordionItem>
+
 
             <AccordionItem value="item-9" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
