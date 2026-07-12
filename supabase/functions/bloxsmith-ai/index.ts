@@ -162,7 +162,7 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 4096 }),
+    body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 8192 }),
   });
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
