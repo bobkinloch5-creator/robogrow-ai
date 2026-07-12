@@ -82,9 +82,21 @@ const Index = () => {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-grid opacity-60" />
-        <div className="absolute inset-0 bg-gradient-hero opacity-40" />
-        <div className="absolute inset-0 bg-gradient-glow animate-pulse-glow" />
+        {/* Roblox-themed background */}
+        <img
+          src={heroBg}
+          alt=""
+          aria-hidden="true"
+          width={1920}
+          height={1280}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-bottom"
+        />
+        {/* Readability + brand overlays */}
+        <div className="pointer-events-none absolute inset-0 bg-background/40" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
+        <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-glow animate-pulse-glow" />
+
 
         <div className="container mx-auto relative z-10">
           <div className="max-w-4xl mx-auto text-center space-y-8 animate-slide-up">
