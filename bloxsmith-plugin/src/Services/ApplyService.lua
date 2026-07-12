@@ -364,4 +364,68 @@ function ApplyService:insertAsset(assetId, name)
 	)
 end
 
+-- Wipe the place: remove ALL scripts, models, GUIs and assets across the common
+-- containers while keeping the Baseplate (and the un-removable Terrain/Camera).
+-- Fully undoable with a single Ctrl+Z via ChangeHistoryService.
+function ApplyService:resetPlace(keepBaseplate)
+	local recordId = ChangeHistoryService:TryBeginRecording("Bloxsmith reset place")
+	local removed = 0
+
+	local function clearContainer(container, protect)
+		if not container then
+			return
+		end
+		for _, child in ipairs(container:GetChildren()) do
+			if not (protect and protect(child)) then
+				local ok = pcall(function()
+					child:Destroy()
+				end)
+				if ok then
+					removed += 1
+				end
+			end
+		end
+	end
+
+	-- Workspace: keep Terrain, Camera and the baseplate; remove everything else.
+	clearContainer(workspace, function(child)
+		if child:IsA("Terrain") or child:IsA("Camera") then
+			return true
+		end
+		if keepBaseplate ~= false and child.Name == "Baseplate" then
+			return true
+		end
+		return false
+	end)
+
+	-- Wipe the standard containers entirely.
+	local services = {
+		"ServerScriptService", "ServerStorage", "ReplicatedStorage",
+		"ReplicatedFirst", "StarterGui", "StarterPack", "Lighting",
+	}
+	for _, name in ipairs(services) do
+		local ok, svc = pcall(function()
+			return game:GetService(name)
+		end)
+		if ok and svc then
+			clearContainer(svc)
+		end
+	end
+
+	-- StarterPlayer holds its scripts in sub-containers; clear those, not the
+	-- containers themselves (which Roblox recreates/needs).
+	local okSP, sp = pcall(function()
+		return game:GetService("StarterPlayer")
+	end)
+	if okSP and sp then
+		clearContainer(sp:FindFirstChild("StarterPlayerScripts"))
+		clearContainer(sp:FindFirstChild("StarterCharacterScripts"))
+	end
+
+	if recordId then
+		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
+	end
+	return { ok = true, removed = removed }
+end
+
 return ApplyService
