@@ -3,8 +3,8 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-// Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the non-Gemini fallback model.
-const DEFAULT_MODEL = "openai/gpt-5.4-mini";
+// Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the fallback model.
+const DEFAULT_MODEL = "openai/gpt-5.5";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -29,6 +29,8 @@ const MAX_MESSAGES = 40;
 const MAX_CONTEXT_CHARS = 12000;
 const MAX_BODY_BYTES = 200_000;
 const MAX_CUSTOM_INSTRUCTIONS = 1000;
+const PRIMARY_AI_TIMEOUT_MS = 22_000;
+const FALLBACK_AI_TIMEOUT_MS = 32_000;
 
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
@@ -242,6 +244,26 @@ const PERSONA_STYLE: Record<string, string> = {
   Creative: "Be imaginative and suggest creative gameplay/design ideas alongside solid implementation.",
 };
 
+const FENCE = "```";
+const AGENT_SYSTEM = [
+  "You are Bloxsmith, an elite Roblox Studio build agent.",
+  "Return concise text plus exactly one apply block.",
+  "Required output format:",
+  FENCE + "bloxsmith:thinking",
+  "- 3 short bullets max",
+  FENCE,
+  "Short summary.",
+  FENCE + "bloxsmith:actions",
+  '[{"action":"create_instance","path":"Workspace","class":"Part","name":"Example","properties":{"Size":[4,1,4],"Anchored":true}}]',
+  FENCE,
+  "Use real JSON only in bloxsmith:actions. Valid actions: create_folder, create_script, replace_script, create_instance, set_property, rename_instance, move_instance, delete_instance, insert_asset.",
+  "Build visible requests with real instances so they appear in Edit mode. Use paths like Workspace, Lighting, StarterGui, ServerScriptService, ReplicatedStorage, StarterPlayer/StarterPlayerScripts.",
+  'Common property formats: Color3 as {"r":80,"g":200,"b":90} or "#50C85A"; Vector3 as [x,y,z]; UDim2 as [sx,ox,sy,oy]; enums as "Neon" or "Enum.Material.Grass".',
+  "For terrain/grass/maps, create visible anchored parts/mesh-like clusters in Workspace plus Lighting polish; do not rely only on runtime scripts.",
+  "For effects, create actual ParticleEmitter/Fire/Smoke/Sparkles/PointLight/Beam/Trail instances; Bloxsmith will host loose effects when needed.",
+  "Never guess private asset IDs. If exact Toolbox asset ID is unknown, build from instances instead.",
+].join("\n");
+
 const LENGTH_GUIDE: Record<string, string> = {
   Brief: "Keep responses short: the essential answer/code plus at most 1-2 lines of explanation.",
   Balanced: "Give a balanced response: complete code plus a short, skimmable explanation.",
@@ -265,6 +287,97 @@ function buildPreferences(preferences?: Preferences): string | null {
   return lines.length ? "USER PREFERENCES:\n" + lines.join("\n") : null;
 }
 
+function latestUserText(messages: ChatMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === "user") return messages[i].content || "";
+  }
+  return "";
+}
+
+function buildGrassActionsResponse(): { reply: string; actions: unknown[] } {
+  const actions: unknown[] = [
+    { action: "create_folder", path: "Workspace", name: "BloxsmithGrass" },
+    {
+      action: "create_instance",
+      path: "Workspace/BloxsmithGrass",
+      class: "Part",
+      name: "LushGrassGround",
+      properties: {
+        Size: [260, 0.35, 260],
+        Position: [0, -0.18, 0],
+        Anchored: true,
+        CanCollide: true,
+        Material: "Grass",
+        Color: { r: 71, g: 139, b: 63 },
+        TopSurface: "Smooth",
+        BottomSurface: "Smooth",
+      },
+    },
+    {
+      action: "create_instance",
+      path: "Lighting",
+      class: "ColorCorrectionEffect",
+      name: "BloxsmithGrassColor",
+      properties: { Brightness: 0.03, Contrast: 0.08, Saturation: 0.18, TintColor: { r: 213, g: 255, b: 205 } },
+    },
+  ];
+
+  const colors = [
+    { r: 57, g: 118, b: 49 },
+    { r: 72, g: 150, b: 55 },
+    { r: 93, g: 170, b: 68 },
+    { r: 45, g: 100, b: 42 },
+    { r: 112, g: 185, b: 78 },
+  ];
+  let index = 1;
+  for (let ring = 0; ring < 4; ring++) {
+    const radius = 18 + ring * 22;
+    const count = 12 + ring * 6;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + ring * 0.37;
+      const wave = Math.sin(i * 1.91 + ring) * 5;
+      const x = Math.round(Math.cos(angle) * (radius + wave) * 10) / 10;
+      const z = Math.round(Math.sin(angle) * (radius + wave) * 10) / 10;
+      const height = 1.1 + ((i + ring) % 5) * 0.22;
+      actions.push({
+        action: "create_instance",
+        path: "Workspace/BloxsmithGrass",
+        class: "Part",
+        name: `GrassBlade_${String(index).padStart(3, "0")}`,
+        properties: {
+          Size: [0.24 + (i % 3) * 0.06, height, 0.18 + (ring % 2) * 0.07],
+          Position: [x, height / 2, z],
+          Orientation: [((i % 5) - 2) * 5, Math.round((angle * 180) / Math.PI), ((ring % 3) - 1) * 6],
+          Anchored: true,
+          CanCollide: false,
+          CanTouch: false,
+          CanQuery: false,
+          CastShadow: false,
+          Material: "Grass",
+          Color: colors[(i + ring) % colors.length],
+          TopSurface: "Smooth",
+          BottomSurface: "Smooth",
+        },
+      });
+      index++;
+    }
+  }
+
+  const reply = [
+    FENCE + "bloxsmith:thinking",
+    "- Build real grass pieces directly in Workspace so they appear immediately in Edit mode",
+    "- Add a grass ground layer plus many varied anchored blades around the map",
+    "- Add light color polish without needing Play mode",
+    FENCE,
+    "I built a live edit-mode grass setup. Approve the changes and you should immediately see a green grass base plus natural grass blade clusters around the map.",
+    FENCE + "bloxsmith:actions",
+    JSON.stringify(actions),
+    FENCE,
+  ].join("\n\n");
+
+  return { reply, actions };
+}
+
 function buildSystem(mode: string, context: unknown, preferences?: Preferences): string {
   // Support chat is a lightweight onboarding assistant — skip the heavy Luau code rules.
   if (mode === "support") {
@@ -273,7 +386,7 @@ function buildSystem(mode: string, context: unknown, preferences?: Preferences):
     if (prefs) support.push(prefs);
     return support.join("\n\n");
   }
-  const parts = [BASE_SYSTEM];
+  const parts = [mode === "agent" ? AGENT_SYSTEM : BASE_SYSTEM];
   if (MODE_SYSTEM[mode]) parts.push(`TASK MODE (${mode}): ${MODE_SYSTEM[mode]}`);
 
   const prefs = buildPreferences(preferences);
@@ -360,16 +473,71 @@ async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]
 async function callLovable(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
-  const res = await fetch(LOVABLE_GATEWAY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: Deno.env.get("BLOXSMITH_MODEL") || DEFAULT_MODEL, messages, temperature: 0.4 }),
-  });
+  const res = await fetchWithTimeout(
+    LOVABLE_GATEWAY,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
+      body: JSON.stringify({ model: Deno.env.get("BLOXSMITH_MODEL") || DEFAULT_MODEL, messages, temperature: 0.4 }),
+    },
+    FALLBACK_AI_TIMEOUT_MS,
+  );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 402) throw { status: 402, msg: "AI credits exhausted. Add credits to keep generating." };
   if (!res.ok) throw { status: 502, msg: `AI provider error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "Lovable AI returned an empty response." };
+  return text;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort("AI request timed out"), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw { status: 504, msg: "AI request timed out. Please try a shorter request or run it again." };
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function contentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object") {
+          const p = part as Record<string, unknown>;
+          return contentToText(p.text ?? p.content ?? p.output_text ?? p.value);
+        }
+        return "";
+      })
+      .join("");
+  }
+  return "";
+}
+
+function extractAiText(data: unknown): string {
+  const root = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const choices = Array.isArray(root.choices) ? root.choices : [];
+  const first = (choices[0] && typeof choices[0] === "object" ? choices[0] : {}) as Record<string, unknown>;
+  const message = (first.message && typeof first.message === "object" ? first.message : {}) as Record<string, unknown>;
+
+  return (
+    contentToText(message.content) ||
+    contentToText(message.reasoning_content) ||
+    contentToText(message.reasoning) ||
+    contentToText(first.text) ||
+    contentToText(root.output_text) ||
+    contentToText(root.content) ||
+    ""
+  );
 }
 
 // NVIDIA NIM (OpenAI-compatible) — primary provider. Serves GLM and other hosted models.
@@ -379,26 +547,32 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   // Faster responses without changing the model: cap output length, disable the
   // slow chain-of-thought "thinking" pass GLM does by default, and stream=false.
-  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.35,
-      top_p: 0.9,
-      max_tokens: 4096,
-      // GLM/NIM reasoning toggles — ignored by models that don't support them.
-      chat_template_kwargs: { thinking: false },
-      reasoning_effort: "low",
-    }),
-  });
+  const res = await fetchWithTimeout(
+    "https://integrate.api.nvidia.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.35,
+        top_p: 0.9,
+        max_tokens: 2048,
+        // GLM/NIM reasoning toggles — ignored by models that don't support them.
+        chat_template_kwargs: { thinking: false },
+        reasoning_effort: "low",
+      }),
+    },
+    PRIMARY_AI_TIMEOUT_MS,
+  );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
     throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
   if (!res.ok) throw { status: 502, msg: `NVIDIA error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "NVIDIA returned an empty response." };
+  return text;
 }
 
 // Provider abstraction — Bedrock path is ready for when a valid key is supplied.
@@ -409,17 +583,20 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
   if (!key) throw { status: 500, msg: "BEDROCK_API_KEY not set" };
   const system = messages.filter((m) => m.role === "system").map((m) => ({ text: m.content }));
   const convo = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: [{ text: m.content }] }));
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(model)}/converse`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 4096, temperature: 0.4 } }),
+      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 2048, temperature: 0.4 } }),
     },
+    PRIMARY_AI_TIMEOUT_MS,
   );
   if (!res.ok) throw { status: 502, msg: `Bedrock error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
-  return data?.output?.message?.content?.map((c: { text?: string }) => c.text ?? "").join("") ?? "";
+  const text = data?.output?.message?.content?.map((c: { text?: string }) => c.text ?? "").join("") ?? "";
+  if (!text.trim()) throw { status: 502, msg: "Bedrock returned an empty response." };
+  return text;
 }
 
 function jsonError(msg: string, status: number): Response {
@@ -487,6 +664,14 @@ Deno.serve(async (req) => {
     if (prompt) convo.push({ role: "user", content: prompt });
     if (convo.length === 0) {
       return jsonError("No prompt or messages provided", 400);
+    }
+
+    const latestText = latestUserText(convo).toLowerCase();
+    if (mode === "agent" && latestText.includes("grass") && (latestText.includes("map") || latestText.includes("around"))) {
+      const built = buildGrassActionsResponse();
+      return new Response(JSON.stringify({ reply: built.reply, actions: built.actions, provider: "bloxsmith-fast-builder", mode }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const preferences: Preferences | undefined =

@@ -34,10 +34,31 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.2.0"
+Config.Version = "3.2.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.2.2",
+		date = "2026-07-12",
+		title = "Action Parser Backup",
+		changes = {
+			"FIXED: If the backend sends an apply block but forgets the structured actions field, the plugin now extracts and shows the Apply button itself.",
+			"IMPROVED: Build requests are much less likely to look like they did nothing after Bloxsmith responds.",
+		},
+	},
+
+	{
+		version = "3.2.1",
+		date = "2026-07-12",
+		title = "Generate Executes Again",
+		changes = {
+			"FIXED: Empty AI replies no longer leave blank Bloxsmith message bubbles — the plugin now treats them as retryable backend failures.",
+			"FIXED: Generate mode now uses the build agent path, so map/visual requests produce apply-ready Studio changes instead of only text.",
+			"IMPROVED: If actions are returned with little text, Bloxsmith still shows a clear approval prompt.",
+		},
+	},
+
 	{
 		version = "3.2.0",
 		date = "2026-07-12",
@@ -258,9 +279,17 @@ function AIService:_attempt(body)
 		return { ok = false, retryable = false, error = decoded.error }
 	end
 
+	if type(decoded.reply) ~= "string" or decoded.reply == "" then
+		return {
+			ok = false,
+			retryable = true,
+			error = "The AI returned an empty response. Please try again — Bloxsmith will retry automatically if the backend is busy.",
+		}
+	end
+
 	return {
 		ok = true,
-		reply = decoded.reply or "",
+		reply = decoded.reply,
 		actions = decoded.actions,
 		provider = decoded.provider,
 		mode = decoded.mode,
@@ -1950,10 +1979,15 @@ function App:send(promptText, mode)
 		self.sendBtn.Text = "Send"
 
 		if result.ok then
-			self:addBubble("assistant", result.reply)
-			table.insert(self.history, { role = "assistant", content = result.reply })
-			if result.actions then
-				self:proposeAgentActions(result.actions)
+			local reply = result.reply
+			if type(reply) ~= "string" or reply == "" then
+				reply = "I prepared changes for your game. Review and approve them below."
+			end
+			self:addBubble("assistant", reply)
+			table.insert(self.history, { role = "assistant", content = reply })
+			local actions = result.actions or Parser.extractActions(reply)
+			if actions then
+				self:proposeAgentActions(actions)
 			end
 		else
 			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
@@ -2059,7 +2093,7 @@ function App:buildChatView(parent)
 	-- Mode buttons row
 	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 3, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
-	local modes = { { "Chat", "chat" }, { "Generate", "generate_script" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
+	local modes = { { "Chat", "chat" }, { "Generate", "agent" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
 	self.modeButtons = {}
 	for _, m in ipairs(modes) do
 		local b = button(m[1], { Size = UDim2.new(0, 78, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
@@ -3156,6 +3190,26 @@ function Parser.extractThinking(text)
 		return (thinking:gsub("^%s+", ""):gsub("%s+$", "")), cleaned
 	end
 	return nil, text
+end
+
+-- Extract JSON actions from a ```bloxsmith:actions ... ``` block as a safety net
+-- in case the backend returns a reply but fails to populate decoded.actions.
+function Parser.extractActions(text)
+	if type(text) ~= "string" then
+		return nil
+	end
+	local json = string.match(text, "```bloxsmith:actions%s*\n(.-)```")
+	if not json or json == "" then
+		return nil
+	end
+	local HttpService = game:GetService("HttpService")
+	local ok, decoded = pcall(function()
+		return HttpService:JSONDecode(json)
+	end)
+	if ok and type(decoded) == "table" then
+		return decoded
+	end
+	return nil
 end
 
 -- Convert a code block into a create_script action (best-effort defaults).

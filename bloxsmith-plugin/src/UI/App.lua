@@ -399,10 +399,15 @@ function App:send(promptText, mode)
 		self.sendBtn.Text = "Send"
 
 		if result.ok then
-			self:addBubble("assistant", result.reply)
-			table.insert(self.history, { role = "assistant", content = result.reply })
-			if result.actions then
-				self:proposeAgentActions(result.actions)
+			local reply = result.reply
+			if type(reply) ~= "string" or reply == "" then
+				reply = "I prepared changes for your game. Review and approve them below."
+			end
+			self:addBubble("assistant", reply)
+			table.insert(self.history, { role = "assistant", content = reply })
+			local actions = result.actions or Parser.extractActions(reply)
+			if actions then
+				self:proposeAgentActions(actions)
 			end
 		else
 			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
@@ -508,7 +513,7 @@ function App:buildChatView(parent)
 	-- Mode buttons row
 	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 3, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
-	local modes = { { "Chat", "chat" }, { "Generate", "generate_script" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
+	local modes = { { "Chat", "chat" }, { "Generate", "agent" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
 	self.modeButtons = {}
 	for _, m in ipairs(modes) do
 		local b = button(m[1], { Size = UDim2.new(0, 78, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })

@@ -95,9 +95,17 @@ function AIService:_attempt(body)
 		return { ok = false, retryable = false, error = decoded.error }
 	end
 
+	if type(decoded.reply) ~= "string" or decoded.reply == "" then
+		return {
+			ok = false,
+			retryable = true,
+			error = "The AI returned an empty response. Please try again — Bloxsmith will retry automatically if the backend is busy.",
+		}
+	end
+
 	return {
 		ok = true,
-		reply = decoded.reply or "",
+		reply = decoded.reply,
 		actions = decoded.actions,
 		provider = decoded.provider,
 		mode = decoded.mode,
