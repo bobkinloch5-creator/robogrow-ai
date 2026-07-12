@@ -673,6 +673,7 @@ function App:clearChat()
 	end
 	self:saveCurrentConversation()
 	self.history = {}
+	self:saveActiveSession()
 	self:clearChatBubbles()
 	self:showWelcome()
 	self:toast("Chat cleared — saved to History.", "success")
@@ -687,6 +688,7 @@ function App:loadConversation(convo)
 	for _, m in ipairs(self.history) do
 		self:addBubble(m.role, m.content)
 	end
+	self:saveActiveSession()
 	self:toggleHistoryPanel(false)
 	self:toast("Conversation loaded.", "success")
 end
