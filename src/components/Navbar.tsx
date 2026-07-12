@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import bloxsmithLogo from "@/assets/bloxsmith-logo.png";
@@ -45,19 +45,6 @@ const Navbar = () => {
           </a>
         </div>
 
-        <div className="hidden md:flex items-center gap-3">
-          <Link to="/auth">
-            <Button variant="outline" size="sm">
-              Sign In
-            </Button>
-          </Link>
-          <Link to="/auth?mode=signup">
-            <Button size="sm" className="bg-gradient-primary shadow-glow">
-              Get Started
-            </Button>
-          </Link>
-        </div>
-
         {/* Mobile toggle */}
         <button
           className="md:hidden text-foreground p-2"
@@ -90,18 +77,7 @@ const Navbar = () => {
             >
               Discord
             </a>
-            <div className="flex flex-col gap-3 pt-2">
-              <Link to="/auth" onClick={() => setOpen(false)}>
-                <Button variant="outline" className="w-full">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/auth?mode=signup" onClick={() => setOpen(false)}>
-                <Button className="w-full bg-gradient-primary shadow-glow">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
+
           </div>
         </div>
       )}
