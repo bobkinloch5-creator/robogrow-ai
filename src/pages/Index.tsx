@@ -240,6 +240,59 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Video Tutorial Section */}
+      <section id="tutorial" className="py-20 px-4 scroll-mt-20">
+        <div className="container mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-sm text-muted-foreground backdrop-blur-sm mb-4">
+              <PlayCircle className="h-4 w-4 text-primary" />
+              Step-by-step video guide
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              How to{" "}
+              <span className="bg-gradient-primary bg-clip-text text-transparent">
+                Install
+              </span>{" "}
+              the Plugin
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Watch this quick tutorial to get Bloxsmith running inside Roblox
+              Studio in minutes.
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-gradient-card border-border/50 p-2 md:p-3 shadow-elegant overflow-hidden">
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-background/60">
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster={heroBg}
+                  className="h-full w-full object-cover"
+                >
+                  <source src="/plugin-tutorial.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </Card>
+            <p className="text-center text-sm text-muted-foreground mt-4">
+              Need help? Join our{" "}
+              <a
+                href="https://discord.gg/gkYGrVBbca"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Discord community
+              </a>{" "}
+              for live support.
+            </p>
+          </div>
+        </div>
+      </section>
+
+
       {/* CTA Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
