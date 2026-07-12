@@ -91,7 +91,7 @@ const FAQ = () => {
                 Is there a limit to game complexity?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Bloxsmith can create games of any complexity. However, more complex features may require multiple prompts to fully implement and refine.
+                Bloxsmith can create games of any complexity. More complex features may take a few requests to fully implement and refine — all free of charge.
               </AccordionContent>
             </AccordionItem>
 
