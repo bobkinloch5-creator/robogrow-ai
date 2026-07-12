@@ -100,7 +100,7 @@ const FAQ = () => {
                 How can I get support?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Join our Discord community for instant help from other developers and our team. You can also email support@hideoutbot.lol for direct assistance.
+                Join our Discord community for instant help from other developers and our team. You can also email support@bloxsmiths.xyz for direct assistance.
               </AccordionContent>
             </AccordionItem>
 
