@@ -31,6 +31,27 @@ function AIService:setUrl(url)
 	self.plugin:SetSetting(Config.Settings.BackendUrl, url)
 end
 
+-- Reads the user's saved customization (persona, response length, custom
+-- instructions) so every request carries the developer's preferences.
+function AIService:getPreferences()
+	local get = function(key, default)
+		local v = self.plugin:GetSetting(key)
+		if v == nil or v == "" then
+			return default
+		end
+		return v
+	end
+	local instructions = get(Config.Settings.CustomInstructions, Config.Defaults.CustomInstructions)
+	if type(instructions) == "string" then
+		instructions = string.sub(instructions, 1, Config.MaxCustomInstructions)
+	end
+	return {
+		persona = get(Config.Settings.Persona, Config.Defaults.Persona),
+		responseLength = get(Config.Settings.ResponseLength, Config.Defaults.ResponseLength),
+		customInstructions = instructions,
+	}
+end
+
 -- Single HTTP attempt. Returns a normalized table describing the outcome.
 function AIService:_attempt(body)
 	local success, response = pcall(function()
