@@ -8,7 +8,44 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "1.3.0"
+Config.Version = "3.0.0"
+
+-- Changelog shown inside the plugin (newest first).
+Config.Changelog = {
+	{
+		version = "3.0.0",
+		date = "2026-07-12",
+		title = "The Big Build Update",
+		changes = {
+			"NEW: Real Roblox model thumbnails now render in the Toolbox search.",
+			"NEW: Amazing UI generation — vibrant cartoony game look by default, with gradients, strokes, shadows, hover/press + entrance animations.",
+			"NEW: The AI can build full animated loading / splash screens with progress bars and spinners.",
+			"NEW: In-plugin Changelog tab (you're reading it!).",
+			"IMPROVED: AI replies are noticeably faster (same AI, tuned for speed).",
+			"IMPROVED: Builds now show live in Edit mode, not just Play mode.",
+		},
+	},
+	{
+		version = "2.0.0",
+		date = "2026-07-12",
+		title = "Agent & Cleanup",
+		changes = {
+			"NEW: Refresh button clears scripts, assets and instances while keeping the Baseplate.",
+			"NEW: Multi-step build agent can create instances, effects and full systems.",
+			"IMPROVED: Cleaner chat formatting (proper bold, headers and bullets).",
+		},
+	},
+	{
+		version = "1.3.0",
+		date = "2026-07-11",
+		title = "Foundations",
+		changes = {
+			"NEW: Secure backend proxy — no AI keys ever ship in the plugin.",
+			"NEW: Toolbox search, Analysis, Health and Errors tools.",
+			"NEW: Customizable persona, response length and custom instructions.",
+		},
+	},
+}
 
 -- Secure backend (Lovable Cloud edge function). Overridable via plugin settings.
 Config.DefaultBackendUrl =
