@@ -5,8 +5,8 @@ import { Menu, X } from "lucide-react";
 import bloxsmithLogo from "@/assets/bloxsmith-logo.png";
 
 const navLinks = [
-  { to: "/dashboard", label: "Dashboard" },
   { to: "/docs", label: "Documentation" },
+  { to: "/faq", label: "FAQ" },
 ];
 
 const Navbar = () => {
