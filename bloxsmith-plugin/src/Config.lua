@@ -25,6 +25,19 @@ Config.MaxContextInstances = 400 -- cap hierarchy walk for performance
 Config.Settings = {
 	BackendUrl = "bloxsmith_backend_url",
 	AutoContext = "bloxsmith_auto_context",
+	Persona = "bloxsmith_persona",
+	ResponseLength = "bloxsmith_response_length",
+	CustomInstructions = "bloxsmith_custom_instructions",
 }
+
+-- Customization options exposed in Settings and sent to the secure backend.
+Config.Personas = { "Professional", "Friendly", "Teacher", "Concise", "Creative" }
+Config.ResponseLengths = { "Brief", "Balanced", "Detailed" }
+Config.Defaults = {
+	Persona = "Professional",
+	ResponseLength = "Balanced",
+	CustomInstructions = "",
+}
+Config.MaxCustomInstructions = 1000
 
 return Config
