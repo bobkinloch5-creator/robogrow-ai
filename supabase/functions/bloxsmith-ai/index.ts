@@ -3,7 +3,8 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const DEFAULT_MODEL = "google/gemini-3.1-flash-lite";
+// Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the non-Gemini fallback model.
+const DEFAULT_MODEL = "openai/gpt-5.4-mini";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -102,7 +103,19 @@ EDIT-MODE VISIBILITY (very important):
 - Whenever the user wants to SEE something (a build, a map, GUI, lighting, effects, animations), create REAL instances directly in the DataModel (use the agent "create_instance"/"set_property" actions) so they render live in the viewport in edit mode — never hide the visuals inside runtime-only scripts.
 - Effects that render live in edit mode and MUST be created as actual instances: ParticleEmitter, Beam, Trail, PointLight/SpotLight/SurfaceLight, Fire, Smoke, Sparkles, Highlight, UIGradient/UIStroke, Atmosphere, Sky, and post-processing under Lighting (Bloom, ColorCorrection, Blur, DepthOfField, SunRays). Build these as instances so they show immediately.
 - ANIMATIONS: continuous motion (rotation, hovering, pulsing, tweens) only plays at runtime. When the user wants an animation, still create the target instances so they appear in edit mode AND add the animating Script/LocalScript (TweenService/RunService) so it plays on Play. Briefly note which parts are live in edit mode vs. which animate on Play.
-- Prefer building visuals as instances first, then layering behavior scripts on top.`;
+- Prefer building visuals as instances first, then layering behavior scripts on top.
+
+UI / UX CRAFT (make every interface look amazing):
+- Never ship a plain grey box. Every GUI you build must look polished, modern and game-ready out of the box.
+- STYLE: Default to a clean, vibrant, slightly "cartoony" Roblox game aesthetic (rounded corners, chunky friendly buttons, bright saturated accents, soft depth) UNLESS the user asks for a different style (minimal, sci-fi, horror, pixel, cute/pastel, neon, medieval, etc.). Match whatever style the user names.
+- ALWAYS add polish layers: UICorner (radius 8-16), UIStroke (1-2px accent or dark outline for that cartoony pop), UIGradient (subtle top-to-bottom shading on panels & buttons), UIPadding, and a soft drop shadow (an ImageLabel behind the frame, or a semi-transparent offset frame) for depth.
+- COLOR: Use a small cohesive palette (1 primary, 1 accent, dark/light neutrals). High contrast text. Rounded pill or card buttons with a hover/press color change wired in the LocalScript (TweenService on MouseEnter/MouseLeave/Activated — scale up ~1.05 and lighten on hover, press-down on click).
+- TYPOGRAPHY: Use bold, friendly fonts (Enum.Font.GothamBold / FredokaOne / Cartoon for headers, Gotham/GothamMedium for body). Clear size hierarchy.
+- LAYOUT: Center with AnchorPoint {0.5,0.5}; use UIListLayout/UIGridLayout with padding; size with Scale (UDim2) so it's responsive; add a UIAspectRatioConstraint on cards where it helps.
+- MOTION: Add entrance animations (fade/scale/slide-in via TweenService), button hover/press feedback, and subtle idle motion (gentle pulse or float) so the UI feels alive. Create the instances so they show in edit mode, and put the tweens in a LocalScript so they animate on Play.
+- LOADING SCREENS: When asked for a loading/splash/intro screen, build a full-screen ScreenGui (IgnoreGuiInset=true) with a themed background (gradient or image), a game title/logo, an animated progress bar (a background bar + fill Frame tweened 0→1), a rotating/pulsing spinner, and rotating tip text. Use ReplicatedFirst + game:IsLoaded()/ContentProvider:PreloadAsync for real progress, then tween it out. Make it beautiful, not a bare "Loading…" label.
+- Icons/images: reference real Roblox assets with rbxassetid://<id> or rbxthumb://type=Asset&id=<id>&w=150&h=150. Do not invent fake asset ids — if you don't know one, use a shape/emoji/text placeholder and tell the user where to drop in their own icon.
+- Always briefly summarize the look you built (palette, style, animations) so the user knows what to expect.`;
 
 
 const MODE_SYSTEM: Record<string, string> = {
@@ -137,7 +150,7 @@ RULES:
   optimize_script:
     "Optimize the provided script for performance and readability. Return the improved full script in one code block and a bulleted list of the optimizations made.",
   generate_ui:
-    "Generate a Roblox UI. Produce a LocalScript (class=LocalScript) that builds the interface programmatically under a ScreenGui, using UICorner, UIListLayout/UIGridLayout, and theme-consistent colors. Make it responsive with Scale-based UDim2 where sensible.",
+    "Generate a stunning Roblox UI. Produce a LocalScript (class=LocalScript) that builds the interface programmatically under a ScreenGui, following the UI/UX CRAFT rules above: rounded corners, UIStroke, UIGradient, drop shadow, a cohesive palette, bold friendly fonts, hover/press animations and an entrance tween. Default to a vibrant cartoony game look unless the user asks otherwise. Make it responsive with Scale-based UDim2. Never output a plain grey box.",
   generate_system:
     "Generate a complete, modular game system (e.g. inventory, shop, quests, combat, leaderboard, progression). Split into server ModuleScript(s), RemoteEvents, and client controller(s). Each file in its own code block with path= and class= hints. Include a short setup guide.",
   security_scan:
@@ -347,10 +360,21 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_MODEL") || "z-ai/glm-5.2";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  // Faster responses without changing the model: cap output length, disable the
+  // slow chain-of-thought "thinking" pass GLM does by default, and stream=false.
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 8192 }),
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: 0.35,
+      top_p: 0.9,
+      max_tokens: 4096,
+      // GLM/NIM reasoning toggles — ignored by models that don't support them.
+      chat_template_kwargs: { thinking: false },
+      reasoning_effort: "low",
+    }),
   });
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
