@@ -959,6 +959,39 @@ function App:buildSettingsView(parent)
 
 	Create("TextLabel", { Text = "The plugin never stores an AI key — it calls a secure backend that holds the provider credentials. All requests are validated, rate-limited and sent over HTTPS.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
 
+	-- Danger Zone: full place reset.
+	Create("TextLabel", { Text = "⚠️ Danger Zone", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Error, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
+	Create("TextLabel", { Text = "Refresh place — permanently removes ALL scripts, models, GUIs and assets across Workspace, ServerScriptService, ReplicatedStorage, StarterGui, StarterPlayer, Lighting and more. The Baseplate is kept. Undo the whole wipe with Ctrl+Z.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
+
+	local resetBtn = button("🔄 Refresh place (keep Baseplate)", { Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = C.Error, TextColor3 = C.Bg })
+	resetBtn.Parent = view
+	local armed = false
+	local resetToken = 0
+	resetBtn.Activated:Connect(function()
+		if not armed then
+			armed = true
+			resetBtn.Text = "⚠️ Click again to confirm wipe"
+			resetToken += 1
+			local myToken = resetToken
+			task.delay(4, function()
+				if armed and myToken == resetToken then
+					armed = false
+					resetBtn.Text = "🔄 Refresh place (keep Baseplate)"
+				end
+			end)
+			return
+		end
+		armed = false
+		resetToken += 1
+		resetBtn.Text = "🔄 Refresh place (keep Baseplate)"
+		local res = self.deps.apply:resetPlace(true)
+		if res.ok then
+			self:toast(("Place refreshed — removed %d item(s). Ctrl+Z to undo."):format(res.removed or 0), "success")
+		else
+			self:toast("Refresh failed: " .. (res.error or "unknown"), "error")
+		end
+	end)
+
 	Create("TextLabel", { Text = ("Bloxsmith v%s"):format(Config.Version), Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 16), Parent = view })
 end
 
