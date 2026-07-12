@@ -211,6 +211,43 @@ local function loadAssetForPlugin(assetId)
 	return false, getObjectsError .. " / " .. loadAssetError
 end
 
+-- Decide the correct container for an inserted object based on its class so
+-- non-Workspace assets (skies, atmosphere, lighting/post effects, sounds…)
+-- actually take effect instead of sitting invisibly in Workspace.
+-- Returns (parentInstance, isVisual). isVisual objects get camera-focused.
+local function smartParentFor(inst, fallbackParent)
+	local function svc(name)
+		local ok, s = pcall(function() return game:GetService(name) end)
+		return ok and s or nil
+	end
+
+	-- Sky, Atmosphere, Clouds and all post-processing effects live in Lighting.
+	local LIGHTING_CLASSES = {
+		Sky = true, Atmosphere = true, Clouds = true,
+		BloomEffect = true, BlurEffect = true, ColorCorrectionEffect = true,
+		DepthOfFieldEffect = true, SunRaysEffect = true,
+	}
+	if inst:IsA("PostEffect") or inst:IsA("Sky") or inst:IsA("Atmosphere")
+		or LIGHTING_CLASSES[inst.ClassName] then
+		return svc("Lighting") or fallbackParent, false
+	end
+
+	-- Sounds default to SoundService (or wherever the user pointed).
+	if inst:IsA("Sound") then
+		return fallbackParent or svc("SoundService") or workspace, false
+	end
+
+	-- Visible geometry belongs in Workspace and should be focused.
+	if inst:IsA("Model") or inst:IsA("BasePart") or inst:IsA("Folder") then
+		return fallbackParent or workspace, true
+	end
+
+	-- Everything else (scripts, values, animations, decals, GUIs…) goes to the
+	-- requested path (Workspace by default) — not visual, just placed.
+	return fallbackParent or workspace, false
+end
+
+
 
 -- Apply one action. Returns (ok, message, instance?).
 function ApplyService:applyOne(action)
