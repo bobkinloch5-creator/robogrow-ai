@@ -375,12 +375,16 @@ function App:send(promptText, mode)
 	local includeTree = mode ~= "chat"
 	local context = self.deps.context:build(includeTree)
 
+	-- Show the live thinking indicator while the request is in flight.
+	local thinkingHandle = self:startThinking()
+
 	task.spawn(function()
 		local result = self.deps.ai:request({
 			mode = mode or self.mode,
 			messages = self.history,
 			context = context,
 		})
+		thinkingHandle.stop()
 		self.busy = false
 		self.sendBtn.Text = "Send"
 
