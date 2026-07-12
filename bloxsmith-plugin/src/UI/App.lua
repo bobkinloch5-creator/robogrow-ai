@@ -405,8 +405,9 @@ function App:send(promptText, mode)
 			end
 			self:addBubble("assistant", reply)
 			table.insert(self.history, { role = "assistant", content = reply })
-			if result.actions then
-				self:proposeAgentActions(result.actions)
+			local actions = result.actions or Parser.extractActions(reply)
+			if actions then
+				self:proposeAgentActions(actions)
 			end
 		else
 			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))

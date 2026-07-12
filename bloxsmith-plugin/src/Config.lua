@@ -8,10 +8,20 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.2.1"
+Config.Version = "3.2.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.2.2",
+		date = "2026-07-12",
+		title = "Action Parser Backup",
+		changes = {
+			"FIXED: If the backend sends an apply block but forgets the structured actions field, the plugin now extracts and shows the Apply button itself.",
+			"IMPROVED: Build requests are much less likely to look like they did nothing after Bloxsmith responds.",
+		},
+	},
+
 	{
 		version = "3.2.1",
 		date = "2026-07-12",

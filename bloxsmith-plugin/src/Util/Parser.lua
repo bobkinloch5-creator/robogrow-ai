@@ -57,6 +57,26 @@ function Parser.extractThinking(text)
 	return nil, text
 end
 
+-- Extract JSON actions from a ```bloxsmith:actions ... ``` block as a safety net
+-- in case the backend returns a reply but fails to populate decoded.actions.
+function Parser.extractActions(text)
+	if type(text) ~= "string" then
+		return nil
+	end
+	local json = string.match(text, "```bloxsmith:actions%s*\n(.-)```")
+	if not json or json == "" then
+		return nil
+	end
+	local HttpService = game:GetService("HttpService")
+	local ok, decoded = pcall(function()
+		return HttpService:JSONDecode(json)
+	end)
+	if ok and type(decoded) == "table" then
+		return decoded
+	end
+	return nil
+end
+
 -- Convert a code block into a create_script action (best-effort defaults).
 function Parser.blockToAction(block, index)
 	local class = block.class
