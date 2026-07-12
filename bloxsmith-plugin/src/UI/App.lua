@@ -451,6 +451,26 @@ function App:buildChatView(parent)
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = view })
 	pad(0).Parent = view
 
+	-- Header row: Clear + History
+	local headerRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = 0, Parent = view })
+	Create("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 6),
+		Parent = headerRow,
+	})
+	local historyBtn = button("🕘 History", { Size = UDim2.new(0, 92, 1, 0), BackgroundColor3 = C.Panel, TextSize = 12 })
+	historyBtn.Parent = headerRow
+	historyBtn.Activated:Connect(function()
+		self:toggleHistoryPanel(true)
+	end)
+	local clearBtn = button("🗑 Clear", { Size = UDim2.new(0, 80, 1, 0), BackgroundColor3 = C.Panel, TextSize = 12 })
+	clearBtn.Parent = headerRow
+	clearBtn.Activated:Connect(function()
+		self:clearChat()
+	end)
+
 	-- Selection context strip
 	self.contextLabel = Create("TextLabel", {
 		Text = "No selection",
@@ -460,26 +480,26 @@ function App:buildChatView(parent)
 		BackgroundColor3 = C.Panel,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Size = UDim2.new(1, 0, 0, 26),
-		LayoutOrder = 0,
+		LayoutOrder = 1,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(6) })
 
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -110),
+		Size = UDim2.new(1, 0, 1, -150),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.Accent,
 		BorderSizePixel = 0,
-		LayoutOrder = 1,
+		LayoutOrder = 2,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.chatScroll })
 
 	-- Mode buttons row
-	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 2, Parent = view })
+	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 3, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
 	local modes = { { "Chat", "chat" }, { "Generate", "generate_script" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
 	self.modeButtons = {}
@@ -493,7 +513,7 @@ function App:buildChatView(parent)
 	end
 
 	-- Input row
-	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 3, Parent = view })
+	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 4, Parent = view })
 	self.input = Create("TextBox", {
 		PlaceholderText = "Ask Bloxsmith or describe what to build…",
 		Text = "",
@@ -521,9 +541,214 @@ function App:buildChatView(parent)
 	end)
 
 	self.chatView = view
+	self:buildHistoryPanel(parent)
 	self:setMode("chat")
 	self:showWelcome()
 end
+
+--========================================================================
+-- Chat history (persisted via plugin settings) + clear
+--========================================================================
+local HISTORY_KEY = "Bloxsmith_ChatHistory"
+
+function App:loadHistoryStore()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(HISTORY_KEY)
+	end)
+	if ok and type(data) == "table" then
+		return data
+	end
+	return {}
+end
+
+function App:saveHistoryStore(list)
+	pcall(function()
+		self.deps.plugin:SetSetting(HISTORY_KEY, list)
+	end)
+end
+
+-- Save the current conversation into persistent history (deduped, capped).
+function App:saveCurrentConversation()
+	if not self.history or #self.history == 0 then
+		return
+	end
+	local list = self:loadHistoryStore()
+
+	local title = "Conversation"
+	for _, m in ipairs(self.history) do
+		if m.role == "user" and m.content ~= "" then
+			title = m.content
+			break
+		end
+	end
+	if #title > 60 then
+		title = title:sub(1, 57) .. "…"
+	end
+
+	-- Skip if identical to the most recent saved conversation.
+	local top = list[1]
+	if top and top.messages and #top.messages == #self.history then
+		local a = top.messages[#top.messages]
+		local b = self.history[#self.history]
+		if a and b and a.content == b.content then
+			return
+		end
+	end
+
+	local snapshot = {}
+	for _, m in ipairs(self.history) do
+		table.insert(snapshot, { role = m.role, content = m.content })
+	end
+
+	table.insert(list, 1, { title = title, time = os.time(), messages = snapshot })
+	while #list > 25 do
+		table.remove(list)
+	end
+	self:saveHistoryStore(list)
+end
+
+function App:clearChatBubbles()
+	for _, ch in ipairs(self.chatScroll:GetChildren()) do
+		if not ch:IsA("UIListLayout") and not ch:IsA("UIPadding") then
+			ch:Destroy()
+		end
+	end
+	self._welcomeCard = nil
+end
+
+-- Clear button: archive the current chat, then reset to a fresh conversation.
+function App:clearChat()
+	if self.busy then
+		self:toast("Please wait for the current task to finish.", "warning")
+		return
+	end
+	self:saveCurrentConversation()
+	self.history = {}
+	self:clearChatBubbles()
+	self:showWelcome()
+	self:toast("Chat cleared — saved to History.", "success")
+end
+
+function App:loadConversation(convo)
+	self.history = {}
+	for _, m in ipairs(convo.messages or {}) do
+		table.insert(self.history, { role = m.role, content = m.content })
+	end
+	self:clearChatBubbles()
+	for _, m in ipairs(self.history) do
+		self:addBubble(m.role, m.content)
+	end
+	self:toggleHistoryPanel(false)
+	self:toast("Conversation loaded.", "success")
+end
+
+function App:toggleHistoryPanel(show)
+	if not self.historyPanel then
+		return
+	end
+	if show == nil then
+		show = not self.historyPanel.Visible
+	end
+	if show then
+		self:saveCurrentConversation()
+		self:refreshHistoryPanel()
+	end
+	self.historyPanel.Visible = show
+	if self.chatView then
+		self.chatView.Visible = not show
+	end
+end
+
+function App:buildHistoryPanel(parent)
+	local panel = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Visible = false, Parent = parent })
+	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = panel })
+	pad(0).Parent = panel
+	self.historyPanel = panel
+
+	-- Top bar
+	local top = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 0, Parent = panel })
+	local back = button("← Back", { Size = UDim2.new(0, 76, 1, 0), BackgroundColor3 = C.Panel, TextSize = 12 })
+	back.Parent = top
+	back.Activated:Connect(function()
+		self:toggleHistoryPanel(false)
+	end)
+	Create("TextLabel", {
+		Text = "🕘 Chat History", Font = Theme.FontBold, TextSize = 14, TextColor3 = C.Text,
+		BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.new(0, 84, 0, 0), Size = UDim2.new(1, -170, 1, 0), Parent = top,
+	})
+	local clearAll = button("Clear all", { Size = UDim2.new(0, 78, 1, 0), BackgroundColor3 = C.Panel, TextSize = 12 })
+	clearAll.Position = UDim2.new(1, -78, 0, 0)
+	clearAll.Parent = top
+	clearAll.Activated:Connect(function()
+		self:saveHistoryStore({})
+		self:refreshHistoryPanel()
+		self:toast("History cleared.", "success")
+	end)
+
+	-- Scrollable list of saved conversations
+	self.historyList = Create("ScrollingFrame", {
+		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -38),
+		CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 6, ScrollBarImageColor3 = C.Accent, BorderSizePixel = 0,
+		LayoutOrder = 1, Parent = panel,
+	}, { corner(UDim.new(0, 6)), pad(8) })
+	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.historyList })
+end
+
+function App:refreshHistoryPanel()
+	if not self.historyList then
+		return
+	end
+	for _, ch in ipairs(self.historyList:GetChildren()) do
+		if not ch:IsA("UIListLayout") and not ch:IsA("UIPadding") then
+			ch:Destroy()
+		end
+	end
+
+	local list = self:loadHistoryStore()
+	if #list == 0 then
+		Create("TextLabel", {
+			Text = "No saved conversations yet.\nCleared chats are saved here automatically.",
+			Font = Theme.Font, TextSize = 13, TextColor3 = C.TextDim, BackgroundTransparency = 1,
+			TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center,
+			Size = UDim2.new(1, 0, 0, 60), Parent = self.historyList,
+		})
+		return
+	end
+
+	for i, convo in ipairs(list) do
+		local card = Create("Frame", { BackgroundColor3 = C.Panel, Size = UDim2.new(1, 0, 0, 54), LayoutOrder = i, Parent = self.historyList }, { corner(UDim.new(0, 6)), stroke(C.Border) })
+
+		local openBtn = Create("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.new(1, -36, 1, 0), Parent = card })
+		Create("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), Parent = openBtn })
+		Create("TextLabel", {
+			Text = convo.title or "Conversation", Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Text,
+			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+			Size = UDim2.new(1, 0, 0, 18), Parent = openBtn,
+		})
+		local meta = ("%s · %d messages"):format(os.date("%b %d, %H:%M", convo.time or 0), #(convo.messages or {}))
+		Create("TextLabel", {
+			Text = meta, Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint,
+			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+			Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 14), Parent = openBtn,
+		})
+		openBtn.Activated:Connect(function()
+			self:loadConversation(convo)
+		end)
+
+		local del = button("✕", { Size = UDim2.new(0, 26, 0, 26), BackgroundColor3 = C.PanelAlt, TextSize = 13 })
+		del.Position = UDim2.new(1, -30, 0.5, -13)
+		del.Parent = card
+		del.Activated:Connect(function()
+			local store = self:loadHistoryStore()
+			table.remove(store, i)
+			self:saveHistoryStore(store)
+			self:refreshHistoryPanel()
+		end)
+	end
+end
+
 
 -- Friendly onboarding card with one-click starter prompts (empty chat only).
 function App:showWelcome()
