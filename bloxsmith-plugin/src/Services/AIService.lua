@@ -3,7 +3,8 @@
 	The scalable service layer between the plugin and the AI backend.
 	- Provider-agnostic: the backend decides which model/provider answers.
 	- Secure: no API key is stored here; only the public backend URL + anon key.
-	- Robust: full error handling, timeouts, and typed results.
+	- Robust: full error handling, timeouts, typed results, and automatic
+	  retries with exponential backoff for transient failures.
 ]]
 local HttpService = game:GetService("HttpService")
 
@@ -12,6 +13,9 @@ local Log = require(script.Parent.Parent.Util.Log)
 
 local AIService = {}
 AIService.__index = AIService
+
+local MAX_RETRIES = 2 -- total attempts = MAX_RETRIES + 1
+local RETRYABLE_STATUS = { [429] = true, [500] = true, [502] = true, [503] = true, [504] = true }
 
 function AIService.new(plugin)
 	local self = setmetatable({}, AIService)
@@ -25,6 +29,58 @@ end
 
 function AIService:setUrl(url)
 	self.plugin:SetSetting(Config.Settings.BackendUrl, url)
+end
+
+-- Single HTTP attempt. Returns a normalized table describing the outcome.
+function AIService:_attempt(body)
+	local success, response = pcall(function()
+		return HttpService:RequestAsync({
+			Url = self:getUrl(),
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+				["apikey"] = Config.PublishableKey,
+				["Authorization"] = "Bearer " .. Config.PublishableKey,
+			},
+			Body = body,
+		})
+	end)
+
+	if not success then
+		Log.error("HTTP request failed:", response)
+		return {
+			ok = false,
+			retryable = true,
+			error = "Network error. Enable HTTP requests (allow the permission prompt) and check the backend URL in Settings.",
+		}
+	end
+
+	local decoded
+	local decodeOk = pcall(function()
+		decoded = HttpService:JSONDecode(response.Body)
+	end)
+
+	if not response.Success then
+		local msg = (decodeOk and decoded and decoded.error)
+			or ("Backend error " .. tostring(response.StatusCode))
+		return { ok = false, retryable = RETRYABLE_STATUS[response.StatusCode] == true, error = msg }
+	end
+
+	if not decodeOk or not decoded then
+		return { ok = false, retryable = false, error = "Received a malformed response from the backend." }
+	end
+
+	if decoded.error then
+		return { ok = false, retryable = false, error = decoded.error }
+	end
+
+	return {
+		ok = true,
+		reply = decoded.reply or "",
+		actions = decoded.actions,
+		provider = decoded.provider,
+		mode = decoded.mode,
+	}
 end
 
 --[[
@@ -49,47 +105,20 @@ function AIService:request(opts)
 		return { ok = false, error = "Failed to encode request." }
 	end
 
-	local success, response = pcall(function()
-		return HttpService:RequestAsync({
-			Url = self:getUrl(),
-			Method = "POST",
-			Headers = {
-				["Content-Type"] = "application/json",
-				["apikey"] = Config.PublishableKey,
-				["Authorization"] = "Bearer " .. Config.PublishableKey,
-			},
-			Body = body,
-		})
-	end)
-
-	if not success then
-		Log.error("HTTP request failed:", response)
-		return {
-			ok = false,
-			error = "Network error. Enable HTTP requests (allow the permission prompt) and check the backend URL in Settings.",
-		}
+	local result
+	for attempt = 0, MAX_RETRIES do
+		result = self:_attempt(body)
+		if result.ok or not result.retryable then
+			break
+		end
+		if attempt < MAX_RETRIES then
+			local backoff = 0.8 * (2 ^ attempt)
+			Log.warn(("Transient failure, retrying in %.1fs (attempt %d/%d)…"):format(backoff, attempt + 1, MAX_RETRIES))
+			task.wait(backoff)
+		end
 	end
 
-	local decoded
-	local decodeOk = pcall(function()
-		decoded = HttpService:JSONDecode(response.Body)
-	end)
-
-	if not response.Success then
-		local msg = (decodeOk and decoded and decoded.error)
-			or ("Backend error " .. tostring(response.StatusCode))
-		return { ok = false, error = msg }
-	end
-
-	if not decodeOk or not decoded then
-		return { ok = false, error = "Received a malformed response from the backend." }
-	end
-
-	if decoded.error then
-		return { ok = false, error = decoded.error }
-	end
-
-	return { ok = true, reply = decoded.reply or "", actions = decoded.actions, provider = decoded.provider }
+	return result
 end
 
 return AIService

@@ -139,9 +139,32 @@ function App:addBubble(role, text)
 		Parent = holder,
 	})
 
-	for i, block in ipairs(blocks) do
-		self:addCodeBlock(holder, block, i + 1)
+	-- "Insert all" shortcut when the reply contains multiple files.
+	if #blocks > 1 then
+		local insertAll = button(("＋ Insert all %d files into Studio"):format(#blocks), {
+			LayoutOrder = 2,
+			BackgroundColor3 = C.Success,
+			TextColor3 = C.Bg,
+		})
+		insertAll.Parent = holder
+		insertAll.Activated:Connect(function()
+			local actions = {}
+			for i, block in ipairs(blocks) do
+				table.insert(actions, Parser.blockToAction(block, i))
+			end
+			local res = self.deps.apply:applyActions(actions, "Bloxsmith insert files")
+			if res.ok then
+				self:toast(("Inserted %d files (Ctrl+Z to undo)"):format(res.applied or #actions), "success")
+			else
+				self:toast(("Inserted %d of %d — check output."):format(res.applied or 0, #actions), "warning")
+			end
+		end)
 	end
+
+	for i, block in ipairs(blocks) do
+		self:addCodeBlock(holder, block, i + 10)
+	end
+
 
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
 end
@@ -215,8 +238,15 @@ function App:send(promptText, mode)
 	self.busy = true
 	self.sendBtn.Text = "…"
 
+	-- Dismiss the onboarding card on first message.
+	if self._welcomeCard then
+		self._welcomeCard:Destroy()
+		self._welcomeCard = nil
+	end
+
 	self:addBubble("user", promptText)
 	table.insert(self.history, { role = "user", content = promptText })
+
 
 	local includeTree = mode ~= "chat"
 	local context = self.deps.context:build(includeTree)
@@ -358,6 +388,50 @@ function App:buildChatView(parent)
 
 	self.chatView = view
 	self:setMode("chat")
+	self:showWelcome()
+end
+
+-- Friendly onboarding card with one-click starter prompts (empty chat only).
+function App:showWelcome()
+	if not self.chatScroll then
+		return
+	end
+	local card = Create("Frame", {
+		BackgroundColor3 = C.Panel,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = self.chatScroll,
+	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.AccentDim) })
+	self._welcomeCard = card
+	Create("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = card })
+
+	Create("TextLabel", {
+		Text = "🔨 Welcome to Bloxsmith",
+		Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent,
+		BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 0, Parent = card,
+	})
+	Create("TextLabel", {
+		Text = "Your AI copilot for Roblox. Describe what you want to build, or try one of these:",
+		Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim,
+		BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+		AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 1, Parent = card,
+	})
+
+	local starters = {
+		{ "🎒 Build an inventory system", "Build a complete server-authoritative inventory system with a client UI.", "generate_system" },
+		{ "🛒 Create a shop with 5 items", "Create a shop system with 5 purchasable items and a polished UI.", "generate_system" },
+		{ "🏆 Add a global leaderboard", "Add a global leaderboard using OrderedDataStore that tracks player wins.", "generate_system" },
+		{ "⚔️ Combat system with weapons", "Build a server-authoritative melee combat system with a sword tool.", "generate_system" },
+		{ "🚪 Explain the selected script", "Explain what the selected script does and how it works.", "explain_script" },
+	}
+	for i, s in ipairs(starters) do
+		local chip = button(s[1], { LayoutOrder = i + 1, BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+		chip.Parent = card
+		chip.Activated:Connect(function()
+			self:send(s[2], s[3])
+		end)
+	end
 end
 
 function App:setMode(mode)
@@ -366,6 +440,7 @@ function App:setMode(mode)
 		b.BackgroundColor3 = (m == mode) and C.Accent or C.Panel
 	end
 end
+
 
 -- Generic results list used by Analysis / Health.
 function App:renderFindings(parent, findings, emptyMsg)
