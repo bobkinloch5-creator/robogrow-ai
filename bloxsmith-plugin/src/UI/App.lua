@@ -1089,12 +1089,13 @@ function App:mount(gui)
 	Create("UIListLayout", { Padding = UDim.new(0, 4), Parent = sidebar })
 	pad(8).Parent = sidebar
 
-	Create("TextLabel", { Text = "🔨 Bloxsmith", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 30), Parent = sidebar })
+	Create("TextLabel", { Text = "🔨 Bloxsmith", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = sidebar })
+	Create("TextLabel", { Text = ("v%s"):format(Config.Version), Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 14), Parent = sidebar })
 
 	-- Content area
 	local content = Create("Frame", { BackgroundColor3 = C.Bg, Size = UDim2.new(1, -118, 1, 0), Position = UDim2.new(0, 118, 0, 0), BorderSizePixel = 0, Parent = gui }, { pad(10) })
 
-	local nav = { "Chat", "Tools", "Toolbox", "Analysis", "Health", "Errors", "Settings" }
+	local nav = { "Chat", "Tools", "Toolbox", "Analysis", "Health", "Errors", "Changelog", "Settings" }
 	for _, name in ipairs(nav) do
 		local b = button(name, { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.Sidebar, TextColor3 = C.TextDim })
 		b.Parent = sidebar
