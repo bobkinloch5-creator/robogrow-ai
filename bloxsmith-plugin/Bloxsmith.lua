@@ -34,10 +34,19 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.0.0"
+Config.Version = "3.0.1"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.0.1",
+		date = "2026-07-12",
+		title = "Toolbox Insert Fix",
+		changes = {
+			"FIXED: Toolbox models now use Roblox Studio's plugin insert path so free/public Creator Store models can actually insert into your game.",
+			"IMPROVED: If Roblox blocks an asset, Bloxsmith explains that the asset is private/restricted instead of silently failing.",
+		},
+	},
 	{
 		version = "3.0.0",
 		date = "2026-07-12",
@@ -487,6 +496,37 @@ local function coerceValue(inst, property, value)
 	return value
 end
 
+local function assetAccessHint(reason)
+	reason = tostring(reason or "")
+	if string.find(string.lower(reason), "not authorized", 1, true) then
+		return "Roblox blocked this asset for this place/account. Bloxsmith tried the plugin insert path too; pick another free/public model or use an asset you own/group-owns."
+	end
+	return nil
+end
+
+local function loadAssetForPlugin(assetId)
+	-- Plugins can insert public free Toolbox assets through DataModel:GetObjects,
+	-- while InsertService:LoadAsset is limited to owned/shared/Roblox assets.
+	local contentId = "rbxassetid://" .. tostring(assetId)
+	local okObjects, objects = pcall(function()
+		return game:GetObjects(contentId)
+	end)
+	if okObjects and type(objects) == "table" and #objects > 0 then
+		return true, objects, "GetObjects"
+	end
+
+	local getObjectsError = tostring(objects or "GetObjects returned no objects")
+	local okLoad, loaded = pcall(function()
+		return InsertService:LoadAsset(assetId)
+	end)
+	if okLoad and loaded then
+		return true, loaded:GetChildren(), "LoadAsset", loaded
+	end
+
+	local loadAssetError = tostring(loaded or "LoadAsset returned nothing")
+	return false, getObjectsError .. " / " .. loadAssetError
+end
+
 
 -- Apply one action. Returns (ok, message, instance?).
 function ApplyService:applyOne(action)
@@ -586,28 +626,32 @@ function ApplyService:applyOne(action)
 			return false, "insert_asset requires a numeric assetId"
 		end
 		local parent = self:resolvePath(action.path or "Workspace", true)
-		local okLoad, loaded = pcall(function()
-			return InsertService:LoadAsset(assetId)
-		end)
-		if not okLoad or not loaded then
+		local okLoad, loaded, loaderName, container = loadAssetForPlugin(assetId)
+		if not okLoad then
 			-- Surface the REAL Roblox error so the user knows what went wrong
 			-- (e.g. private model, needs purchase, moderation, offline).
-			local reason = tostring(loaded or "unknown error")
-			Log.warn("LoadAsset failed for", assetId, ":", reason)
-			return false, ("Could not insert model %d — %s"):format(assetId, reason)
+			local hint = assetAccessHint(loaded)
+			Log.warn("Asset insert failed for", assetId, ":", loaded)
+			return false, ("Could not insert model %d — %s%s"):format(assetId, tostring(loaded), hint and ("\n" .. hint) or "")
 		end
-		-- LoadAsset returns a Model container; unpack its children into the parent.
+		-- GetObjects returns the actual objects; LoadAsset returns a Model container
+		-- that we unpack into the parent.
 		local inserted
-		local children = loaded:GetChildren()
+		local children = loaded
 		if #children == 1 then
 			inserted = children[1]
 			if action.name then inserted.Name = action.name end
 			inserted.Parent = parent
-			loaded:Destroy()
+			if container then container:Destroy() end
 		else
-			loaded.Name = action.name or ("Asset_" .. assetId)
-			loaded.Parent = parent
-			inserted = loaded
+			local wrapper = Instance.new("Model")
+			wrapper.Name = action.name or ("Asset_" .. assetId)
+			wrapper.Parent = parent
+			for _, child in ipairs(children) do
+				child.Parent = wrapper
+			end
+			if container then container:Destroy() end
+			inserted = wrapper
 		end
 		-- Move the inserted model in front of the camera and focus on it so the
 		-- user immediately SEES it in the viewport (models otherwise spawn at the
@@ -623,7 +667,7 @@ function ApplyService:applyOne(action)
 				end
 			end
 		end)
-		return true, ("Inserted model %d into %s"):format(assetId, parent:GetFullName()), inserted
+		return true, ("Inserted model %d into %s via %s"):format(assetId, parent:GetFullName(), loaderName or "plugin insert"), inserted
 	end
 
 

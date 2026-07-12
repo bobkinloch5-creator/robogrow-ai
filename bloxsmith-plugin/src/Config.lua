@@ -8,10 +8,19 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.0.0"
+Config.Version = "3.0.1"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.0.1",
+		date = "2026-07-12",
+		title = "Toolbox Insert Fix",
+		changes = {
+			"FIXED: Toolbox models now use Roblox Studio's plugin insert path so free/public Creator Store models can actually insert into your game.",
+			"IMPROVED: If Roblox blocks an asset, Bloxsmith explains that the asset is private/restricted instead of silently failing.",
+		},
+	},
 	{
 		version = "3.0.0",
 		date = "2026-07-12",
