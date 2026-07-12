@@ -17,6 +17,13 @@ interface RequestBody {
 const BASE_SYSTEM = `You are Bloxsmith, an elite AI copilot embedded inside Roblox Studio.
 You help creators build, debug, optimize and manage Roblox games. You are precise, safe and production-focused.
 
+THINKING (very important):
+- ALWAYS begin every response with a short reasoning block wrapped exactly as:
+  \`\`\`bloxsmith:thinking
+  - a concise, first-person, step-by-step plan (3-6 short bullets) of what you're about to do
+  \`\`\`
+  The plugin shows this to the user so they can see what you're doing. Keep it brief and skimmable, then give the real answer/code below it.
+
 RULES:
 - Target Roblox Luau. Use modern, idiomatic, well-commented, performant, production-grade Luau.
 - Prefer RemoteEvents/RemoteFunctions correctly split between Server (ServerScriptService) and Client (StarterPlayerScripts/StarterGui). Use a shared ModuleScript in ReplicatedStorage for types/constants.
@@ -97,6 +104,14 @@ Valid actions (paths are Studio paths like "ServerScriptService/Systems"):
 - rename_instance  {"action":"rename_instance","target":"Workspace/Part","name":"NewName"}
 - move_instance    {"action":"move_instance","target":"Workspace/Part","path":"ReplicatedStorage/Assets"}
 - delete_instance  {"action":"delete_instance","target":"Workspace/OldPart"}
+- insert_asset     {"action":"insert_asset","assetId":123456789,"path":"Workspace","name":"Optional"}
+
+TOOLBOX / FREE MODELS: When the user asks to insert something from the Toolbox / Creator Store / free
+models (e.g. "insert a house", "add a tree from the toolbox", "grab a car model"), use the
+insert_asset action with a real Roblox model assetId. The plugin loads it with InsertService:LoadAsset.
+If you are not certain of an exact assetId, DO NOT guess a fake one — instead tell the user to open the
+Toolbox tab in Bloxsmith and search for it there (the plugin has a live Toolbox search). You may still
+build the surrounding parts/scripts yourself.
 
 create_instance accepts ANY creatable Roblox class (Frame, TextButton, ImageLabel, ScrollingFrame,
 UICorner, UIGradient, UIListLayout, UIStroke, Part, MeshPart, Model, PointLight, ParticleEmitter,
@@ -138,6 +153,75 @@ function buildSystem(mode: string, context: unknown): string {
   }
   return parts.join("\n\n");
 }
+
+// ---- Roblox Toolbox (Creator Store) search -----------------------------------
+// Queries Roblox's public toolbox-service for free MODELS (category 10), then
+// enriches each with a name, creator and thumbnail. No auth required.
+interface ToolboxResult {
+  id: number;
+  name: string;
+  creator: string;
+  thumbnail: string | null;
+}
+
+async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]> {
+  const q = encodeURIComponent(query.slice(0, 120));
+  const marketUrl =
+    `https://apis.roblox.com/toolbox-service/v1/marketplace/10?limit=${limit}&keyword=${q}&sortType=0`;
+  const res = await fetch(marketUrl, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw { status: 502, msg: `Toolbox search failed (${res.status}).` };
+  const market = await res.json();
+  const ids: number[] = (market?.data ?? [])
+    .map((d: { id?: number }) => d?.id)
+    .filter((n: unknown): n is number => typeof n === "number")
+    .slice(0, limit);
+  if (ids.length === 0) return [];
+
+  // Details (names + creators) and thumbnails in parallel.
+  const idList = ids.join(",");
+  const [detailsRes, thumbsRes] = await Promise.all([
+    fetch(`https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=${idList}`, {
+      headers: { Accept: "application/json" },
+    }).catch(() => null),
+    fetch(
+      `https://thumbnails.roblox.com/v1/assets?assetIds=${idList}&size=150x150&format=Png&isCircular=false`,
+      { headers: { Accept: "application/json" } },
+    ).catch(() => null),
+  ]);
+
+  const nameById = new Map<number, { name: string; creator: string }>();
+  if (detailsRes && detailsRes.ok) {
+    const details = await detailsRes.json();
+    for (const item of details?.data ?? []) {
+      const id = item?.asset?.id;
+      if (typeof id === "number") {
+        nameById.set(id, {
+          name: item?.asset?.name ?? "Model",
+          creator: item?.creator?.name ?? "Roblox",
+        });
+      }
+    }
+  }
+
+  const thumbById = new Map<number, string>();
+  if (thumbsRes && thumbsRes.ok) {
+    const thumbs = await thumbsRes.json();
+    for (const t of thumbs?.data ?? []) {
+      if (typeof t?.targetId === "number" && t?.imageUrl) {
+        thumbById.set(t.targetId, t.imageUrl);
+      }
+    }
+  }
+
+  return ids.map((id) => ({
+    id,
+    name: nameById.get(id)?.name ?? "Model",
+    creator: nameById.get(id)?.creator ?? "Roblox",
+    thumbnail: thumbById.get(id) ?? null,
+  }));
+}
+
+
 
 async function callLovable(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
@@ -203,8 +287,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = (await req.json()) as RequestBody;
+    const body = (await req.json()) as RequestBody & { query?: string; limit?: number };
     const mode = typeof body.mode === "string" ? body.mode : "chat";
+
+    // Toolbox / Creator Store model search — bypasses the AI model entirely.
+    if (mode === "toolbox_search") {
+      const query = typeof body.query === "string" ? body.query.trim() : "";
+      if (!query) {
+        return new Response(JSON.stringify({ error: "No search query provided" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const limit = Math.min(Math.max(Number(body.limit) || 18, 1), 30);
+      const results = await searchToolbox(query, limit);
+      return new Response(JSON.stringify({ results, mode }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const history = Array.isArray(body.messages) ? body.messages : [];
     const prompt = typeof body.prompt === "string" ? body.prompt : "";
 

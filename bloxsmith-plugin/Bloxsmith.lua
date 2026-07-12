@@ -28,7 +28,7 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "1.0.0"
+Config.Version = "1.2.0"
 
 -- Secure backend (Lovable Cloud edge function). Overridable via plugin settings.
 Config.DefaultBackendUrl =
@@ -174,6 +174,55 @@ function AIService:request(opts)
 	return result
 end
 
+--[[
+	searchToolbox(query) -> { ok, results = { {id, name, creator, thumbnail}... }, error? }
+	Searches the Roblox Toolbox (free models) through the secure backend.
+	Yields — call from within task.spawn / a coroutine.
+]]
+function AIService:searchToolbox(query, limit)
+	local ok, body = pcall(function()
+		return HttpService:JSONEncode({ mode = "toolbox_search", query = query, limit = limit })
+	end)
+	if not ok then
+		return { ok = false, error = "Failed to encode search." }
+	end
+
+	local success, response = pcall(function()
+		return HttpService:RequestAsync({
+			Url = self:getUrl(),
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+				["apikey"] = Config.PublishableKey,
+				["Authorization"] = "Bearer " .. Config.PublishableKey,
+			},
+			Body = body,
+		})
+	end)
+
+	if not success then
+		return { ok = false, error = "Network error. Enable HTTP requests and check the backend URL." }
+	end
+
+	local decoded
+	local decodeOk = pcall(function()
+		decoded = HttpService:JSONDecode(response.Body)
+	end)
+
+	if not response.Success then
+		local msg = (decodeOk and decoded and decoded.error) or ("Search failed (" .. tostring(response.StatusCode) .. ")")
+		return { ok = false, error = msg }
+	end
+	if not decodeOk or not decoded then
+		return { ok = false, error = "Malformed search response." }
+	end
+	if decoded.error then
+		return { ok = false, error = decoded.error }
+	end
+
+	return { ok = true, results = decoded.results or {} }
+end
+
 return AIService
 end
 
@@ -201,6 +250,7 @@ _modules["Services.ApplyService"] = function()
 ]]
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
+local InsertService = game:GetService("InsertService")
 
 local Log = _R("Util.Log")
 
@@ -451,6 +501,33 @@ function ApplyService:applyOne(action)
 		local name = target:GetFullName()
 		target.Parent = nil
 		return true, "Deleted " .. name, nil
+
+	elseif kind == "insert_asset" then
+		local assetId = tonumber(action.assetId or action.id)
+		if not assetId then
+			return false, "insert_asset requires a numeric assetId"
+		end
+		local parent = self:resolvePath(action.path or "Workspace", true)
+		local okLoad, loaded = pcall(function()
+			return InsertService:LoadAsset(assetId)
+		end)
+		if not okLoad or not loaded then
+			return false, ("Could not load asset %d (is it a public model?)"):format(assetId)
+		end
+		-- LoadAsset returns a Model container; unpack its children into the parent.
+		local inserted
+		local children = loaded:GetChildren()
+		if #children == 1 then
+			inserted = children[1]
+			if action.name then inserted.Name = action.name end
+			inserted.Parent = parent
+			loaded:Destroy()
+		else
+			loaded.Name = action.name or ("Asset_" .. assetId)
+			loaded.Parent = parent
+			inserted = loaded
+		end
+		return true, ("Inserted asset %d into %s"):format(assetId, parent:GetFullName()), inserted
 	end
 
 	return false, "Unknown action: " .. tostring(kind)
@@ -506,6 +583,14 @@ function ApplyService:replaceSource(scriptInstance, newSource, label)
 		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
 	end
 	return { ok = true }
+end
+
+-- Insert a Toolbox / Creator Store model by asset id, with undo support.
+function ApplyService:insertAsset(assetId, name)
+	return self:applyActions(
+		{ { action = "insert_asset", assetId = assetId, path = "Workspace", name = name } },
+		"Bloxsmith insert asset"
+	)
 end
 
 return ApplyService
@@ -1138,9 +1223,20 @@ function App:addBubble(role, text)
 		Parent = holder,
 	})
 
+	-- Pull the AI's thinking/plan into its own collapsible panel (assistant only).
+	local workingText = text
+	if not isUser then
+		local thinking, cleaned = Parser.extractThinking(text)
+		workingText = cleaned
+		if thinking and thinking ~= "" then
+			self:addThinkingPanel(holder, thinking, 1)
+		end
+	end
+
 	-- Render the reply with code blocks stripped into their own panels.
-	local blocks = Parser.extractBlocks(text)
-	local prose = string.gsub(text, "```[^\n]*\n.-```", "\n[code block below]\n")
+	local blocks = Parser.extractBlocks(workingText)
+	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n[code block below]\n")
+	prose = prose:gsub("^%s+", ""):gsub("%s+$", "")
 
 	Create("TextLabel", {
 		Text = prose,
@@ -1153,14 +1249,14 @@ function App:addBubble(role, text)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Size = UDim2.new(1, 0, 0, 0),
-		LayoutOrder = 1,
+		LayoutOrder = 2,
 		Parent = holder,
 	})
 
 	-- "Insert all" shortcut when the reply contains multiple files.
 	if #blocks > 1 then
 		local insertAll = button(("＋ Insert all %d files into Studio"):format(#blocks), {
-			LayoutOrder = 2,
+			LayoutOrder = 3,
 			BackgroundColor3 = C.Success,
 			TextColor3 = C.Bg,
 		})
@@ -1186,6 +1282,109 @@ function App:addBubble(role, text)
 
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
 end
+
+-- Collapsible "💭 Thinking" panel showing the AI's plan/reasoning.
+function App:addThinkingPanel(parent, thinking, order)
+	local panel = Create("Frame", {
+		BackgroundColor3 = C.PanelAlt,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = order or 1,
+		Parent = parent,
+	}, { corner(UDim.new(0, 6)), pad(8), stroke(C.Accent2) })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = panel })
+
+	local expanded = false
+	local header = Create("TextButton", {
+		Text = "💭 Thinking  ▸",
+		Font = Theme.FontBold,
+		TextSize = 12,
+		TextColor3 = C.Accent2,
+		BackgroundTransparency = 1,
+		AutoButtonColor = false,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, 0, 0, 16),
+		LayoutOrder = 0,
+		Parent = panel,
+	})
+
+	local body = Create("TextLabel", {
+		Text = thinking,
+		Font = Theme.Font,
+		TextSize = 12,
+		TextColor3 = C.TextDim,
+		BackgroundTransparency = 1,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0),
+		Visible = false,
+		LayoutOrder = 1,
+		Parent = panel,
+	})
+
+	header.Activated:Connect(function()
+		expanded = not expanded
+		body.Visible = expanded
+		header.Text = expanded and "💭 Thinking  ▾" or "💭 Thinking  ▸"
+	end)
+end
+
+-- Live animated "thinking" indicator shown while a request is in flight.
+function App:startThinking()
+	local holder = Create("Frame", {
+		BackgroundColor3 = C.AiBubble,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = self.chatScroll,
+	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.Accent2) })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), Parent = holder })
+	Create("TextLabel", {
+		Text = "Bloxsmith", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.Accent,
+		BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, 0, 0, 14), Parent = holder,
+	})
+	local status = Create("TextLabel", {
+		Text = "💭 Thinking.", Font = Theme.Font, TextSize = 13, TextColor3 = C.TextDim,
+		BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+		AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = holder,
+	})
+	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
+
+	local phases = {
+		"💭 Understanding your request",
+		"🧭 Planning the build",
+		"🧩 Designing the structure",
+		"⌨️ Writing Luau",
+		"🔌 Wiring it all up",
+		"✨ Polishing the result",
+	}
+	local running = true
+	task.spawn(function()
+		local i, dots = 1, 1
+		while running and holder.Parent do
+			status.Text = phases[i] .. string.rep(".", dots)
+			dots += 1
+			if dots > 3 then
+				dots = 1
+				i = (i % #phases) + 1
+			end
+			task.wait(0.5)
+		end
+	end)
+
+	return {
+		stop = function()
+			running = false
+			if holder and holder.Parent then
+				holder:Destroy()
+			end
+		end,
+	}
+end
+
+
 
 function App:addCodeBlock(parent, block, order)
 	local panel = Create("Frame", {
@@ -1269,12 +1468,16 @@ function App:send(promptText, mode)
 	local includeTree = mode ~= "chat"
 	local context = self.deps.context:build(includeTree)
 
+	-- Show the live thinking indicator while the request is in flight.
+	local thinkingHandle = self:startThinking()
+
 	task.spawn(function()
 		local result = self.deps.ai:request({
 			mode = mode or self.mode,
 			messages = self.history,
 			context = context,
 		})
+		thinkingHandle.stop()
 		self.busy = false
 		self.sendBtn.Text = "Send"
 
@@ -1645,6 +1848,149 @@ function App:buildToolsView(parent)
 	end
 end
 
+--========================================================================
+-- Toolbox (Creator Store free-model search + insert)
+--========================================================================
+function App:buildToolboxView(parent)
+	local view = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Parent = parent })
+	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = view })
+	pad(0).Parent = view
+
+	Create("TextLabel", {
+		Text = "🧰 Search the Roblox Toolbox for free models and insert them straight into your game.",
+		Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1,
+		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 0, Parent = view,
+	})
+
+	-- Search row
+	local searchRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 34), LayoutOrder = 1, Parent = view })
+	local searchBox = Create("TextBox", {
+		PlaceholderText = "Search models… e.g. medieval house, sports car, tree",
+		Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint,
+		BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false,
+		Size = UDim2.new(1, -74, 1, 0), Parent = searchRow,
+	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+	local searchBtn = button("Search", { Size = UDim2.new(0, 66, 1, 0) })
+	searchBtn.Position = UDim2.new(1, -66, 0, 0)
+	searchBtn.Parent = searchRow
+
+	-- Insert-by-ID row (reliable fallback)
+	local idRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 2, Parent = view })
+	local idBox = Create("TextBox", {
+		PlaceholderText = "…or paste a model Asset ID", Text = "", Font = Theme.FontMono, TextSize = 12,
+		TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel,
+		TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false,
+		Size = UDim2.new(1, -74, 1, 0), Parent = idRow,
+	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+	local idBtn = button("Insert", { Size = UDim2.new(0, 66, 1, 0), BackgroundColor3 = C.Success, TextColor3 = C.Bg })
+	idBtn.Position = UDim2.new(1, -66, 0, 0)
+	idBtn.Parent = idRow
+
+	-- Results scroll
+	local results = Create("ScrollingFrame", {
+		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -84), CanvasSize = UDim2.new(0, 0, 0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, ScrollBarImageColor3 = C.Accent,
+		BorderSizePixel = 0, LayoutOrder = 3, Parent = view,
+	}, { corner(UDim.new(0, 6)), pad(8) })
+	local grid = Create("UIGridLayout", {
+		CellSize = UDim2.new(0.5, -6, 0, 150), CellPadding = UDim2.new(0, 8, 0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
+	})
+
+	local function clearResults()
+		for _, c in ipairs(results:GetChildren()) do
+			if c:IsA("Frame") then c:Destroy() end
+		end
+	end
+
+	local function status(msg, kind)
+		clearResults()
+		local card = Create("Frame", { BackgroundColor3 = C.Panel, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = results }, { corner(UDim.new(0, 6)), pad(10) })
+		-- Make the status span the full width by clearing grid influence.
+		Create("TextLabel", {
+			Text = msg, Font = Theme.Font, TextSize = 12,
+			TextColor3 = kind == "error" and C.Error or C.TextDim, BackgroundTransparency = 1,
+			TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y,
+			Size = UDim2.new(1, 0, 0, 0), Parent = card,
+		})
+	end
+
+	local function renderResults(items)
+		clearResults()
+		if #items == 0 then
+			status("No models found. Try different keywords.")
+			return
+		end
+		for i, item in ipairs(items) do
+			local card = Create("Frame", { BackgroundColor3 = C.Panel, LayoutOrder = i, Parent = results }, { corner(UDim.new(0, 8)), pad(6), stroke(C.Border) })
+			Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = card })
+			Create("ImageLabel", {
+				Image = item.thumbnail or "", BackgroundColor3 = C.Bg, ScaleType = Enum.ScaleType.Fit,
+				Size = UDim2.new(1, 0, 0, 78), LayoutOrder = 0, Parent = card,
+			}, { corner(UDim.new(0, 6)) })
+			Create("TextLabel", {
+				Text = item.name or "Model", Font = Theme.FontBold, TextSize = 12, TextColor3 = C.Text,
+				BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
+				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1, Parent = card,
+			})
+			local insertBtn = button("＋ Insert", { Size = UDim2.new(1, 0, 0, 26), BackgroundColor3 = C.AccentDim, TextSize = 11, LayoutOrder = 2 })
+			insertBtn.Parent = card
+			insertBtn.Activated:Connect(function()
+				insertBtn.Text = "Inserting…"
+				task.spawn(function()
+					local res = self.deps.apply:insertAsset(item.id, item.name)
+					if res.ok then
+						self:toast(("Inserted '%s' into Workspace (Ctrl+Z to undo)"):format(item.name or "model"), "success")
+						insertBtn.Text = "✓ Inserted"
+					else
+						self:toast(res.error or "Insert failed.", "error")
+						insertBtn.Text = "＋ Insert"
+					end
+				end)
+			end)
+		end
+	end
+
+	local function runSearch(query)
+		if not query or query == "" then return end
+		status("🔎 Searching the Toolbox…")
+		task.spawn(function()
+			local res = self.deps.ai:searchToolbox(query)
+			if res.ok then
+				renderResults(res.results or {})
+			else
+				status(res.error or "Search failed.", "error")
+			end
+		end)
+	end
+
+	searchBtn.Activated:Connect(function()
+		runSearch(searchBox.Text)
+	end)
+	searchBox.FocusLost:Connect(function(enter)
+		if enter then runSearch(searchBox.Text) end
+	end)
+	idBtn.Activated:Connect(function()
+		local id = tonumber(idBox.Text)
+		if not id then
+			self:toast("Enter a valid numeric Asset ID.", "warning")
+			return
+		end
+		idBtn.Text = "…"
+		task.spawn(function()
+			local res = self.deps.apply:insertAsset(id)
+			idBtn.Text = "Insert"
+			if res.ok then
+				self:toast("Inserted asset " .. id .. " (Ctrl+Z to undo)", "success")
+				idBox.Text = ""
+			else
+				self:toast(res.error or "Insert failed.", "error")
+			end
+		end)
+	end)
+end
+
 function App:buildSettingsView(parent)
 	local view = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Parent = parent })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), Parent = view })
@@ -1722,7 +2068,7 @@ function App:mount(gui)
 	-- Content area
 	local content = Create("Frame", { BackgroundColor3 = C.Bg, Size = UDim2.new(1, -118, 1, 0), Position = UDim2.new(0, 118, 0, 0), BorderSizePixel = 0, Parent = gui }, { pad(10) })
 
-	local nav = { "Chat", "Tools", "Analysis", "Health", "Errors", "Settings" }
+	local nav = { "Chat", "Tools", "Toolbox", "Analysis", "Health", "Errors", "Settings" }
 	for _, name in ipairs(nav) do
 		local b = button(name, { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.Sidebar, TextColor3 = C.TextDim })
 		b.Parent = sidebar
@@ -1737,13 +2083,14 @@ function App:mount(gui)
 
 	self:buildChatView(self.views.Chat)
 	self:buildToolsView(self.views.Tools)
+	self:buildToolboxView(self.views.Toolbox)
 	self:buildAnalysisView(self.views.Analysis)
 	self:buildHealthView(self.views.Health)
 	self:buildErrorsView(self.views.Errors)
 	self:buildSettingsView(self.views.Settings)
 
 	self:selectView("Chat")
-	self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, fix & optimize code, scan for security and performance issues, and run multi-step build tasks — you approve every change. Select an object and ask me anything.")
+	self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
 end
 
 return App
@@ -1908,8 +2255,8 @@ function Parser.extractBlocks(text)
 	-- Match ```<header>\n<body>```
 	for header, body in string.gmatch(text, "```([^\n]*)\n(.-)```") do
 		local meta = parseHeader(header)
-		if meta.lang == "bloxsmith:actions" then
-			-- handled separately by the backend/agent flow; skip here.
+		if meta.lang == "bloxsmith:actions" or meta.lang == "bloxsmith:thinking" then
+			-- handled separately (agent actions / thinking panel); skip here.
 		else
 			table.insert(blocks, {
 				source = body,
@@ -1921,6 +2268,20 @@ function Parser.extractBlocks(text)
 		end
 	end
 	return blocks
+end
+
+-- Extract the leading ```bloxsmith:thinking ... ``` block (the AI's plan).
+-- Returns (thinkingText or nil, textWithThinkingRemoved).
+function Parser.extractThinking(text)
+	if type(text) ~= "string" then
+		return nil, text
+	end
+	local thinking = string.match(text, "```bloxsmith:thinking%s*\n(.-)```")
+	if thinking then
+		local cleaned = string.gsub(text, "```bloxsmith:thinking%s*\n.-```", "", 1)
+		return (thinking:gsub("^%s+", ""):gsub("%s+$", "")), cleaned
+	end
+	return nil, text
 end
 
 -- Convert a code block into a create_script action (best-effort defaults).

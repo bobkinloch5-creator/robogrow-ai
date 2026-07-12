@@ -28,8 +28,8 @@ function Parser.extractBlocks(text)
 	-- Match ```<header>\n<body>```
 	for header, body in string.gmatch(text, "```([^\n]*)\n(.-)```") do
 		local meta = parseHeader(header)
-		if meta.lang == "bloxsmith:actions" then
-			-- handled separately by the backend/agent flow; skip here.
+		if meta.lang == "bloxsmith:actions" or meta.lang == "bloxsmith:thinking" then
+			-- handled separately (agent actions / thinking panel); skip here.
 		else
 			table.insert(blocks, {
 				source = body,
@@ -41,6 +41,20 @@ function Parser.extractBlocks(text)
 		end
 	end
 	return blocks
+end
+
+-- Extract the leading ```bloxsmith:thinking ... ``` block (the AI's plan).
+-- Returns (thinkingText or nil, textWithThinkingRemoved).
+function Parser.extractThinking(text)
+	if type(text) ~= "string" then
+		return nil, text
+	end
+	local thinking = string.match(text, "```bloxsmith:thinking%s*\n(.-)```")
+	if thinking then
+		local cleaned = string.gsub(text, "```bloxsmith:thinking%s*\n.-```", "", 1)
+		return (thinking:gsub("^%s+", ""):gsub("%s+$", "")), cleaned
+	end
+	return nil, text
 end
 
 -- Convert a code block into a create_script action (best-effort defaults).

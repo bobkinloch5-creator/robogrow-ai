@@ -21,6 +21,7 @@
 ]]
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
+local InsertService = game:GetService("InsertService")
 
 local Log = require(script.Parent.Parent.Util.Log)
 
@@ -271,6 +272,33 @@ function ApplyService:applyOne(action)
 		local name = target:GetFullName()
 		target.Parent = nil
 		return true, "Deleted " .. name, nil
+
+	elseif kind == "insert_asset" then
+		local assetId = tonumber(action.assetId or action.id)
+		if not assetId then
+			return false, "insert_asset requires a numeric assetId"
+		end
+		local parent = self:resolvePath(action.path or "Workspace", true)
+		local okLoad, loaded = pcall(function()
+			return InsertService:LoadAsset(assetId)
+		end)
+		if not okLoad or not loaded then
+			return false, ("Could not load asset %d (is it a public model?)"):format(assetId)
+		end
+		-- LoadAsset returns a Model container; unpack its children into the parent.
+		local inserted
+		local children = loaded:GetChildren()
+		if #children == 1 then
+			inserted = children[1]
+			if action.name then inserted.Name = action.name end
+			inserted.Parent = parent
+			loaded:Destroy()
+		else
+			loaded.Name = action.name or ("Asset_" .. assetId)
+			loaded.Parent = parent
+			inserted = loaded
+		end
+		return true, ("Inserted asset %d into %s"):format(assetId, parent:GetFullName()), inserted
 	end
 
 	return false, "Unknown action: " .. tostring(kind)
@@ -326,6 +354,14 @@ function ApplyService:replaceSource(scriptInstance, newSource, label)
 		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
 	end
 	return { ok = true }
+end
+
+-- Insert a Toolbox / Creator Store model by asset id, with undo support.
+function ApplyService:insertAsset(assetId, name)
+	return self:applyActions(
+		{ { action = "insert_asset", assetId = assetId, path = "Workspace", name = name } },
+		"Bloxsmith insert asset"
+	)
 end
 
 return ApplyService
