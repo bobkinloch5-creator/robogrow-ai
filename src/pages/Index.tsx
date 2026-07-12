@@ -335,12 +335,12 @@ const Index = () => {
                 >
                   Documentation
                 </Link>
-                <Link
-                  to="/dashboard"
+                <a
+                  href="#tutorial"
                   className="block text-muted-foreground hover:text-foreground"
                 >
-                  Dashboard
-                </Link>
+                  Install Tutorial
+                </a>
               </div>
             </div>
             <div>
