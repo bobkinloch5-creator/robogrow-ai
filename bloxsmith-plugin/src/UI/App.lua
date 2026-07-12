@@ -1032,7 +1032,7 @@ function App:buildToolboxView(parent)
 		BorderSizePixel = 0, LayoutOrder = 3, Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	local grid = Create("UIGridLayout", {
-		CellSize = UDim2.new(0.5, -6, 0, 150), CellPadding = UDim2.new(0, 8, 0, 8),
+		CellSize = UDim2.new(0.5, -6, 0, 176), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
 
