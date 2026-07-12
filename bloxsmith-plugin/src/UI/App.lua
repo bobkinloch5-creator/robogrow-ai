@@ -997,7 +997,7 @@ function App:mount(gui)
 	self:buildSettingsView(self.views.Settings)
 
 	self:selectView("Chat")
-	self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, fix & optimize code, scan for security and performance issues, and run multi-step build tasks — you approve every change. Select an object and ask me anything.")
+	self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
 end
 
 return App
