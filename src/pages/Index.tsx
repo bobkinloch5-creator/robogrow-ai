@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import bloxsmithIcon from "@/assets/bloxsmith-icon.png";
 import heroBg from "@/assets/roblox-hero-bg.jpg";
+import tutorialVideo from "@/assets/plugin-tutorial.mp4.asset.json";
 
 
 const features = [
@@ -271,7 +272,7 @@ const Index = () => {
                   poster={heroBg}
                   className="h-full w-full object-cover"
                 >
-                  <source src="/plugin-tutorial.mp4" type="video/mp4" />
+                  <source src={tutorialVideo.url} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               </div>
@@ -388,8 +389,16 @@ const Index = () => {
               </p>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-border text-center text-muted-foreground">
-            <p>&copy; 2025 Bloxsmith. All rights reserved.</p>
+          <div className="mt-8 pt-8 border-t border-border text-center text-muted-foreground space-y-2">
+            <p>&copy; {new Date().getFullYear()} Bloxsmith. All rights reserved.</p>
+            <p className="text-xs max-w-3xl mx-auto">
+              Bloxsmith, the Bloxsmith name, logo, website, plugin, source code, and all related
+              content are the exclusive property of Bloxsmith and are protected by copyright and
+              other intellectual property laws. Unauthorized copying, redistribution, resale, or
+              reproduction of any part of this website or the Bloxsmith plugin is strictly
+              prohibited. "Roblox" is a trademark of Roblox Corporation; Bloxsmith is not
+              affiliated with or endorsed by Roblox Corporation.
+            </p>
           </div>
         </div>
       </footer>

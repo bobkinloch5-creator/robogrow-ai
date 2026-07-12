@@ -3,6 +3,12 @@
 	Generated from src/ by bundle.py. Save this as a Local Plugin in Studio.
 	Plugins tab -> right-click this file -> Save as Local Plugin, or drop it
 	into your Plugins Folder. No Rojo required.
+
+	Copyright (c) Bloxsmith. All rights reserved.
+	This plugin and its source code are the exclusive property of Bloxsmith and are
+	protected by copyright law. Unauthorized copying, redistribution, resale, or
+	reproduction of any part of this software is strictly prohibited. Bloxsmith is
+	not affiliated with or endorsed by Roblox Corporation. See https://www.bloxsmiths.xyz
 ]]
 
 local _modules = {}
