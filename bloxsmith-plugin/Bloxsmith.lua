@@ -34,10 +34,22 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.1.2"
+Config.Version = "3.2.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.2.0",
+		date = "2026-07-12",
+		title = "Effects That Actually Work",
+		changes = {
+			"NEW: Particle effects, fire, smoke, sparkles, beams and trails now auto-attach to a proper host part so they actually render — no more invisible effects.",
+			"NEW: Lights (point/spot/surface) and decals/textures also get a visible host so you see them instantly.",
+			"IMPROVED: AI-generated effects placed loosely are automatically hosted and ground-placed too, not just Toolbox inserts.",
+			"IMPROVED: Effect hosts are anchored, collision-free and camera-focused so nothing gets in your way.",
+		},
+	},
+
 	{
 		version = "3.1.2",
 		date = "2026-07-12",
@@ -664,11 +676,65 @@ local function placeOnGround(obj, camera, ignoreList)
 	end)
 end
 
+-- Visual effects that only render when parented to a BasePart/Attachment.
+-- Inserted or created on their own they'd be invisible, so Bloxsmith gives them
+-- a proper anchored host part so they actually show up in the game.
+local EFFECT_CLASSES = {
+	ParticleEmitter = true, Fire = true, Smoke = true, Sparkles = true,
+	Beam = true, Trail = true, Decal = true, Texture = true, PointLight = true,
+	SpotLight = true, SurfaceLight = true,
+}
 
+local function isEffect(inst)
+	return EFFECT_CLASSES[inst.ClassName]
+		or inst:IsA("ParticleEmitter") or inst:IsA("Fire") or inst:IsA("Smoke")
+		or inst:IsA("Sparkles") or inst:IsA("Beam") or inst:IsA("Trail")
+		or inst:IsA("Decal") or inst:IsA("Texture") or inst:IsA("Light")
+end
 
+-- Wrap a bare effect in an anchored, collision-free host part (with the right
+-- attachments where the effect needs them) and return the host part.
+local function createEffectHost(effect)
+	local part = Instance.new("Part")
+	part.Name = ((effect.Name ~= "" and effect.Name) or effect.ClassName) .. "_FX"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Size = Vector3.new(1, 1, 1)
+	part.Transparency = 1
+
+	if effect:IsA("Decal") or effect:IsA("Texture") then
+		-- Show a decal/texture on a visible panel so it's actually seen.
+		part.Size = Vector3.new(4, 4, 0.2)
+		part.Transparency = 0
+		part.Color = Color3.fromRGB(230, 230, 230)
+		pcall(function() effect.Face = Enum.NormalId.Front end)
+		effect.Parent = part
+	elseif effect:IsA("Beam") or effect:IsA("Trail") then
+		local a0 = Instance.new("Attachment")
+		a0.Name = "FXAttachment0"
+		a0.Parent = part
+		local a1 = Instance.new("Attachment")
+		a1.Name = "FXAttachment1"
+		a1.Position = Vector3.new(0, 4, 0)
+		a1.Parent = part
+		pcall(function()
+			effect.Attachment0 = a0
+			effect.Attachment1 = a1
+		end)
+		effect.Parent = part
+	else
+		-- ParticleEmitter, Fire, Smoke, Sparkles, Lights: emit from the part.
+		effect.Parent = part
+	end
+	return part
+end
 
 
 -- Apply one action. Returns (ok, message, instance?).
+
 function ApplyService:applyOne(action)
 	local kind = action.action
 
@@ -717,8 +783,18 @@ function ApplyService:applyOne(action)
 				end)
 			end
 		end
+		-- Effects (particles, fire, beams, lights, decals…) only render on a
+		-- BasePart/Attachment. If the AI created one loose in a container, give it
+		-- a visible, ground-placed host part so it actually shows up.
+		if isEffect(inst) and not (parent:IsA("BasePart") or parent:IsA("Attachment")) then
+			local host = createEffectHost(inst)
+			pcall(function() host.Parent = parent end)
+			pcall(function() placeOnGround(host, workspace.CurrentCamera) end)
+			return true, ("Created %s on host part %s"):format(class, host:GetFullName()), host
+		end
 		inst.Parent = parent
 		return true, "Created " .. class .. " " .. inst:GetFullName(), inst
+
 
 	elseif kind == "set_property" then
 		local target = self:resolvePath(action.target or "", false)
@@ -782,16 +858,26 @@ function ApplyService:applyOne(action)
 		local placed = {}
 		local visualParts = {}
 		for _, child in ipairs(children) do
-			local target, isVisual = smartParentFor(child, requestedParent)
-			pcall(function()
-				child.Parent = target
-			end)
-			table.insert(placed, child)
-			if isVisual then
-				table.insert(visualParts, child)
+			if isEffect(child) then
+				-- Give bare effects a visible host part so particles/fire/beams
+				-- etc. actually render in the world.
+				local host = createEffectHost(child)
+				pcall(function() host.Parent = requestedParent or workspace end)
+				table.insert(placed, host)
+				table.insert(visualParts, host)
+			else
+				local target, isVisual = smartParentFor(child, requestedParent)
+				pcall(function()
+					child.Parent = target
+				end)
+				table.insert(placed, child)
+				if isVisual then
+					table.insert(visualParts, child)
+				end
 			end
 		end
 		if container then pcall(function() container:Destroy() end) end
+
 
 		if #placed == 0 then
 			return false, ("Asset %d loaded but contained nothing to insert."):format(assetId)
