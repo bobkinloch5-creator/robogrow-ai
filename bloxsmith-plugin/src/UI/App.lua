@@ -130,9 +130,20 @@ function App:addBubble(role, text)
 		Parent = holder,
 	})
 
+	-- Pull the AI's thinking/plan into its own collapsible panel (assistant only).
+	local workingText = text
+	if not isUser then
+		local thinking, cleaned = Parser.extractThinking(text)
+		workingText = cleaned
+		if thinking and thinking ~= "" then
+			self:addThinkingPanel(holder, thinking, 1)
+		end
+	end
+
 	-- Render the reply with code blocks stripped into their own panels.
-	local blocks = Parser.extractBlocks(text)
-	local prose = string.gsub(text, "```[^\n]*\n.-```", "\n[code block below]\n")
+	local blocks = Parser.extractBlocks(workingText)
+	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n[code block below]\n")
+	prose = prose:gsub("^%s+", ""):gsub("%s+$", "")
 
 	Create("TextLabel", {
 		Text = prose,
@@ -145,7 +156,7 @@ function App:addBubble(role, text)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Size = UDim2.new(1, 0, 0, 0),
-		LayoutOrder = 1,
+		LayoutOrder = 2,
 		Parent = holder,
 	})
 
