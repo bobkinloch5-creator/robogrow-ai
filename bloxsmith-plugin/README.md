@@ -52,5 +52,18 @@ function) that proxies to the AI provider, so your credentials never live inside
 - **Docs generator** — Markdown docs for scripts & systems.
 - **Health dashboard** — Security / Performance / Organization scores + AI recommendations.
 
+### Build Agent actions
+The agent can propose and apply a full range of changes (each behind an approval click):
+`create_script`, `replace_script`, `create_folder`, `create_instance` (parts, GUIs,
+remotes, values, with typed properties), `set_property`, `rename_instance`,
+`move_instance`, and `delete_instance`. Multi-file generations get a single
+**Insert all files** button.
+
+### Reliability
+- Automatic retries with exponential backoff on transient network / rate-limit errors.
+- Class whitelist + property coercion guard against malformed AI output.
+- One-click starter prompts to get building instantly.
+
 Everything the AI changes is wrapped in a `ChangeHistoryService` recording, so **Ctrl+Z**
 undoes it like any other Studio edit.
+
