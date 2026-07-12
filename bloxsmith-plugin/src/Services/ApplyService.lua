@@ -25,19 +25,20 @@ ApplyService.__index = ApplyService
 
 local SCRIPT_CLASSES = { Script = true, LocalScript = true, ModuleScript = true }
 
--- Classes the agent is allowed to freely create. Guards against creating
--- dangerous or nonsensical instances from a model hallucination.
-local CREATE_WHITELIST = {
-	Folder = true, Model = true, Part = true, MeshPart = true, WedgePart = true,
-	Script = true, LocalScript = true, ModuleScript = true,
-	RemoteEvent = true, RemoteFunction = true, BindableEvent = true, BindableFunction = true,
-	ScreenGui = true, Frame = true, TextLabel = true, TextButton = true, TextBox = true,
-	ImageLabel = true, ImageButton = true, ScrollingFrame = true,
-	Configuration = true, IntValue = true, NumberValue = true, StringValue = true,
-	BoolValue = true, ObjectValue = true, Attachment = true, Sound = true, ProximityPrompt = true,
-	SpawnLocation = true, Highlight = true, BillboardGui = true, SurfaceGui = true,
-	UICorner = true, UIListLayout = true, UIGridLayout = true, UIPadding = true, UIStroke = true,
+-- Bloxsmith can build ANYTHING Roblox allows. Rather than a narrow whitelist,
+-- we allow every creatable class and only refuse a small set that is dangerous,
+-- editor-only, or nonsensical to spawn from an AI action. Anything Instance.new
+-- can't actually create is caught by the pcall in create_instance.
+local CREATE_BLACKLIST = {
+	-- Services / singletons (never Instance.new these)
+	Workspace = true, Players = true, Lighting = true, ReplicatedStorage = true,
+	ServerStorage = true, ServerScriptService = true, StarterGui = true,
+	StarterPack = true, StarterPlayer = true, Teams = true, SoundService = true,
+	Chat = true, LocalizationService = true, TestService = true, CoreGui = true,
+	-- Dangerous / abusable
+	Player = true, Message = true, Hint = true, DataStoreService = true,
 }
+
 
 function ApplyService.new()
 	return setmetatable({}, ApplyService)
