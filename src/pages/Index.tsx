@@ -80,7 +80,8 @@ const Index = () => {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-hero opacity-50" />
+        <div className="absolute inset-0 bg-grid opacity-60" />
+        <div className="absolute inset-0 bg-gradient-hero opacity-40" />
         <div className="absolute inset-0 bg-gradient-glow animate-pulse-glow" />
 
         <div className="container mx-auto relative z-10">
