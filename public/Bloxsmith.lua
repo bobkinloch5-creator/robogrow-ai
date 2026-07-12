@@ -34,10 +34,21 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.1.1"
+Config.Version = "3.1.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.1.2",
+		date = "2026-07-12",
+		title = "Smart Ground Placement",
+		changes = {
+			"NEW: Inserted models now snap to the ground with a downward raycast — no more floating in the air or sinking underground.",
+			"IMPROVED: Assets are placed just in front of you, sitting flush on the surface, with the camera auto-framing them.",
+			"IMPROVED: Placement accounts for each model's real size so its base rests exactly on the floor.",
+		},
+	},
+
 	{
 		version = "3.1.1",
 		date = "2026-07-12",
@@ -585,6 +596,76 @@ local function smartParentFor(inst, fallbackParent)
 	return fallbackParent or workspace, false
 end
 
+-- Snap a Model/BasePart onto the ground in front of the camera so inserted
+-- assets rest ON the surface — never floating in the air or buried underground.
+-- Uses a downward raycast (ignoring the object itself + other freshly-inserted
+-- objects) and offsets by the object's bounding box so its base sits flush.
+local function placeOnGround(obj, camera, ignoreList)
+	if not (obj:IsA("Model") or obj:IsA("BasePart")) then
+		return
+	end
+
+	-- Bounding box (world-space center + size) and current pivot.
+	local pivot = obj:GetPivot()
+	local boxCF, size
+	if obj:IsA("Model") then
+		local okBox, cf, sz = pcall(function()
+			local c, s = obj:GetBoundingBox()
+			return c, s
+		end)
+		-- pcall returns (true, cf, sz)
+		if okBox then boxCF, size = cf, sz end
+	else
+		boxCF, size = obj.CFrame, obj.Size
+	end
+	if not boxCF or not size then
+		return
+	end
+
+	-- Target X/Z: a bit in front of the camera on the horizontal plane.
+	local targetX, targetZ = 0, 0
+	if camera then
+		local fwd = camera.CFrame.LookVector
+		local flat = Vector3.new(fwd.X, 0, fwd.Z)
+		if flat.Magnitude < 0.01 then
+			flat = Vector3.new(0, 0, -1)
+		end
+		flat = flat.Unit
+		local dist = math.max(size.X, size.Z) * 0.5 + 16
+		local aim = camera.CFrame.Position + flat * dist
+		targetX, targetZ = aim.X, aim.Z
+	end
+
+	-- Raycast straight down to find the surface, ignoring the object itself.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = { obj }
+	if type(ignoreList) == "table" then
+		for _, o in ipairs(ignoreList) do
+			table.insert(ignore, o)
+		end
+	end
+	params.FilterDescendantsInstances = ignore
+	params.IgnoreWater = true
+
+	local origin = Vector3.new(targetX, 10000, targetZ)
+	local hit = workspace:Raycast(origin, Vector3.new(0, -20000, 0), params)
+	local groundY = hit and hit.Position.Y or 0 -- default to baseplate plane (y=0)
+
+	-- Offset needed to move the bounding box: center to target X/Z, base to ground.
+	local offset = Vector3.new(
+		targetX - boxCF.Position.X,
+		(groundY + size.Y * 0.5 + 0.05) - boxCF.Position.Y,
+		targetZ - boxCF.Position.Z
+	)
+
+	pcall(function()
+		obj:PivotTo(pivot + offset)
+	end)
+end
+
+
+
 
 
 -- Apply one action. Returns (ok, message, instance?).
@@ -722,22 +803,25 @@ function ApplyService:applyOne(action)
 			pcall(function() inserted.Name = action.name end)
 		end
 
-		-- Move any visual model in front of the camera and focus it so the user
-		-- immediately SEES it (models otherwise spawn at the world origin).
+		-- Ground-snap each visible object in front of the camera so it rests ON
+		-- the surface (never floating or buried), then focus the camera on it.
 		pcall(function()
 			local camera = workspace.CurrentCamera
+			local focused = false
 			for _, obj in ipairs(visualParts) do
-				if camera and (obj:IsA("Model") or obj:IsA("BasePart")) then
-					local okPivot = pcall(function()
-						obj:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
-					end)
-					if okPivot then
-						camera.CFrame = CFrame.lookAt(camera.CFrame.Position, obj:GetPivot().Position)
+				if obj:IsA("Model") or obj:IsA("BasePart") then
+					placeOnGround(obj, camera, visualParts)
+					if camera and not focused then
+						camera.CFrame = CFrame.lookAt(
+							obj:GetPivot().Position + Vector3.new(0, 6, 18),
+							obj:GetPivot().Position
+						)
+						focused = true
 					end
-					break
 				end
 			end
 		end)
+
 
 		-- Build a friendly summary that tells the user WHERE it went.
 		local dest = placed[1].Parent and placed[1].Parent:GetFullName() or "your game"
