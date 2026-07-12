@@ -178,9 +178,9 @@ const Docs = () => {
               
               <div className="space-y-6">
                 <section>
-                  <h3 className="text-xl font-semibold mb-3">Amazon Bedrock Integration</h3>
+                  <h3 className="text-xl font-semibold mb-3">AI Engine</h3>
                   <p className="text-muted-foreground">
-                    Hide Bot uses Amazon Bedrock for AI processing. Your API key is securely stored and used only for your game generation requests.
+                    Bloxsmith is powered by NVIDIA-hosted GLM models for AI processing. Your requests are securely proxied through our backend so no API keys are ever exposed in the plugin.
                   </p>
                 </section>
 

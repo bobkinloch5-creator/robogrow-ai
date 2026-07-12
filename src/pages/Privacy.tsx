@@ -41,7 +41,7 @@ const Privacy = () => {
             <section>
               <h2 className="text-2xl font-bold mb-4">Data Security</h2>
               <p className="text-muted-foreground">
-                We implement industry-standard security measures to protect your data. All sensitive data is encrypted both in transit and at rest. We use Amazon Bedrock for AI processing with enterprise-grade security.
+                We implement industry-standard security measures to protect your data. All sensitive data is encrypted both in transit and at rest. We use NVIDIA-hosted AI models for processing with enterprise-grade security.
               </p>
             </section>
 
@@ -52,7 +52,7 @@ const Privacy = () => {
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>PayPal for payment processing</li>
-                <li>Amazon Bedrock for AI functionality</li>
+                <li>NVIDIA AI for AI functionality</li>
                 <li>Discord for community support</li>
               </ul>
             </section>

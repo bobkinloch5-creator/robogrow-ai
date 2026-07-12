@@ -89,6 +89,24 @@ async function callLovable(messages: ChatMessage[]): Promise<string> {
   return data?.choices?.[0]?.message?.content ?? "";
 }
 
+// NVIDIA NIM (OpenAI-compatible) — primary provider. Serves GLM and other hosted models.
+async function callNvidia(messages: ChatMessage[]): Promise<string> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  const model = Deno.env.get("NVIDIA_MODEL") || "z-ai/glm-5.2";
+  if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 4096 }),
+  });
+  if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
+  if (res.status === 401 || res.status === 403)
+    throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
+  if (!res.ok) throw { status: 502, msg: `NVIDIA error (${res.status}): ${(await res.text()).slice(0, 300)}` };
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "";
+}
+
 // Provider abstraction — Bedrock path is ready for when a valid key is supplied.
 async function callBedrock(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("BEDROCK_API_KEY");
@@ -138,8 +156,23 @@ Deno.serve(async (req) => {
 
     const messages: ChatMessage[] = [{ role: "system", content: buildSystem(mode, body.context) }, ...convo];
 
-    const provider = (Deno.env.get("AI_PROVIDER") || "lovable").toLowerCase();
-    const reply = provider === "bedrock" ? await callBedrock(messages) : await callLovable(messages);
+    const provider = (Deno.env.get("AI_PROVIDER") || "nvidia").toLowerCase();
+    let usedProvider = provider;
+    let reply: string;
+    try {
+      if (provider === "nvidia") reply = await callNvidia(messages);
+      else if (provider === "bedrock") reply = await callBedrock(messages);
+      else reply = await callLovable(messages);
+    } catch (primaryErr) {
+      // Fall back to Lovable AI if the primary provider fails (auth/network/etc).
+      if (provider !== "lovable") {
+        console.error("Primary provider failed, falling back to Lovable AI:", primaryErr);
+        usedProvider = "lovable";
+        reply = await callLovable(messages);
+      } else {
+        throw primaryErr;
+      }
+    }
 
     // Extract structured agent actions if present.
     let actions: unknown = null;
@@ -152,7 +185,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ reply, actions, provider, mode }), {
+    return new Response(JSON.stringify({ reply, actions, provider: usedProvider, mode }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
