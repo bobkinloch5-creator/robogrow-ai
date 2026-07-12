@@ -309,7 +309,7 @@ function ApplyService:applyOne(action)
 		if not assetId then
 			return false, "insert_asset requires a numeric assetId"
 		end
-		local parent = self:resolvePath(action.path or "Workspace", true)
+		local requestedParent = self:resolvePath(action.path or "Workspace", true)
 		local okLoad, loaded, loaderName, container = loadAssetForPlugin(assetId)
 		if not okLoad then
 			-- Surface the REAL Roblox error so the user knows what went wrong
@@ -318,41 +318,62 @@ function ApplyService:applyOne(action)
 			Log.warn("Asset insert failed for", assetId, ":", loaded)
 			return false, ("Could not insert model %d — %s%s"):format(assetId, tostring(loaded), hint and ("\n" .. hint) or "")
 		end
-		-- GetObjects returns the actual objects; LoadAsset returns a Model container
-		-- that we unpack into the parent.
-		local inserted
+
 		local children = loaded
-		if #children == 1 then
-			inserted = children[1]
-			if action.name then inserted.Name = action.name end
-			inserted.Parent = parent
-			if container then container:Destroy() end
-		else
-			local wrapper = Instance.new("Model")
-			wrapper.Name = action.name or ("Asset_" .. assetId)
-			wrapper.Parent = parent
-			for _, child in ipairs(children) do
-				child.Parent = wrapper
+		-- Route each top-level object to the container Roblox actually needs so
+		-- non-Workspace assets (skies, atmospheres, lighting effects, sounds…)
+		-- become visible/active instead of silently sitting in Workspace.
+		local placed = {}
+		local visualParts = {}
+		for _, child in ipairs(children) do
+			local target, isVisual = smartParentFor(child, requestedParent)
+			pcall(function()
+				child.Parent = target
+			end)
+			table.insert(placed, child)
+			if isVisual then
+				table.insert(visualParts, child)
 			end
-			if container then container:Destroy() end
-			inserted = wrapper
 		end
-		-- Move the inserted model in front of the camera and focus on it so the
-		-- user immediately SEES it in the viewport (models otherwise spawn at the
-		-- world origin, which is easy to miss).
+		if container then pcall(function() container:Destroy() end) end
+
+		if #placed == 0 then
+			return false, ("Asset %d loaded but contained nothing to insert."):format(assetId)
+		end
+
+		-- Optional custom name (applies to the single inserted object).
+		local inserted = placed[1]
+		if #placed == 1 and action.name then
+			pcall(function() inserted.Name = action.name end)
+		end
+
+		-- Move any visual model in front of the camera and focus it so the user
+		-- immediately SEES it (models otherwise spawn at the world origin).
 		pcall(function()
 			local camera = workspace.CurrentCamera
-			if camera and inserted:IsA("Model") then
-				local okPivot = pcall(function()
-					inserted:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
-				end)
-				if okPivot then
-					camera.CFrame = CFrame.lookAt(camera.CFrame.Position, inserted:GetPivot().Position)
+			for _, obj in ipairs(visualParts) do
+				if camera and (obj:IsA("Model") or obj:IsA("BasePart")) then
+					local okPivot = pcall(function()
+						obj:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
+					end)
+					if okPivot then
+						camera.CFrame = CFrame.lookAt(camera.CFrame.Position, obj:GetPivot().Position)
+					end
+					break
 				end
 			end
 		end)
-		return true, ("Inserted model %d into %s via %s"):format(assetId, parent:GetFullName(), loaderName or "plugin insert"), inserted
+
+		-- Build a friendly summary that tells the user WHERE it went.
+		local dest = placed[1].Parent and placed[1].Parent:GetFullName() or "your game"
+		local kindName = placed[1].ClassName
+		local note = ""
+		if not (placed[1]:IsA("Model") or placed[1]:IsA("BasePart")) then
+			note = (" (%s → %s; open Explorer to see it)"):format(kindName, dest)
+		end
+		return true, ("Inserted %s (asset %d) into %s via %s%s"):format(kindName, assetId, dest, loaderName or "plugin insert", note), inserted
 	end
+
 
 
 	return false, "Unknown action: " .. tostring(kind)
