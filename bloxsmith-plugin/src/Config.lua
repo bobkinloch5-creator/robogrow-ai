@@ -8,10 +8,20 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.0.1"
+Config.Version = "3.1.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.1.0",
+		date = "2026-07-12",
+		title = "Persistent Memory",
+		changes = {
+			"NEW: Bloxsmith now remembers your conversation across plugin reloads and Studio restarts — it picks up right where you left off.",
+			"NEW: Your active chat auto-saves after every message, so nothing is lost if Studio closes.",
+			"IMPROVED: Clearing the chat still archives it to History and starts a clean, empty memory.",
+		},
+	},
 	{
 		version = "3.0.1",
 		date = "2026-07-12",
@@ -21,6 +31,7 @@ Config.Changelog = {
 			"IMPROVED: If Roblox blocks an asset, Bloxsmith explains that the asset is private/restricted instead of silently failing.",
 		},
 	},
+
 	{
 		version = "3.0.0",
 		date = "2026-07-12",
