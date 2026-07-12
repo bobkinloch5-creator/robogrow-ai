@@ -804,7 +804,6 @@ function App:buildToolboxView(parent)
 		CellSize = UDim2.new(0.5, -6, 0, 150), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
-	grid = grid
 
 	local function clearResults()
 		for _, c in ipairs(results:GetChildren()) do
