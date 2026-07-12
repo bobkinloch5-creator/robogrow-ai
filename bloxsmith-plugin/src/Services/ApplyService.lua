@@ -21,6 +21,7 @@
 ]]
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
+local InsertService = game:GetService("InsertService")
 
 local Log = require(script.Parent.Parent.Util.Log)
 
