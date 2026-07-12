@@ -23,12 +23,13 @@ const FAQ = () => {
 
             <AccordionItem value="item-2" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
-                How do prompts work?
+                Is Bloxsmith really free?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Each request you make to the AI uses one prompt. Prompts are used for creating new features, modifying existing ones, or generating content. New users start with 50 free prompts, and more can be purchased as needed.
+                Yes — Bloxsmith is 100% free. There are no payments, subscriptions, credits, or hidden costs. Just sign up and start building as much as you want.
               </AccordionContent>
             </AccordionItem>
+
 
             <AccordionItem value="item-3" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
