@@ -454,22 +454,25 @@ function ApplyService:applyOne(action)
 			pcall(function() inserted.Name = action.name end)
 		end
 
-		-- Move any visual model in front of the camera and focus it so the user
-		-- immediately SEES it (models otherwise spawn at the world origin).
+		-- Ground-snap each visible object in front of the camera so it rests ON
+		-- the surface (never floating or buried), then focus the camera on it.
 		pcall(function()
 			local camera = workspace.CurrentCamera
+			local focused = false
 			for _, obj in ipairs(visualParts) do
-				if camera and (obj:IsA("Model") or obj:IsA("BasePart")) then
-					local okPivot = pcall(function()
-						obj:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
-					end)
-					if okPivot then
-						camera.CFrame = CFrame.lookAt(camera.CFrame.Position, obj:GetPivot().Position)
+				if obj:IsA("Model") or obj:IsA("BasePart") then
+					placeOnGround(obj, camera, visualParts)
+					if camera and not focused then
+						camera.CFrame = CFrame.lookAt(
+							obj:GetPivot().Position + Vector3.new(0, 6, 18),
+							obj:GetPivot().Position
+						)
+						focused = true
 					end
-					break
 				end
 			end
 		end)
+
 
 		-- Build a friendly summary that tells the user WHERE it went.
 		local dest = placed[1].Parent and placed[1].Parent:GetFullName() or "your game"
