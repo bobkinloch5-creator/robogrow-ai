@@ -45,19 +45,6 @@ const Navbar = () => {
           </a>
         </div>
 
-        <div className="hidden md:flex items-center gap-3">
-          <Link to="/auth">
-            <Button variant="outline" size="sm">
-              Sign In
-            </Button>
-          </Link>
-          <Link to="/auth?mode=signup">
-            <Button size="sm" className="bg-gradient-primary shadow-glow">
-              Get Started
-            </Button>
-          </Link>
-        </div>
-
         {/* Mobile toggle */}
         <button
           className="md:hidden text-foreground p-2"
