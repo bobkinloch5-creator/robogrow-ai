@@ -422,8 +422,18 @@ function ApplyService:applyOne(action)
 				end)
 			end
 		end
+		-- Effects (particles, fire, beams, lights, decals…) only render on a
+		-- BasePart/Attachment. If the AI created one loose in a container, give it
+		-- a visible, ground-placed host part so it actually shows up.
+		if isEffect(inst) and not (parent:IsA("BasePart") or parent:IsA("Attachment")) then
+			local host = createEffectHost(inst)
+			pcall(function() host.Parent = parent end)
+			pcall(function() placeOnGround(host, workspace.CurrentCamera) end)
+			return true, ("Created %s on host part %s"):format(class, host:GetFullName()), host
+		end
 		inst.Parent = parent
 		return true, "Created " .. class .. " " .. inst:GetFullName(), inst
+
 
 	elseif kind == "set_property" then
 		local target = self:resolvePath(action.target or "", false)
