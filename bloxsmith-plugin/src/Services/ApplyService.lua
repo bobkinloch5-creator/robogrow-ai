@@ -334,6 +334,7 @@ function ApplyService:applyActions(actions, label)
 	local created = {}
 	local anyFail = false
 	local okCount = 0
+	local firstError = nil
 
 	for _, action in ipairs(actions) do
 		local ok, msg, inst = self:applyOne(action)
@@ -345,6 +346,7 @@ function ApplyService:applyActions(actions, label)
 			end
 		else
 			anyFail = true
+			firstError = firstError or msg
 			Log.warn("Action failed:", msg)
 		end
 	end
@@ -359,8 +361,9 @@ function ApplyService:applyActions(actions, label)
 		end)
 	end
 
-	return { ok = not anyFail, results = results, created = created, applied = okCount }
+	return { ok = not anyFail, results = results, created = created, applied = okCount, error = firstError }
 end
+
 
 -- Overwrite a specific script's source with undo support (used by fix/optimize).
 function ApplyService:replaceSource(scriptInstance, newSource, label)
