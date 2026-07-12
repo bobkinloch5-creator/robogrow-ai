@@ -755,7 +755,151 @@ function App:buildToolsView(parent)
 	end
 end
 
-function App:buildSettingsView(parent)
+--========================================================================
+-- Toolbox (Creator Store free-model search + insert)
+--========================================================================
+function App:buildToolboxView(parent)
+	local view = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Parent = parent })
+	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = view })
+	pad(0).Parent = view
+
+	Create("TextLabel", {
+		Text = "🧰 Search the Roblox Toolbox for free models and insert them straight into your game.",
+		Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1,
+		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 0, Parent = view,
+	})
+
+	-- Search row
+	local searchRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 34), LayoutOrder = 1, Parent = view })
+	local searchBox = Create("TextBox", {
+		PlaceholderText = "Search models… e.g. medieval house, sports car, tree",
+		Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint,
+		BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false,
+		Size = UDim2.new(1, -74, 1, 0), Parent = searchRow,
+	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+	local searchBtn = button("Search", { Size = UDim2.new(0, 66, 1, 0) })
+	searchBtn.Position = UDim2.new(1, -66, 0, 0)
+	searchBtn.Parent = searchRow
+
+	-- Insert-by-ID row (reliable fallback)
+	local idRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 2, Parent = view })
+	local idBox = Create("TextBox", {
+		PlaceholderText = "…or paste a model Asset ID", Text = "", Font = Theme.FontMono, TextSize = 12,
+		TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel,
+		TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false,
+		Size = UDim2.new(1, -74, 1, 0), Parent = idRow,
+	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+	local idBtn = button("Insert", { Size = UDim2.new(0, 66, 1, 0), BackgroundColor3 = C.Success, TextColor3 = C.Bg })
+	idBtn.Position = UDim2.new(1, -66, 0, 0)
+	idBtn.Parent = idRow
+
+	-- Results scroll
+	local results = Create("ScrollingFrame", {
+		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -84), CanvasSize = UDim2.new(0, 0, 0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, ScrollBarImageColor3 = C.Accent,
+		BorderSizePixel = 0, LayoutOrder = 3, Parent = view,
+	}, { corner(UDim.new(0, 6)), pad(8) })
+	local grid = Create("UIGridLayout", {
+		CellSize = UDim2.new(0.5, -6, 0, 150), CellPadding = UDim2.new(0, 8, 0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
+	})
+	grid = grid
+
+	local function clearResults()
+		for _, c in ipairs(results:GetChildren()) do
+			if c:IsA("Frame") then c:Destroy() end
+		end
+	end
+
+	local function status(msg, kind)
+		clearResults()
+		local card = Create("Frame", { BackgroundColor3 = C.Panel, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = results }, { corner(UDim.new(0, 6)), pad(10) })
+		-- Make the status span the full width by clearing grid influence.
+		Create("TextLabel", {
+			Text = msg, Font = Theme.Font, TextSize = 12,
+			TextColor3 = kind == "error" and C.Error or C.TextDim, BackgroundTransparency = 1,
+			TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y,
+			Size = UDim2.new(1, 0, 0, 0), Parent = card,
+		})
+	end
+
+	local function renderResults(items)
+		clearResults()
+		if #items == 0 then
+			status("No models found. Try different keywords.")
+			return
+		end
+		for i, item in ipairs(items) do
+			local card = Create("Frame", { BackgroundColor3 = C.Panel, LayoutOrder = i, Parent = results }, { corner(UDim.new(0, 8)), pad(6), stroke(C.Border) })
+			Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = card })
+			Create("ImageLabel", {
+				Image = item.thumbnail or "", BackgroundColor3 = C.Bg, ScaleType = Enum.ScaleType.Fit,
+				Size = UDim2.new(1, 0, 0, 78), LayoutOrder = 0, Parent = card,
+			}, { corner(UDim.new(0, 6)) })
+			Create("TextLabel", {
+				Text = item.name or "Model", Font = Theme.FontBold, TextSize = 12, TextColor3 = C.Text,
+				BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
+				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 16), LayoutOrder = 1, Parent = card,
+			})
+			local insertBtn = button("＋ Insert", { Size = UDim2.new(1, 0, 0, 26), BackgroundColor3 = C.AccentDim, TextSize = 11, LayoutOrder = 2 })
+			insertBtn.Parent = card
+			insertBtn.Activated:Connect(function()
+				insertBtn.Text = "Inserting…"
+				task.spawn(function()
+					local res = self.deps.apply:insertAsset(item.id, item.name)
+					if res.ok then
+						self:toast(("Inserted '%s' into Workspace (Ctrl+Z to undo)"):format(item.name or "model"), "success")
+						insertBtn.Text = "✓ Inserted"
+					else
+						self:toast(res.error or "Insert failed.", "error")
+						insertBtn.Text = "＋ Insert"
+					end
+				end)
+			end)
+		end
+	end
+
+	local function runSearch(query)
+		if not query or query == "" then return end
+		status("🔎 Searching the Toolbox…")
+		task.spawn(function()
+			local res = self.deps.ai:searchToolbox(query)
+			if res.ok then
+				renderResults(res.results or {})
+			else
+				status(res.error or "Search failed.", "error")
+			end
+		end)
+	end
+
+	searchBtn.Activated:Connect(function()
+		runSearch(searchBox.Text)
+	end)
+	searchBox.FocusLost:Connect(function(enter)
+		if enter then runSearch(searchBox.Text) end
+	end)
+	idBtn.Activated:Connect(function()
+		local id = tonumber(idBox.Text)
+		if not id then
+			self:toast("Enter a valid numeric Asset ID.", "warning")
+			return
+		end
+		idBtn.Text = "…"
+		task.spawn(function()
+			local res = self.deps.apply:insertAsset(id)
+			idBtn.Text = "Insert"
+			if res.ok then
+				self:toast("Inserted asset " .. id .. " (Ctrl+Z to undo)", "success")
+				idBox.Text = ""
+			else
+				self:toast(res.error or "Insert failed.", "error")
+			end
+		end)
+	end)
+end
+
+
 	local view = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Parent = parent })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), Parent = view })
 	pad(0).Parent = view
