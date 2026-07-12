@@ -1401,7 +1401,13 @@ function App:mount(gui)
 	self:buildSettingsView(self.views.Settings)
 
 	self:selectView("Chat")
-	self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
+	-- Restore the previous conversation (memory). Only greet on a fresh start.
+	local restored = self:restoreActiveSession()
+	if restored then
+		self:toast("Restored your last conversation.", "success")
+	else
+		self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. I remember our conversation across sessions. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
+	end
 end
 
 return App
