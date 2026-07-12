@@ -26,7 +26,7 @@ const Docs = () => {
                 <section>
                   <h3 className="text-xl font-semibold mb-3">1. Create Your Account</h3>
                   <p className="text-muted-foreground">
-                    Sign up for a free account at hideoutbot.lol. You'll receive 50 free prompts to start building.
+                    Sign up for a free account at hideoutbot.lol. Bloxsmith is 100% free — no payment required.
                   </p>
                 </section>
 
@@ -73,7 +73,7 @@ const Docs = () => {
                   <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
                     <li>Roblox Studio (latest version recommended)</li>
                     <li>Active internet connection</li>
-                    <li>Bloxsmith account with available prompts</li>
+                    <li>A free Bloxsmith account</li>
                   </ul>
                 </section>
 
@@ -83,7 +83,7 @@ const Docs = () => {
                     The Bloxsmith plugin provides a clean interface with the following sections:
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
-                    <li><strong>Account Status:</strong> Shows your email and prompt balance</li>
+                    <li><strong>Account Status:</strong> Shows your signed-in account</li>
                     <li><strong>Game Builder:</strong> Input field for your game ideas</li>
                     <li><strong>History:</strong> View your recent prompts and generations</li>
                     <li><strong>Settings:</strong> Configure AI behavior and preferences</li>
@@ -111,7 +111,7 @@ const Docs = () => {
                     <div className="p-4 bg-background/50 rounded-lg">
                       <h4 className="font-semibold mb-1">Generation fails</h4>
                       <p className="text-sm text-muted-foreground">
-                        Check your prompt balance and ensure your request is clear
+                        Make sure your request is clear and try again
                       </p>
                     </div>
                   </div>
@@ -202,13 +202,13 @@ const Docs = () => {
                 <section>
                   <h3 className="text-xl font-semibold mb-3">Rate Limits</h3>
                   <p className="text-muted-foreground">
-                    API requests are subject to the following limits:
+                    Bloxsmith is free for everyone. Fair-use rate limits keep the service fast:
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                    <li>100 requests per hour for free accounts</li>
-                    <li>500 requests per hour for paid accounts</li>
-                    <li>Prompt usage deducted from your balance</li>
+                    <li>Generous free usage for all accounts</li>
+                    <li>No credits, balances, or charges — ever</li>
                   </ul>
+
                 </section>
 
                 <section>

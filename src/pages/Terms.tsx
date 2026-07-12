@@ -44,12 +44,12 @@ const Terms = () => {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold mb-4">4. Prompts & Credits</h2>
+              <h2 className="text-2xl font-bold mb-4">4. Free Service</h2>
               <p className="text-muted-foreground">
-                Prompts and credits are used to generate AI responses. They are non-transferable and, once
-                used, non-refundable. Unused prompts remain valid unless otherwise stated. See our Refund
-                Policy for details.
+                Bloxsmith is provided free of charge. There are no fees, subscriptions, or credits to
+                purchase. We may apply reasonable fair-use limits to keep the Service reliable for everyone.
               </p>
+
             </section>
 
             <section>

@@ -23,12 +23,13 @@ const FAQ = () => {
 
             <AccordionItem value="item-2" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
-                How do prompts work?
+                Is Bloxsmith really free?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Each request you make to the AI uses one prompt. Prompts are used for creating new features, modifying existing ones, or generating content. New users start with 50 free prompts, and more can be purchased as needed.
+                Yes — Bloxsmith is 100% free. There are no payments, subscriptions, credits, or hidden costs. Just sign up and start building as much as you want.
               </AccordionContent>
             </AccordionItem>
+
 
             <AccordionItem value="item-3" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
@@ -68,28 +69,29 @@ const FAQ = () => {
 
             <AccordionItem value="item-7" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
-                How are payments processed?
+                Do I need to pay anything?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                All payments are securely processed through PayPal. We don't store your payment information. Prompt purchases are instant and automatically added to your balance.
+                Never. Bloxsmith is completely free to use — we don't collect any payment information and there's nothing to buy.
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="item-8" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
-                Do prompts expire?
+                Are there any usage limits?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                No! Once purchased, prompts remain in your account indefinitely. Use them at your own pace.
+                Use Bloxsmith as much as you like. Fair-use limits may apply to keep the service fast for everyone, but there's no cost and nothing expires.
               </AccordionContent>
             </AccordionItem>
+
 
             <AccordionItem value="item-9" className="border-border/50">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
                 Is there a limit to game complexity?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Bloxsmith can create games of any complexity. However, more complex features may require multiple prompts to fully implement and refine.
+                Bloxsmith can create games of any complexity. More complex features may take a few requests to fully implement and refine — all free of charge.
               </AccordionContent>
             </AccordionItem>
 

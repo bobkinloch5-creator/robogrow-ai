@@ -29,10 +29,10 @@ const Privacy = () => {
               <h2 className="text-2xl font-bold mb-4">1. Information We Collect</h2>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>Account information such as your email address</li>
-                <li>Payment information, processed securely by our payment provider (we never store card details)</li>
-                <li>Usage data, including prompt counts and feature usage</li>
+                <li>Usage data, including feature usage</li>
                 <li>Prompts you send and the code/content the AI generates for you</li>
                 <li>Basic project context the plugin sends to fulfil a request (e.g. selected scripts and hierarchy)</li>
+
               </ul>
             </section>
 
@@ -40,7 +40,7 @@ const Privacy = () => {
               <h2 className="text-2xl font-bold mb-4">2. How We Use Your Information</h2>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>To provide, maintain, and improve the Service</li>
-                <li>To process payments and manage your prompt balance</li>
+
                 <li>To generate AI responses for your requests</li>
                 <li>To send important service notifications</li>
                 <li>To detect, prevent, and address fraud and abuse</li>
@@ -68,8 +68,8 @@ const Privacy = () => {
               <h2 className="text-2xl font-bold mb-4">5. Third-Party Services</h2>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>NVIDIA-hosted AI models for AI functionality</li>
-                <li>Our payment provider for secure checkout</li>
                 <li>Discord for community and support</li>
+
               </ul>
             </section>
 

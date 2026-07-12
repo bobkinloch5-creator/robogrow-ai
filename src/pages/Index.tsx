@@ -304,13 +304,8 @@ const Index = () => {
                 >
                   Privacy Policy
                 </Link>
-                <Link
-                  to="/refund"
-                  className="block text-muted-foreground hover:text-foreground"
-                >
-                  Refund Policy
-                </Link>
               </div>
+
             </div>
             <div>
               <h3 className="font-bold mb-4">Support</h3>

@@ -78,12 +78,13 @@ const Dashboard = () => {
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gradient-card p-6 border-border/50">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-muted-foreground">Prompt Balance</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Your Plan</h3>
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
-            <p className="text-3xl font-bold">50</p>
-            <p className="text-xs text-muted-foreground mt-1">prompts remaining</p>
+            <p className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">Free</p>
+            <p className="text-xs text-muted-foreground mt-1">unlimited prompts</p>
           </Card>
+
 
           <Card className="bg-gradient-card p-6 border-border/50">
             <div className="flex items-center justify-between mb-2">
@@ -134,48 +135,18 @@ const Dashboard = () => {
 
         </Card>
 
-        {/* Purchase Prompts */}
-        <Card className="bg-gradient-card p-8 border-border/50">
-          <h2 className="text-2xl font-bold mb-4">Get More Prompts</h2>
+        {/* 100% Free */}
+        <Card className="bg-gradient-card p-8 border-border/50 text-center">
+          <h2 className="text-2xl font-bold mb-2">Bloxsmith is 100% Free</h2>
           <p className="text-muted-foreground mb-6">
-            Purchase additional prompts to build more advanced games
+            No payments, no subscriptions, no hidden costs — build as much as you want, forever.
           </p>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg">
-              <div>
-                <h3 className="font-bold">100 Prompts</h3>
-                <p className="text-sm text-muted-foreground">Perfect for small projects</p>
-              </div>
-              <Button className="bg-gradient-primary">$9.99</Button>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg">
-              <div>
-                <h3 className="font-bold">500 Prompts</h3>
-                <p className="text-sm text-muted-foreground">Most popular choice</p>
-              </div>
-              <Button className="bg-gradient-primary">$39.99</Button>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg">
-              <div>
-                <h3 className="font-bold">1000 Prompts</h3>
-                <p className="text-sm text-muted-foreground">Best value for teams</p>
-              </div>
-              <Button className="bg-gradient-primary">$69.99</Button>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 bg-background/30 rounded-lg border border-border/50">
-            <p className="text-sm text-center">
-              <span className="font-semibold">Support the Project:</span> Donate via PayPal to help keep Bloxsmith free
-            </p>
-            <div className="flex justify-center mt-3">
-              <Button variant="outline" size="sm">
-                Donate with PayPal
+          <div className="flex justify-center">
+            <a href="https://discord.gg/gkYGrVBbca" target="_blank" rel="noopener noreferrer">
+              <Button className="bg-gradient-primary shadow-glow">
+                Join our Discord Community
               </Button>
-            </div>
+            </a>
           </div>
         </Card>
       </div>
@@ -184,3 +155,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
