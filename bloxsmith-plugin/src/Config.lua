@@ -8,7 +8,7 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "1.2.0"
+Config.Version = "1.3.0"
 
 -- Secure backend (Lovable Cloud edge function). Overridable via plugin settings.
 Config.DefaultBackendUrl =
