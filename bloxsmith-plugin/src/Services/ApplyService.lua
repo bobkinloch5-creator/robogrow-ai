@@ -487,16 +487,26 @@ function ApplyService:applyOne(action)
 		local placed = {}
 		local visualParts = {}
 		for _, child in ipairs(children) do
-			local target, isVisual = smartParentFor(child, requestedParent)
-			pcall(function()
-				child.Parent = target
-			end)
-			table.insert(placed, child)
-			if isVisual then
-				table.insert(visualParts, child)
+			if isEffect(child) then
+				-- Give bare effects a visible host part so particles/fire/beams
+				-- etc. actually render in the world.
+				local host = createEffectHost(child)
+				pcall(function() host.Parent = requestedParent or workspace end)
+				table.insert(placed, host)
+				table.insert(visualParts, host)
+			else
+				local target, isVisual = smartParentFor(child, requestedParent)
+				pcall(function()
+					child.Parent = target
+				end)
+				table.insert(placed, child)
+				if isVisual then
+					table.insert(visualParts, child)
+				end
 			end
 		end
 		if container then pcall(function() container:Destroy() end) end
+
 
 		if #placed == 0 then
 			return false, ("Asset %d loaded but contained nothing to insert."):format(assetId)
