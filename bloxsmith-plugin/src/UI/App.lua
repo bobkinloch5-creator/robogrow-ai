@@ -238,8 +238,15 @@ function App:send(promptText, mode)
 	self.busy = true
 	self.sendBtn.Text = "…"
 
+	-- Dismiss the onboarding card on first message.
+	if self._welcomeCard then
+		self._welcomeCard:Destroy()
+		self._welcomeCard = nil
+	end
+
 	self:addBubble("user", promptText)
 	table.insert(self.history, { role = "user", content = promptText })
+
 
 	local includeTree = mode ~= "chat"
 	local context = self.deps.context:build(includeTree)
