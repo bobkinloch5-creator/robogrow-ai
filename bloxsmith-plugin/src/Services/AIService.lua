@@ -117,6 +117,7 @@ function AIService:request(opts)
 		prompt = opts.prompt,
 		messages = opts.messages,
 		context = opts.context,
+		preferences = opts.preferences or self:getPreferences(),
 	}
 
 	local ok, body = pcall(function()
