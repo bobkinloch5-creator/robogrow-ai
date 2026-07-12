@@ -77,18 +77,7 @@ const Navbar = () => {
             >
               Discord
             </a>
-            <div className="flex flex-col gap-3 pt-2">
-              <Link to="/auth" onClick={() => setOpen(false)}>
-                <Button variant="outline" className="w-full">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/auth?mode=signup" onClick={() => setOpen(false)}>
-                <Button className="w-full bg-gradient-primary shadow-glow">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
+
           </div>
         </div>
       )}
