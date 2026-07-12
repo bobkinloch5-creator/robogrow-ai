@@ -1189,8 +1189,11 @@ function App:buildToolboxView(parent)
 			local res = self.deps.apply:insertAsset(id)
 			idBtn.Text = "Insert"
 			if res.ok then
-				self:toast("Inserted asset " .. id .. " (Ctrl+Z to undo)", "success")
+				local msg = (res.results and res.results[1] and res.results[1].message)
+					or ("Inserted asset " .. id)
+				self:toast(msg .. " — Ctrl+Z to undo", "success")
 				idBox.Text = ""
+
 			else
 				self:toast(res.error or "Insert failed.", "error")
 			end
