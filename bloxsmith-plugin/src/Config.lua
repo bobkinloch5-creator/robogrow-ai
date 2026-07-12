@@ -8,10 +8,21 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.2.0"
+Config.Version = "3.2.1"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.2.1",
+		date = "2026-07-12",
+		title = "Generate Executes Again",
+		changes = {
+			"FIXED: Empty AI replies no longer leave blank Bloxsmith message bubbles — the plugin now treats them as retryable backend failures.",
+			"FIXED: Generate mode now uses the build agent path, so map/visual requests produce apply-ready Studio changes instead of only text.",
+			"IMPROVED: If actions are returned with little text, Bloxsmith still shows a clear approval prompt.",
+		},
+	},
+
 	{
 		version = "3.2.0",
 		date = "2026-07-12",
