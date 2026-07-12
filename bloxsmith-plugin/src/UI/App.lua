@@ -344,12 +344,16 @@ function App:addCodeBlock(parent, block, order)
 	local insert = button("＋ Insert into Studio", { LayoutOrder = 2, BackgroundColor3 = C.AccentDim })
 	insert.Parent = panel
 	insert.Activated:Connect(function()
+		insert.Text = "Inserting…"
 		local action = Parser.blockToAction(block, order)
 		local res = self.deps.apply:applyActions({ action }, "Bloxsmith insert script")
-		if res.ok then
-			self:toast("Inserted " .. (action.name or "script") .. " (Ctrl+Z to undo)", "success")
+		if res.ok and (res.applied or 0) > 0 then
+			local where = action.path or "ServerScriptService"
+			self:toast(("✓ Added '%s' to %s (open Explorer to see it). Ctrl+Z to undo."):format(action.name or "script", where), "success")
+			insert.Text = "✓ Inserted into " .. where
 		else
 			self:toast("Insert failed: " .. (res.error or "unknown"), "error")
+			insert.Text = "＋ Retry insert"
 		end
 	end)
 end
@@ -1032,7 +1036,7 @@ function App:buildToolboxView(parent)
 		BorderSizePixel = 0, LayoutOrder = 3, Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	local grid = Create("UIGridLayout", {
-		CellSize = UDim2.new(0.5, -6, 0, 150), CellPadding = UDim2.new(0, 8, 0, 8),
+		CellSize = UDim2.new(0.5, -6, 0, 176), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
 
@@ -1087,14 +1091,21 @@ function App:buildToolboxView(parent)
 				task.spawn(function()
 					local res = self.deps.apply:insertAsset(item.id, item.name)
 					if res.ok then
-						self:toast(("Inserted '%s' into Workspace (Ctrl+Z to undo)"):format(item.name or "model"), "success")
+						self:toast(("Inserted '%s' — check the Workspace / viewport (Ctrl+Z to undo)"):format(item.name or "model"), "success")
 						insertBtn.Text = "✓ Inserted"
 					else
 						self:toast(res.error or "Insert failed.", "error")
-						insertBtn.Text = "＋ Insert"
+						insertBtn.Text = "＋ Retry"
 					end
 				end)
 			end)
+
+			-- Asset ID row at the bottom (also copy-selectable via the search box).
+			Create("TextLabel", {
+				Text = "ID: " .. tostring(item.id or "?"), Font = Theme.FontMono, TextSize = 10,
+				TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
+				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 12), LayoutOrder = 3, Parent = card,
+			})
 		end
 	end
 

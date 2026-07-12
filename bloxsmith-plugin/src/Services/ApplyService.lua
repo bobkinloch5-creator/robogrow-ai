@@ -283,7 +283,11 @@ function ApplyService:applyOne(action)
 			return InsertService:LoadAsset(assetId)
 		end)
 		if not okLoad or not loaded then
-			return false, ("Could not load asset %d (is it a public model?)"):format(assetId)
+			-- Surface the REAL Roblox error so the user knows what went wrong
+			-- (e.g. private model, needs purchase, moderation, offline).
+			local reason = tostring(loaded or "unknown error")
+			Log.warn("LoadAsset failed for", assetId, ":", reason)
+			return false, ("Could not insert model %d — %s"):format(assetId, reason)
 		end
 		-- LoadAsset returns a Model container; unpack its children into the parent.
 		local inserted
@@ -298,8 +302,23 @@ function ApplyService:applyOne(action)
 			loaded.Parent = parent
 			inserted = loaded
 		end
-		return true, ("Inserted asset %d into %s"):format(assetId, parent:GetFullName()), inserted
+		-- Move the inserted model in front of the camera and focus on it so the
+		-- user immediately SEES it in the viewport (models otherwise spawn at the
+		-- world origin, which is easy to miss).
+		pcall(function()
+			local camera = workspace.CurrentCamera
+			if camera and inserted:IsA("Model") then
+				local okPivot = pcall(function()
+					inserted:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
+				end)
+				if okPivot then
+					camera.CFrame = CFrame.lookAt(camera.CFrame.Position, inserted:GetPivot().Position)
+				end
+			end
+		end)
+		return true, ("Inserted model %d into %s"):format(assetId, parent:GetFullName()), inserted
 	end
+
 
 	return false, "Unknown action: " .. tostring(kind)
 end
@@ -315,6 +334,7 @@ function ApplyService:applyActions(actions, label)
 	local created = {}
 	local anyFail = false
 	local okCount = 0
+	local firstError = nil
 
 	for _, action in ipairs(actions) do
 		local ok, msg, inst = self:applyOne(action)
@@ -326,6 +346,7 @@ function ApplyService:applyActions(actions, label)
 			end
 		else
 			anyFail = true
+			firstError = firstError or msg
 			Log.warn("Action failed:", msg)
 		end
 	end
@@ -340,8 +361,9 @@ function ApplyService:applyActions(actions, label)
 		end)
 	end
 
-	return { ok = not anyFail, results = results, created = created, applied = okCount }
+	return { ok = not anyFail, results = results, created = created, applied = okCount, error = firstError }
 end
+
 
 -- Overwrite a specific script's source with undo support (used by fix/optimize).
 function ApplyService:replaceSource(scriptInstance, newSource, label)

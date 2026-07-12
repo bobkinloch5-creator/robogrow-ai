@@ -590,7 +590,11 @@ function ApplyService:applyOne(action)
 			return InsertService:LoadAsset(assetId)
 		end)
 		if not okLoad or not loaded then
-			return false, ("Could not load asset %d (is it a public model?)"):format(assetId)
+			-- Surface the REAL Roblox error so the user knows what went wrong
+			-- (e.g. private model, needs purchase, moderation, offline).
+			local reason = tostring(loaded or "unknown error")
+			Log.warn("LoadAsset failed for", assetId, ":", reason)
+			return false, ("Could not insert model %d — %s"):format(assetId, reason)
 		end
 		-- LoadAsset returns a Model container; unpack its children into the parent.
 		local inserted
@@ -605,8 +609,23 @@ function ApplyService:applyOne(action)
 			loaded.Parent = parent
 			inserted = loaded
 		end
-		return true, ("Inserted asset %d into %s"):format(assetId, parent:GetFullName()), inserted
+		-- Move the inserted model in front of the camera and focus on it so the
+		-- user immediately SEES it in the viewport (models otherwise spawn at the
+		-- world origin, which is easy to miss).
+		pcall(function()
+			local camera = workspace.CurrentCamera
+			if camera and inserted:IsA("Model") then
+				local okPivot = pcall(function()
+					inserted:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
+				end)
+				if okPivot then
+					camera.CFrame = CFrame.lookAt(camera.CFrame.Position, inserted:GetPivot().Position)
+				end
+			end
+		end)
+		return true, ("Inserted model %d into %s"):format(assetId, parent:GetFullName()), inserted
 	end
+
 
 	return false, "Unknown action: " .. tostring(kind)
 end
@@ -622,6 +641,7 @@ function ApplyService:applyActions(actions, label)
 	local created = {}
 	local anyFail = false
 	local okCount = 0
+	local firstError = nil
 
 	for _, action in ipairs(actions) do
 		local ok, msg, inst = self:applyOne(action)
@@ -633,6 +653,7 @@ function ApplyService:applyActions(actions, label)
 			end
 		else
 			anyFail = true
+			firstError = firstError or msg
 			Log.warn("Action failed:", msg)
 		end
 	end
@@ -647,8 +668,9 @@ function ApplyService:applyActions(actions, label)
 		end)
 	end
 
-	return { ok = not anyFail, results = results, created = created, applied = okCount }
+	return { ok = not anyFail, results = results, created = created, applied = okCount, error = firstError }
 end
+
 
 -- Overwrite a specific script's source with undo support (used by fix/optimize).
 function ApplyService:replaceSource(scriptInstance, newSource, label)
@@ -1579,12 +1601,16 @@ function App:addCodeBlock(parent, block, order)
 	local insert = button("＋ Insert into Studio", { LayoutOrder = 2, BackgroundColor3 = C.AccentDim })
 	insert.Parent = panel
 	insert.Activated:Connect(function()
+		insert.Text = "Inserting…"
 		local action = Parser.blockToAction(block, order)
 		local res = self.deps.apply:applyActions({ action }, "Bloxsmith insert script")
-		if res.ok then
-			self:toast("Inserted " .. (action.name or "script") .. " (Ctrl+Z to undo)", "success")
+		if res.ok and (res.applied or 0) > 0 then
+			local where = action.path or "ServerScriptService"
+			self:toast(("✓ Added '%s' to %s (open Explorer to see it). Ctrl+Z to undo."):format(action.name or "script", where), "success")
+			insert.Text = "✓ Inserted into " .. where
 		else
 			self:toast("Insert failed: " .. (res.error or "unknown"), "error")
+			insert.Text = "＋ Retry insert"
 		end
 	end)
 end
@@ -2267,7 +2293,7 @@ function App:buildToolboxView(parent)
 		BorderSizePixel = 0, LayoutOrder = 3, Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	local grid = Create("UIGridLayout", {
-		CellSize = UDim2.new(0.5, -6, 0, 150), CellPadding = UDim2.new(0, 8, 0, 8),
+		CellSize = UDim2.new(0.5, -6, 0, 176), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
 
@@ -2322,14 +2348,21 @@ function App:buildToolboxView(parent)
 				task.spawn(function()
 					local res = self.deps.apply:insertAsset(item.id, item.name)
 					if res.ok then
-						self:toast(("Inserted '%s' into Workspace (Ctrl+Z to undo)"):format(item.name or "model"), "success")
+						self:toast(("Inserted '%s' — check the Workspace / viewport (Ctrl+Z to undo)"):format(item.name or "model"), "success")
 						insertBtn.Text = "✓ Inserted"
 					else
 						self:toast(res.error or "Insert failed.", "error")
-						insertBtn.Text = "＋ Insert"
+						insertBtn.Text = "＋ Retry"
 					end
 				end)
 			end)
+
+			-- Asset ID row at the bottom (also copy-selectable via the search box).
+			Create("TextLabel", {
+				Text = "ID: " .. tostring(item.id or "?"), Font = Theme.FontMono, TextSize = 10,
+				TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
+				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 12), LayoutOrder = 3, Parent = card,
+			})
 		end
 	end
 
