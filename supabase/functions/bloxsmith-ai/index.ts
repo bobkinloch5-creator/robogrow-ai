@@ -287,8 +287,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = (await req.json()) as RequestBody;
+    const body = (await req.json()) as RequestBody & { query?: string; limit?: number };
     const mode = typeof body.mode === "string" ? body.mode : "chat";
+
+    // Toolbox / Creator Store model search — bypasses the AI model entirely.
+    if (mode === "toolbox_search") {
+      const query = typeof body.query === "string" ? body.query.trim() : "";
+      if (!query) {
+        return new Response(JSON.stringify({ error: "No search query provided" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const limit = Math.min(Math.max(Number(body.limit) || 18, 1), 30);
+      const results = await searchToolbox(query, limit);
+      return new Response(JSON.stringify({ results, mode }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const history = Array.isArray(body.messages) ? body.messages : [];
     const prompt = typeof body.prompt === "string" ? body.prompt : "";
 
