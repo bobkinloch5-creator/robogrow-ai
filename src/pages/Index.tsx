@@ -225,9 +225,10 @@ const Index = () => {
                 key={item.step}
                 className="bg-gradient-card p-8 border-border/50 relative overflow-hidden"
               >
-                <div className="text-6xl font-black text-primary/10 absolute top-4 right-4">
+                <div className="text-7xl font-black bg-gradient-primary bg-clip-text text-transparent opacity-40 absolute top-2 right-4 drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)]">
                   {item.step}
                 </div>
+
                 <div className="relative z-10">
                   <h3 className="text-xl font-bold mb-2">{item.title}</h3>
                   <p className="text-muted-foreground">{item.description}</p>
