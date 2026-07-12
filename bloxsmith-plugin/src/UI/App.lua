@@ -975,7 +975,7 @@ function App:mount(gui)
 	-- Content area
 	local content = Create("Frame", { BackgroundColor3 = C.Bg, Size = UDim2.new(1, -118, 1, 0), Position = UDim2.new(0, 118, 0, 0), BorderSizePixel = 0, Parent = gui }, { pad(10) })
 
-	local nav = { "Chat", "Tools", "Analysis", "Health", "Errors", "Settings" }
+	local nav = { "Chat", "Tools", "Toolbox", "Analysis", "Health", "Errors", "Settings" }
 	for _, name in ipairs(nav) do
 		local b = button(name, { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.Sidebar, TextColor3 = C.TextDim })
 		b.Parent = sidebar
