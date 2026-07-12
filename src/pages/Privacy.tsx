@@ -40,7 +40,7 @@ const Privacy = () => {
               <h2 className="text-2xl font-bold mb-4">2. How We Use Your Information</h2>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>To provide, maintain, and improve the Service</li>
-                <li>To process payments and manage your prompt balance</li>
+
                 <li>To generate AI responses for your requests</li>
                 <li>To send important service notifications</li>
                 <li>To detect, prevent, and address fraud and abuse</li>
