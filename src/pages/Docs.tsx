@@ -33,15 +33,18 @@ const Docs = () => {
                 <section>
                   <h3 className="text-xl font-semibold mb-3">2. Install the Plugin</h3>
                   <p className="text-muted-foreground mb-2">
-                    Download the Bloxsmith plugin from your dashboard and install it in Roblox Studio:
+                    Download the single <code className="text-primary">Bloxsmith.lua</code> file from your
+                    dashboard and add it as a Local Plugin in Roblox Studio:
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                    <li>Open Roblox Studio</li>
-                    <li>Go to Plugins → Manage Plugins</li>
-                    <li>Click "Install Plugin"</li>
-                    <li>Select the HideBot.rbxm file</li>
+                    <li>Open Roblox Studio and go to the <strong>Plugins</strong> tab</li>
+                    <li>Click <strong>Plugins Folder</strong> and drop <code className="text-primary">Bloxsmith.lua</code> inside</li>
+                    <li>Or right-click the file in Studio and choose <strong>Save as Local Plugin</strong></li>
+                    <li>Restart Studio if the button doesn't appear, then click <strong>Bloxsmith</strong> to open the panel</li>
+                    <li>On your first request, click <strong>Allow</strong> when Studio asks for HTTP permission</li>
                   </ul>
                 </section>
+
 
                 <section>
                   <h3 className="text-xl font-semibold mb-3">3. Connect Your Account</h3>
