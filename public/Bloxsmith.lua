@@ -34,10 +34,20 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.2.1"
+Config.Version = "3.2.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.2.2",
+		date = "2026-07-12",
+		title = "Action Parser Backup",
+		changes = {
+			"FIXED: If the backend sends an apply block but forgets the structured actions field, the plugin now extracts and shows the Apply button itself.",
+			"IMPROVED: Build requests are much less likely to look like they did nothing after Bloxsmith responds.",
+		},
+	},
+
 	{
 		version = "3.2.1",
 		date = "2026-07-12",
@@ -1975,8 +1985,9 @@ function App:send(promptText, mode)
 			end
 			self:addBubble("assistant", reply)
 			table.insert(self.history, { role = "assistant", content = reply })
-			if result.actions then
-				self:proposeAgentActions(result.actions)
+			local actions = result.actions or Parser.extractActions(reply)
+			if actions then
+				self:proposeAgentActions(actions)
 			end
 		else
 			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
@@ -3179,6 +3190,26 @@ function Parser.extractThinking(text)
 		return (thinking:gsub("^%s+", ""):gsub("%s+$", "")), cleaned
 	end
 	return nil, text
+end
+
+-- Extract JSON actions from a ```bloxsmith:actions ... ``` block as a safety net
+-- in case the backend returns a reply but fails to populate decoded.actions.
+function Parser.extractActions(text)
+	if type(text) ~= "string" then
+		return nil
+	end
+	local json = string.match(text, "```bloxsmith:actions%s*\n(.-)```")
+	if not json or json == "" then
+		return nil
+	end
+	local HttpService = game:GetService("HttpService")
+	local ok, decoded = pcall(function()
+		return HttpService:JSONDecode(json)
+	end)
+	if ok and type(decoded) == "table" then
+		return decoded
+	end
+	return nil
 end
 
 -- Convert a code block into a create_script action (best-effort defaults).
