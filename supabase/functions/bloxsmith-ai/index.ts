@@ -61,7 +61,16 @@ After your explanation, emit ONE actions block the plugin can apply, formatted e
 \`\`\`bloxsmith:actions
 [{"action":"create_script","path":"ServerScriptService","name":"ShopService","class":"Script","source":"-- luau here"}]
 \`\`\`
-Valid actions: create_script, replace_script (requires "target" full path), create_folder (name+path). Always include the human-readable code blocks too.`,
+Valid actions (paths are Studio paths like "ServerScriptService/Systems"):
+- create_script    {"action":"create_script","path":"ServerScriptService","name":"X","class":"Script|LocalScript|ModuleScript","source":"..."}
+- replace_script   {"action":"replace_script","target":"ServerScriptService/X","source":"..."}
+- create_folder    {"action":"create_folder","path":"ServerScriptService","name":"Systems"}
+- create_instance  {"action":"create_instance","path":"Workspace","class":"Part","name":"Spawn","properties":{"Anchored":true,"Size":[4,1,4],"Color":{"r":255,"g":0,"b":0}}}
+- set_property     {"action":"set_property","target":"Workspace/Part","property":"Transparency","value":0.5}
+- rename_instance  {"action":"rename_instance","target":"Workspace/Part","name":"NewName"}
+- move_instance    {"action":"move_instance","target":"Workspace/Part","path":"ReplicatedStorage/Assets"}
+- delete_instance  {"action":"delete_instance","target":"Workspace/OldPart"}
+Only emit actions you are confident about. Always include the human-readable code blocks too so the user can review.`,
 };
 
 function buildSystem(mode: string, context: unknown): string {
