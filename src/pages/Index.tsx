@@ -14,6 +14,7 @@ import {
   Gauge,
   Puzzle,
 } from "lucide-react";
+import bloxsmithIcon from "@/assets/bloxsmith-icon.png";
 
 const features = [
   {
@@ -84,6 +85,18 @@ const Index = () => {
 
         <div className="container mx-auto relative z-10">
           <div className="max-w-4xl mx-auto text-center space-y-8 animate-slide-up">
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-glow blur-2xl animate-pulse-glow" />
+                <img
+                  src={bloxsmithIcon}
+                  alt="Bloxsmith logo"
+                  width={816}
+                  height={816}
+                  className="relative h-28 w-28 md:h-36 md:w-36 animate-float drop-shadow-[0_10px_40px_hsl(var(--primary)/0.5)]"
+                />
+              </div>
+            </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-sm text-muted-foreground backdrop-blur-sm">
               <Sparkles className="h-4 w-4 text-primary" />
               Meet Bloxsmith — your AI Roblox copilot
