@@ -513,7 +513,7 @@ function App:buildChatView(parent)
 	end
 
 	-- Input row
-	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 3, Parent = view })
+	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 4, Parent = view })
 	self.input = Create("TextBox", {
 		PlaceholderText = "Ask Bloxsmith or describe what to build…",
 		Text = "",
