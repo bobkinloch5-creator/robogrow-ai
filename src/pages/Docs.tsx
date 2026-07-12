@@ -111,7 +111,7 @@ const Docs = () => {
                     <div className="p-4 bg-background/50 rounded-lg">
                       <h4 className="font-semibold mb-1">Generation fails</h4>
                       <p className="text-sm text-muted-foreground">
-                        Check your prompt balance and ensure your request is clear
+                        Make sure your request is clear and try again
                       </p>
                     </div>
                   </div>
