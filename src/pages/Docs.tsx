@@ -73,7 +73,7 @@ const Docs = () => {
                   <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
                     <li>Roblox Studio (latest version recommended)</li>
                     <li>Active internet connection</li>
-                    <li>Bloxsmith account with available prompts</li>
+                    <li>A free Bloxsmith account</li>
                   </ul>
                 </section>
 
