@@ -15,6 +15,8 @@ import {
   Puzzle,
 } from "lucide-react";
 import bloxsmithIcon from "@/assets/bloxsmith-icon.png";
+import heroBg from "@/assets/roblox-hero-bg.jpg";
+
 
 const features = [
   {
