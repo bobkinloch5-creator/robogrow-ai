@@ -275,7 +275,7 @@ function buildSystem(mode: string, context: unknown, preferences?: Preferences):
     if (prefs) support.push(prefs);
     return support.join("\n\n");
   }
-  const parts = [BASE_SYSTEM];
+  const parts = [mode === "agent" ? AGENT_SYSTEM : BASE_SYSTEM];
   if (MODE_SYSTEM[mode]) parts.push(`TASK MODE (${mode}): ${MODE_SYSTEM[mode]}`);
 
   const prefs = buildPreferences(preferences);
