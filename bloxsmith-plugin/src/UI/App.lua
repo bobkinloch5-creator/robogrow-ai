@@ -1114,6 +1114,7 @@ function App:mount(gui)
 	self:buildAnalysisView(self.views.Analysis)
 	self:buildHealthView(self.views.Health)
 	self:buildErrorsView(self.views.Errors)
+	self:buildChangelogView(self.views.Changelog)
 	self:buildSettingsView(self.views.Settings)
 
 	self:selectView("Chat")
