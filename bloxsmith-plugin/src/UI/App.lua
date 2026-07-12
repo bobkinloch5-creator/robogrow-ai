@@ -1087,14 +1087,21 @@ function App:buildToolboxView(parent)
 				task.spawn(function()
 					local res = self.deps.apply:insertAsset(item.id, item.name)
 					if res.ok then
-						self:toast(("Inserted '%s' into Workspace (Ctrl+Z to undo)"):format(item.name or "model"), "success")
+						self:toast(("Inserted '%s' — check the Workspace / viewport (Ctrl+Z to undo)"):format(item.name or "model"), "success")
 						insertBtn.Text = "✓ Inserted"
 					else
 						self:toast(res.error or "Insert failed.", "error")
-						insertBtn.Text = "＋ Insert"
+						insertBtn.Text = "＋ Retry"
 					end
 				end)
 			end)
+
+			-- Asset ID row at the bottom (also copy-selectable via the search box).
+			Create("TextLabel", {
+				Text = "ID: " .. tostring(item.id or "?"), Font = Theme.FontMono, TextSize = 10,
+				TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
+				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 12), LayoutOrder = 3, Parent = card,
+			})
 		end
 	end
 
