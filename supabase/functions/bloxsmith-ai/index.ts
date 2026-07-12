@@ -7,11 +7,71 @@ const DEFAULT_MODEL = "google/gemini-3-flash-preview";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
+interface Preferences {
+  persona?: string;
+  responseLength?: string;
+  customInstructions?: string;
+}
+
 interface RequestBody {
   mode?: string;
   messages?: ChatMessage[];
   prompt?: string;
   context?: unknown;
+  preferences?: Preferences;
+}
+
+// ---- Security limits (input validation & abuse prevention) -------------------
+const MAX_PROMPT_CHARS = 8000;
+const MAX_MESSAGE_CHARS = 8000;
+const MAX_MESSAGES = 40;
+const MAX_CONTEXT_CHARS = 12000;
+const MAX_BODY_BYTES = 200_000;
+const MAX_CUSTOM_INSTRUCTIONS = 1000;
+
+// Whitelisted request modes — anything else is rejected.
+const ALLOWED_MODES = new Set([
+  "chat", "support", "generate_script", "fix_script", "explain_script",
+  "optimize_script", "generate_ui", "generate_system", "security_scan",
+  "performance", "cleanup", "docs", "recommend", "agent", "toolbox_search",
+]);
+
+// ---- Best-effort in-memory rate limiter --------------------------------------
+// Per-instance sliding window keyed by client IP. Not a distributed limiter, but
+// it throttles bursty abuse from a single source without extra infrastructure.
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_REQUESTS = 20;
+const rateBuckets = new Map<string, number[]>();
+
+function isRateLimited(clientId: string): boolean {
+  const now = Date.now();
+  const hits = (rateBuckets.get(clientId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  if (hits.length >= RATE_MAX_REQUESTS) {
+    rateBuckets.set(clientId, hits);
+    return true;
+  }
+  hits.push(now);
+  rateBuckets.set(clientId, hits);
+  // Opportunistic cleanup so the map cannot grow unbounded.
+  if (rateBuckets.size > 5000) {
+    for (const [k, v] of rateBuckets) {
+      if (v.every((t) => now - t >= RATE_WINDOW_MS)) rateBuckets.delete(k);
+    }
+  }
+  return false;
+}
+
+function getClientId(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? "unknown";
+}
+
+// Collapse control characters and clamp length so user text can't break the prompt.
+function sanitizeText(input: unknown, max: number): string {
+  if (typeof input !== "string") return "";
+  // deno-lint-ignore no-control-regex
+  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").slice(0, max);
 }
 
 const BASE_SYSTEM = `You are Bloxsmith, an elite AI copilot embedded inside Roblox Studio.
