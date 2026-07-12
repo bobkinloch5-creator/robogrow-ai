@@ -1010,6 +1010,33 @@ function App:buildSettingsView(parent)
 end
 
 --========================================================================
+-- Changelog (what's new in each version)
+--========================================================================
+function App:buildChangelogView(parent)
+	local view = Create("ScrollingFrame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 4, ScrollBarImageColor3 = C.Border, BorderSizePixel = 0, Parent = parent })
+	Create("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = view })
+	pad(0).Parent = view
+
+	Create("TextLabel", { Text = ("📝 What's New — Bloxsmith v%s"):format(Config.Version), Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), LayoutOrder = 0, Parent = view })
+
+	for i, entry in ipairs(Config.Changelog or {}) do
+		local isLatest = (i == 1)
+		local card = Create("Frame", { BackgroundColor3 = C.Panel, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = i, Parent = view }, { corner(UDim.new(0, 8)), pad(10), stroke(isLatest and C.Accent or C.Border) })
+		Create("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = card })
+
+		local header = ("v%s — %s"):format(entry.version, entry.title or "")
+		if isLatest then header = "⭐ " .. header .. "  (latest)" end
+		Create("TextLabel", { Text = header, Font = Theme.FontBold, TextSize = 14, TextColor3 = isLatest and C.Accent or C.Text, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 0, Parent = card })
+		Create("TextLabel", { Text = entry.date or "", Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 1, Parent = card })
+
+		for j, change in ipairs(entry.changes or {}) do
+			Create("TextLabel", { Text = "• " .. change, Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 1 + j, Parent = card })
+		end
+	end
+end
+
+
+--========================================================================
 -- Navigation + mount
 --========================================================================
 function App:selectView(name)
