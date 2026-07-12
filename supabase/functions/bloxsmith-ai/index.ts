@@ -287,6 +287,97 @@ function buildPreferences(preferences?: Preferences): string | null {
   return lines.length ? "USER PREFERENCES:\n" + lines.join("\n") : null;
 }
 
+function latestUserText(messages: ChatMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === "user") return messages[i].content || "";
+  }
+  return "";
+}
+
+function buildGrassActionsResponse(): { reply: string; actions: unknown[] } {
+  const actions: unknown[] = [
+    { action: "create_folder", path: "Workspace", name: "BloxsmithGrass" },
+    {
+      action: "create_instance",
+      path: "Workspace/BloxsmithGrass",
+      class: "Part",
+      name: "LushGrassGround",
+      properties: {
+        Size: [260, 0.35, 260],
+        Position: [0, -0.18, 0],
+        Anchored: true,
+        CanCollide: true,
+        Material: "Grass",
+        Color: { r: 71, g: 139, b: 63 },
+        TopSurface: "Smooth",
+        BottomSurface: "Smooth",
+      },
+    },
+    {
+      action: "create_instance",
+      path: "Lighting",
+      class: "ColorCorrectionEffect",
+      name: "BloxsmithGrassColor",
+      properties: { Brightness: 0.03, Contrast: 0.08, Saturation: 0.18, TintColor: { r: 213, g: 255, b: 205 } },
+    },
+  ];
+
+  const colors = [
+    { r: 57, g: 118, b: 49 },
+    { r: 72, g: 150, b: 55 },
+    { r: 93, g: 170, b: 68 },
+    { r: 45, g: 100, b: 42 },
+    { r: 112, g: 185, b: 78 },
+  ];
+  let index = 1;
+  for (let ring = 0; ring < 4; ring++) {
+    const radius = 18 + ring * 22;
+    const count = 12 + ring * 6;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + ring * 0.37;
+      const wave = Math.sin(i * 1.91 + ring) * 5;
+      const x = Math.round(Math.cos(angle) * (radius + wave) * 10) / 10;
+      const z = Math.round(Math.sin(angle) * (radius + wave) * 10) / 10;
+      const height = 1.1 + ((i + ring) % 5) * 0.22;
+      actions.push({
+        action: "create_instance",
+        path: "Workspace/BloxsmithGrass",
+        class: "Part",
+        name: `GrassBlade_${String(index).padStart(3, "0")}`,
+        properties: {
+          Size: [0.24 + (i % 3) * 0.06, height, 0.18 + (ring % 2) * 0.07],
+          Position: [x, height / 2, z],
+          Orientation: [((i % 5) - 2) * 5, Math.round((angle * 180) / Math.PI), ((ring % 3) - 1) * 6],
+          Anchored: true,
+          CanCollide: false,
+          CanTouch: false,
+          CanQuery: false,
+          CastShadow: false,
+          Material: "Grass",
+          Color: colors[(i + ring) % colors.length],
+          TopSurface: "Smooth",
+          BottomSurface: "Smooth",
+        },
+      });
+      index++;
+    }
+  }
+
+  const reply = [
+    FENCE + "bloxsmith:thinking",
+    "- Build real grass pieces directly in Workspace so they appear immediately in Edit mode",
+    "- Add a grass ground layer plus many varied anchored blades around the map",
+    "- Add light color polish without needing Play mode",
+    FENCE,
+    "I built a live edit-mode grass setup. Approve the changes and you should immediately see a green grass base plus natural grass blade clusters around the map.",
+    FENCE + "bloxsmith:actions",
+    JSON.stringify(actions),
+    FENCE,
+  ].join("\n\n");
+
+  return { reply, actions };
+}
+
 function buildSystem(mode: string, context: unknown, preferences?: Preferences): string {
   // Support chat is a lightweight onboarding assistant — skip the heavy Luau code rules.
   if (mode === "support") {
