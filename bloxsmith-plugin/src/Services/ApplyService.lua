@@ -76,19 +76,88 @@ function ApplyService:resolvePath(path, createFolders)
 	return current
 end
 
+-- Parse a color from {r,g,b} (0-255), {number,number,number} (0-1), or "#RRGGBB".
+local function parseColor(value)
+	if type(value) == "string" then
+		local hex = value:gsub("#", "")
+		if #hex == 6 then
+			local r = tonumber(hex:sub(1, 2), 16)
+			local g = tonumber(hex:sub(3, 4), 16)
+			local b = tonumber(hex:sub(5, 6), 16)
+			if r and g and b then return Color3.fromRGB(r, g, b) end
+		end
+		return nil
+	elseif type(value) == "table" then
+		local r = value.r or value.R or value[1] or 0
+		local g = value.g or value.G or value[2] or 0
+		local b = value.b or value.B or value[3] or 0
+		-- Values <= 1 are treated as normalized floats, otherwise 0-255.
+		if r <= 1 and g <= 1 and b <= 1 then
+			return Color3.new(r, g, b)
+		end
+		return Color3.fromRGB(r, g, b)
+	end
+	return nil
+end
+
 -- Best-effort coercion of a JSON value into a Roblox property value.
+-- Handles the full range of common Roblox datatypes so the agent can set
+-- virtually any property (parts, GUIs, constraints, effects, values...).
 local function coerceValue(inst, property, value)
-	local existing = inst[property]
+	local ok, existing = pcall(function() return inst[property] end)
+	if not ok then return value end
 	local t = typeof(existing)
-	if t == "Color3" and type(value) == "table" then
-		return Color3.fromRGB(value.r or value[1] or 0, value.g or value[2] or 0, value.b or value[3] or 0)
+
+	if t == "Color3" then
+		return parseColor(value) or existing
+	elseif t == "BrickColor" then
+		if type(value) == "string" then
+			local okBC, bc = pcall(BrickColor.new, value)
+			if okBC then return bc end
+		end
+		local c = parseColor(value)
+		if c then return BrickColor.new(c) end
+		return existing
 	elseif t == "Vector3" and type(value) == "table" then
 		return Vector3.new(value.x or value[1] or 0, value.y or value[2] or 0, value.z or value[3] or 0)
+	elseif t == "Vector2" and type(value) == "table" then
+		return Vector2.new(value.x or value[1] or 0, value.y or value[2] or 0)
 	elseif t == "UDim2" and type(value) == "table" then
+		-- Accept {sx,ox,sy,oy} or {x={scale,offset},y={scale,offset}}
+		if value.x or value.X then
+			local x, y = value.x or value.X, value.y or value.Y
+			return UDim2.new(x[1] or x.scale or 0, x[2] or x.offset or 0, y[1] or y.scale or 0, y[2] or y.offset or 0)
+		end
 		return UDim2.new(value[1] or 0, value[2] or 0, value[3] or 0, value[4] or 0)
+	elseif t == "UDim" and type(value) == "table" then
+		return UDim.new(value[1] or value.scale or 0, value[2] or value.offset or 0)
+	elseif t == "Vector2int16" and type(value) == "table" then
+		return Vector2int16.new(value[1] or 0, value[2] or 0)
+	elseif t == "CFrame" and type(value) == "table" then
+		return CFrame.new(value[1] or 0, value[2] or 0, value[3] or 0)
+	elseif t == "Rect" and type(value) == "table" then
+		return Rect.new(value[1] or 0, value[2] or 0, value[3] or 0, value[4] or 0)
+	elseif t == "NumberRange" and type(value) == "table" then
+		return NumberRange.new(value[1] or value.min or 0, value[2] or value.max or value[1] or 0)
+	elseif t == "ColorSequence" then
+		local c = parseColor(value)
+		if c then return ColorSequence.new(c) end
+		if type(value) == "table" and value[1] then
+			local kps = {}
+			for _, kp in ipairs(value) do
+				local col = parseColor(kp.color or kp) or Color3.new(1, 1, 1)
+				table.insert(kps, ColorSequenceKeypoint.new(kp.time or kp[1] or 0, col))
+			end
+			if #kps >= 2 then return ColorSequence.new(kps) end
+		end
+		return existing
+	elseif t == "NumberSequence" then
+		if type(value) == "number" then return NumberSequence.new(value) end
+		return existing
 	elseif t == "number" then
 		return tonumber(value) or existing
 	elseif t == "boolean" then
+		if type(value) == "string" then return value == "true" end
 		return value and true or false
 	elseif t == "string" then
 		return tostring(value)
@@ -96,15 +165,16 @@ local function coerceValue(inst, property, value)
 		-- e.g. "Enum.Material.Neon" or "Neon"
 		local enumName = existing.EnumType.Name
 		local leaf = string.match(value, "([%w_]+)$") or value
-		local ok, enumVal = pcall(function()
+		local okEnum, enumVal = pcall(function()
 			return Enum[enumName][leaf]
 		end)
-		if ok then
+		if okEnum then
 			return enumVal
 		end
 	end
 	return value
 end
+
 
 -- Apply one action. Returns (ok, message, instance?).
 function ApplyService:applyOne(action)
