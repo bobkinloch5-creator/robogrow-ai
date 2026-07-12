@@ -14,7 +14,19 @@ function) that proxies to the AI provider, so your credentials never live inside
 
 ## Install
 
-### Option A — Rojo (recommended for development)
+### Option A — Single `.lua` file (easiest, no tools needed)
+1. Download **`Bloxsmith.lua`** (from the website dashboard, or the file in this folder).
+2. In Studio, open the **Plugins** tab → **Plugins Folder** and drop `Bloxsmith.lua` inside,
+   or drag it into Studio, right-click → **Save as Local Plugin**.
+3. Restart Studio if the button doesn't appear, then click **Bloxsmith**.
+
+> `Bloxsmith.lua` is a single self-contained build generated from `src/`. Regenerate it
+> after changing any source file with:
+> ```bash
+> python3 bloxsmith-plugin/bundle.py
+> ```
+
+### Option B — Rojo (recommended for development)
 1. Install [Rojo](https://rojo.space) (`aftman add rojo-rbx/rojo` or the VS Code extension).
 2. From this folder, build the plugin model:
    ```bash
@@ -24,10 +36,6 @@ function) that proxies to the AI provider, so your credentials never live inside
    (Studio → **Plugins** tab → **Plugins Folder**), or drag it into Studio, right-click →
    **Save as Local Plugin**.
 
-### Option B — Manual
-1. In Studio, create a `Script` in `ServerStorage` and paste `src/init.server.lua`.
-2. Recreate the `Util`, `Services`, and `UI` folders as `ModuleScript`s matching `src/`.
-3. Right-click the root Script → **Save as Local Plugin**.
 
 ---
 
