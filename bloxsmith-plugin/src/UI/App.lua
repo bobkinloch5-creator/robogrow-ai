@@ -220,12 +220,14 @@ function App:addThinkingPanel(parent, thinking, order)
 	})
 
 	local body = Create("TextLabel", {
-		Text = thinking,
+		Text = Parser.toRichText(thinking),
+		RichText = true,
 		Font = Theme.Font,
 		TextSize = 12,
 		TextColor3 = C.TextDim,
 		BackgroundTransparency = 1,
 		TextWrapped = true,
+		LineHeight = 1.08,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
 		AutomaticSize = Enum.AutomaticSize.Y,
