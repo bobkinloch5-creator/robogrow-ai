@@ -9,11 +9,15 @@
 	  create_script    { path, name, class, source }
 	  replace_script   { target (full path), source }
 	  create_folder    { path, name }
-	  create_instance  { path, class, name, properties? }
+	  create_instance  { path, class (ANY creatable Roblox class), name, properties? }
 	  set_property      { target, property, value }
 	  rename_instance  { target, name }
 	  delete_instance  { target }
 	  move_instance    { target, path }
+
+	create_instance can build anything Roblox allows — GUIs, parts, models, lights,
+	particles, sounds, constraints, tools and more — with rich property coercion
+	(Color3, Vector2/3, UDim/UDim2, Rect, NumberRange, ColorSequence, Enums, etc.).
 ]]
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
