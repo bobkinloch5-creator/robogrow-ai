@@ -51,7 +51,7 @@ const Refund = () => {
                 To request a refund:
               </p>
               <ol className="list-decimal list-inside text-muted-foreground space-y-2">
-                <li>Contact support via Discord or email at refunds@hidebot.lol</li>
+                <li>Contact support via Discord or email at refunds@hideoutbot.lol</li>
                 <li>Provide your account email and transaction ID</li>
                 <li>Explain the reason for the refund request</li>
                 <li>Allow 3-5 business days for review</li>
@@ -97,7 +97,7 @@ const Refund = () => {
             <section>
               <h2 className="text-2xl font-bold mb-4">Questions?</h2>
               <p className="text-muted-foreground">
-                Have questions about refunds? Contact our support team via Discord or email at refunds@hidebot.lol
+                Have questions about refunds? Contact our support team via Discord or email at refunds@hideoutbot.lol
               </p>
             </section>
           </div>

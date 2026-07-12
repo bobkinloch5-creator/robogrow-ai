@@ -20,20 +20,20 @@ const Docs = () => {
 
           <TabsContent value="getting-started">
             <Card className="bg-gradient-card p-8 border-border/50">
-              <h2 className="text-3xl font-bold mb-6">Getting Started with Hide Bot</h2>
+              <h2 className="text-3xl font-bold mb-6">Getting Started with Bloxsmith</h2>
               
               <div className="space-y-6">
                 <section>
                   <h3 className="text-xl font-semibold mb-3">1. Create Your Account</h3>
                   <p className="text-muted-foreground">
-                    Sign up for a free account at hidebot.lol. You'll receive 50 free prompts to start building.
+                    Sign up for a free account at hideoutbot.lol. You'll receive 50 free prompts to start building.
                   </p>
                 </section>
 
                 <section>
                   <h3 className="text-xl font-semibold mb-3">2. Install the Plugin</h3>
                   <p className="text-muted-foreground mb-2">
-                    Download the Hide Bot plugin from your dashboard and install it in Roblox Studio:
+                    Download the Bloxsmith plugin from your dashboard and install it in Roblox Studio:
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
                     <li>Open Roblox Studio</li>
@@ -46,14 +46,14 @@ const Docs = () => {
                 <section>
                   <h3 className="text-xl font-semibold mb-3">3. Connect Your Account</h3>
                   <p className="text-muted-foreground">
-                    Open the Hide Bot plugin in Roblox Studio and sign in with your account credentials. This enables automatic synchronization between the website and Studio.
+                    Open the Bloxsmith plugin in Roblox Studio and sign in with your account credentials. This enables automatic synchronization between the website and Studio.
                   </p>
                 </section>
 
                 <section>
                   <h3 className="text-xl font-semibold mb-3">4. Start Building</h3>
                   <p className="text-muted-foreground">
-                    Enter your game idea in the plugin interface and watch as Hide Bot creates your game automatically!
+                    Enter your game idea in the plugin interface and watch as Bloxsmith creates your game automatically!
                   </p>
                 </section>
               </div>
@@ -70,14 +70,14 @@ const Docs = () => {
                   <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
                     <li>Roblox Studio (latest version recommended)</li>
                     <li>Active internet connection</li>
-                    <li>Hide Bot account with available prompts</li>
+                    <li>Bloxsmith account with available prompts</li>
                   </ul>
                 </section>
 
                 <section>
                   <h3 className="text-xl font-semibold mb-3">Plugin Interface</h3>
                   <p className="text-muted-foreground mb-3">
-                    The Hide Bot plugin provides a clean interface with the following sections:
+                    The Bloxsmith plugin provides a clean interface with the following sections:
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
                     <li><strong>Account Status:</strong> Shows your email and prompt balance</li>
@@ -190,7 +190,7 @@ const Docs = () => {
                     Configure webhooks to receive real-time updates:
                   </p>
                   <div className="p-4 bg-background/50 rounded-lg font-mono text-sm">
-                    <p className="text-muted-foreground">POST https://api.hidebot.lol/webhook</p>
+                    <p className="text-muted-foreground">POST https://api.hideoutbot.lol/webhook</p>
                     <p className="text-muted-foreground mt-2">Headers:</p>
                     <p className="text-muted-foreground ml-4">Authorization: Bearer YOUR_API_KEY</p>
                   </div>

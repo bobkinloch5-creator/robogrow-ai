@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { z } from "zod";
-import hidebotLogo from "@/assets/hidebot-logo.png";
+import bloxsmithLogo from "@/assets/bloxsmith-logo.png";
 
 const authSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -98,7 +98,7 @@ const Auth = () => {
         <div className="p-8">
           <div className="flex flex-col items-center mb-8">
             <Link to="/">
-              <img src={hidebotLogo} alt="Hide Bot" className="h-16 w-auto mb-4" />
+              <img src={bloxsmithLogo} alt="Bloxsmith" className="h-16 w-auto mb-4" />
             </Link>
             <h1 className="text-3xl font-bold text-center">
               {isSignUp ? "Create Account" : "Welcome Back"}

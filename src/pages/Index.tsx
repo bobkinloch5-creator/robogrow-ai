@@ -307,7 +307,7 @@ const Index = () => {
                   FAQ
                 </Link>
                 <a
-                  href="https://discord.gg/hidebot"
+                  href="https://discord.gg/gkYGrVBbca"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-muted-foreground hover:text-foreground"

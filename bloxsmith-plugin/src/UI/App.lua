@@ -48,19 +48,29 @@ end
 
 local function button(text, props)
 	props = props or {}
+	local bg = props.BackgroundColor3 or C.Accent
 	local btn = Create("TextButton", {
 		Text = text,
 		Font = Theme.FontBold,
 		TextSize = props.TextSize or 13,
 		TextColor3 = props.TextColor3 or C.Text,
-		BackgroundColor3 = props.BackgroundColor3 or C.Accent,
+		BackgroundColor3 = bg,
 		AutoButtonColor = true,
 		Size = props.Size or UDim2.new(1, 0, 0, 32),
 		BorderSizePixel = 0,
 		LayoutOrder = props.LayoutOrder,
 	}, { corner(UDim.new(0, 6)) })
+	-- Premium blue → cyan gradient on primary (accent) buttons.
+	if bg == C.Accent then
+		Create("UIGradient", {
+			Color = ColorSequence.new(C.Accent, C.Accent2),
+			Rotation = 90,
+			Parent = btn,
+		})
+	end
 	return btn
 end
+
 
 function App:toast(message, kind)
 	local color = C.Info
