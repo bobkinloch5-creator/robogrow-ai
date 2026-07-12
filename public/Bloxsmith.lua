@@ -34,10 +34,21 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.1.0"
+Config.Version = "3.1.1"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.1.1",
+		date = "2026-07-12",
+		title = "Insert Anything Fix",
+		changes = {
+			"FIXED: Skyboxes now insert into Lighting (not Workspace) so you actually SEE the sky change.",
+			"FIXED: Atmosphere, clouds and post-effects (bloom, blur, color correction, sun rays, depth of field) route into Lighting so they take effect.",
+			"IMPROVED: Inserts now tell you exactly where the asset landed and auto-focus the camera on visible models.",
+		},
+	},
+
 	{
 		version = "3.1.0",
 		date = "2026-07-12",
@@ -538,6 +549,43 @@ local function loadAssetForPlugin(assetId)
 	return false, getObjectsError .. " / " .. loadAssetError
 end
 
+-- Decide the correct container for an inserted object based on its class so
+-- non-Workspace assets (skies, atmosphere, lighting/post effects, sounds…)
+-- actually take effect instead of sitting invisibly in Workspace.
+-- Returns (parentInstance, isVisual). isVisual objects get camera-focused.
+local function smartParentFor(inst, fallbackParent)
+	local function svc(name)
+		local ok, s = pcall(function() return game:GetService(name) end)
+		return ok and s or nil
+	end
+
+	-- Sky, Atmosphere, Clouds and all post-processing effects live in Lighting.
+	local LIGHTING_CLASSES = {
+		Sky = true, Atmosphere = true, Clouds = true,
+		BloomEffect = true, BlurEffect = true, ColorCorrectionEffect = true,
+		DepthOfFieldEffect = true, SunRaysEffect = true,
+	}
+	if inst:IsA("PostEffect") or inst:IsA("Sky") or inst:IsA("Atmosphere")
+		or LIGHTING_CLASSES[inst.ClassName] then
+		return svc("Lighting") or fallbackParent, false
+	end
+
+	-- Sounds default to SoundService (or wherever the user pointed).
+	if inst:IsA("Sound") then
+		return fallbackParent or svc("SoundService") or workspace, false
+	end
+
+	-- Visible geometry belongs in Workspace and should be focused.
+	if inst:IsA("Model") or inst:IsA("BasePart") or inst:IsA("Folder") then
+		return fallbackParent or workspace, true
+	end
+
+	-- Everything else (scripts, values, animations, decals, GUIs…) goes to the
+	-- requested path (Workspace by default) — not visual, just placed.
+	return fallbackParent or workspace, false
+end
+
+
 
 -- Apply one action. Returns (ok, message, instance?).
 function ApplyService:applyOne(action)
@@ -636,7 +684,7 @@ function ApplyService:applyOne(action)
 		if not assetId then
 			return false, "insert_asset requires a numeric assetId"
 		end
-		local parent = self:resolvePath(action.path or "Workspace", true)
+		local requestedParent = self:resolvePath(action.path or "Workspace", true)
 		local okLoad, loaded, loaderName, container = loadAssetForPlugin(assetId)
 		if not okLoad then
 			-- Surface the REAL Roblox error so the user knows what went wrong
@@ -645,41 +693,62 @@ function ApplyService:applyOne(action)
 			Log.warn("Asset insert failed for", assetId, ":", loaded)
 			return false, ("Could not insert model %d — %s%s"):format(assetId, tostring(loaded), hint and ("\n" .. hint) or "")
 		end
-		-- GetObjects returns the actual objects; LoadAsset returns a Model container
-		-- that we unpack into the parent.
-		local inserted
+
 		local children = loaded
-		if #children == 1 then
-			inserted = children[1]
-			if action.name then inserted.Name = action.name end
-			inserted.Parent = parent
-			if container then container:Destroy() end
-		else
-			local wrapper = Instance.new("Model")
-			wrapper.Name = action.name or ("Asset_" .. assetId)
-			wrapper.Parent = parent
-			for _, child in ipairs(children) do
-				child.Parent = wrapper
+		-- Route each top-level object to the container Roblox actually needs so
+		-- non-Workspace assets (skies, atmospheres, lighting effects, sounds…)
+		-- become visible/active instead of silently sitting in Workspace.
+		local placed = {}
+		local visualParts = {}
+		for _, child in ipairs(children) do
+			local target, isVisual = smartParentFor(child, requestedParent)
+			pcall(function()
+				child.Parent = target
+			end)
+			table.insert(placed, child)
+			if isVisual then
+				table.insert(visualParts, child)
 			end
-			if container then container:Destroy() end
-			inserted = wrapper
 		end
-		-- Move the inserted model in front of the camera and focus on it so the
-		-- user immediately SEES it in the viewport (models otherwise spawn at the
-		-- world origin, which is easy to miss).
+		if container then pcall(function() container:Destroy() end) end
+
+		if #placed == 0 then
+			return false, ("Asset %d loaded but contained nothing to insert."):format(assetId)
+		end
+
+		-- Optional custom name (applies to the single inserted object).
+		local inserted = placed[1]
+		if #placed == 1 and action.name then
+			pcall(function() inserted.Name = action.name end)
+		end
+
+		-- Move any visual model in front of the camera and focus it so the user
+		-- immediately SEES it (models otherwise spawn at the world origin).
 		pcall(function()
 			local camera = workspace.CurrentCamera
-			if camera and inserted:IsA("Model") then
-				local okPivot = pcall(function()
-					inserted:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
-				end)
-				if okPivot then
-					camera.CFrame = CFrame.lookAt(camera.CFrame.Position, inserted:GetPivot().Position)
+			for _, obj in ipairs(visualParts) do
+				if camera and (obj:IsA("Model") or obj:IsA("BasePart")) then
+					local okPivot = pcall(function()
+						obj:PivotTo(CFrame.new(camera.CFrame.Position + camera.CFrame.LookVector * 20))
+					end)
+					if okPivot then
+						camera.CFrame = CFrame.lookAt(camera.CFrame.Position, obj:GetPivot().Position)
+					end
+					break
 				end
 			end
 		end)
-		return true, ("Inserted model %d into %s via %s"):format(assetId, parent:GetFullName(), loaderName or "plugin insert"), inserted
+
+		-- Build a friendly summary that tells the user WHERE it went.
+		local dest = placed[1].Parent and placed[1].Parent:GetFullName() or "your game"
+		local kindName = placed[1].ClassName
+		local note = ""
+		if not (placed[1]:IsA("Model") or placed[1]:IsA("BasePart")) then
+			note = (" (%s → %s; open Explorer to see it)"):format(kindName, dest)
+		end
+		return true, ("Inserted %s (asset %d) into %s via %s%s"):format(kindName, assetId, dest, loaderName or "plugin insert", note), inserted
 	end
+
 
 
 	return false, "Unknown action: " .. tostring(kind)
@@ -2450,7 +2519,9 @@ function App:buildToolboxView(parent)
 				task.spawn(function()
 					local res = self.deps.apply:insertAsset(item.id, item.name)
 					if res.ok then
-						self:toast(("Inserted '%s' — check the Workspace / viewport (Ctrl+Z to undo)"):format(item.name or "model"), "success")
+						local msg = (res.results and res.results[1] and res.results[1].message)
+							or ("Inserted '%s' (Ctrl+Z to undo)"):format(item.name or "model")
+						self:toast(msg .. " — Ctrl+Z to undo", "success")
 						insertBtn.Text = "✓ Inserted"
 					else
 						self:toast(res.error or "Insert failed.", "error")
@@ -2458,6 +2529,7 @@ function App:buildToolboxView(parent)
 					end
 				end)
 			end)
+
 
 			-- Asset ID row at the bottom (also copy-selectable via the search box).
 			Create("TextLabel", {
@@ -2498,8 +2570,11 @@ function App:buildToolboxView(parent)
 			local res = self.deps.apply:insertAsset(id)
 			idBtn.Text = "Insert"
 			if res.ok then
-				self:toast("Inserted asset " .. id .. " (Ctrl+Z to undo)", "success")
+				local msg = (res.results and res.results[1] and res.results[1].message)
+					or ("Inserted asset " .. id)
+				self:toast(msg .. " — Ctrl+Z to undo", "success")
 				idBox.Text = ""
+
 			else
 				self:toast(res.error or "Insert failed.", "error")
 			end

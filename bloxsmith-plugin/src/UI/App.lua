@@ -1138,7 +1138,9 @@ function App:buildToolboxView(parent)
 				task.spawn(function()
 					local res = self.deps.apply:insertAsset(item.id, item.name)
 					if res.ok then
-						self:toast(("Inserted '%s' — check the Workspace / viewport (Ctrl+Z to undo)"):format(item.name or "model"), "success")
+						local msg = (res.results and res.results[1] and res.results[1].message)
+							or ("Inserted '%s' (Ctrl+Z to undo)"):format(item.name or "model")
+						self:toast(msg .. " — Ctrl+Z to undo", "success")
 						insertBtn.Text = "✓ Inserted"
 					else
 						self:toast(res.error or "Insert failed.", "error")
@@ -1146,6 +1148,7 @@ function App:buildToolboxView(parent)
 					end
 				end)
 			end)
+
 
 			-- Asset ID row at the bottom (also copy-selectable via the search box).
 			Create("TextLabel", {
@@ -1186,8 +1189,11 @@ function App:buildToolboxView(parent)
 			local res = self.deps.apply:insertAsset(id)
 			idBtn.Text = "Insert"
 			if res.ok then
-				self:toast("Inserted asset " .. id .. " (Ctrl+Z to undo)", "success")
+				local msg = (res.results and res.results[1] and res.results[1].message)
+					or ("Inserted asset " .. id)
+				self:toast(msg .. " — Ctrl+Z to undo", "success")
 				idBox.Text = ""
+
 			else
 				self:toast(res.error or "Insert failed.", "error")
 			end
