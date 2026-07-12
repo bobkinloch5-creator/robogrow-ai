@@ -360,10 +360,21 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_MODEL") || "z-ai/glm-5.2";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  // Faster responses without changing the model: cap output length, disable the
+  // slow chain-of-thought "thinking" pass GLM does by default, and stream=false.
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 8192 }),
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: 0.35,
+      top_p: 0.9,
+      max_tokens: 4096,
+      // GLM/NIM reasoning toggles — ignored by models that don't support them.
+      chat_template_kwargs: { thinking: false },
+      reasoning_effort: "low",
+    }),
   });
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
