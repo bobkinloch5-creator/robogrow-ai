@@ -557,6 +557,7 @@ end
 -- Chat history (persisted via plugin settings) + clear
 --========================================================================
 local HISTORY_KEY = "Bloxsmith_ChatHistory"
+local ACTIVE_KEY = "Bloxsmith_ActiveSession"
 
 function App:loadHistoryStore()
 	local ok, data = pcall(function()
@@ -573,6 +574,47 @@ function App:saveHistoryStore(list)
 		self.deps.plugin:SetSetting(HISTORY_KEY, list)
 	end)
 end
+
+-- Persist the *current* conversation so Bloxsmith remembers context between
+-- plugin reloads and Studio restarts (long-term memory).
+function App:saveActiveSession()
+	pcall(function()
+		local snapshot = {}
+		for _, m in ipairs(self.history or {}) do
+			table.insert(snapshot, { role = m.role, content = m.content })
+		end
+		self.deps.plugin:SetSetting(ACTIVE_KEY, snapshot)
+	end)
+end
+
+-- Restore the last active conversation on startup so the AI keeps its memory.
+function App:restoreActiveSession()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(ACTIVE_KEY)
+	end)
+	if not (ok and type(data) == "table" and #data > 0) then
+		return false
+	end
+	self.history = {}
+	for _, m in ipairs(data) do
+		if type(m) == "table" and m.role and m.content then
+			table.insert(self.history, { role = m.role, content = m.content })
+		end
+	end
+	if #self.history == 0 then
+		return false
+	end
+	if self._welcomeCard then
+		self._welcomeCard:Destroy()
+		self._welcomeCard = nil
+	end
+	self:clearChatBubbles()
+	for _, m in ipairs(self.history) do
+		self:addBubble(m.role, m.content)
+	end
+	return true
+end
+
 
 -- Save the current conversation into persistent history (deduped, capped).
 function App:saveCurrentConversation()
