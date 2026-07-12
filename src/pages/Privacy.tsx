@@ -29,10 +29,10 @@ const Privacy = () => {
               <h2 className="text-2xl font-bold mb-4">1. Information We Collect</h2>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>Account information such as your email address</li>
-                <li>Payment information, processed securely by our payment provider (we never store card details)</li>
-                <li>Usage data, including prompt counts and feature usage</li>
+                <li>Usage data, including feature usage</li>
                 <li>Prompts you send and the code/content the AI generates for you</li>
                 <li>Basic project context the plugin sends to fulfil a request (e.g. selected scripts and hierarchy)</li>
+
               </ul>
             </section>
 
