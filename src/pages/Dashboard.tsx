@@ -117,16 +117,21 @@ const Dashboard = () => {
         <Card className="bg-gradient-hero p-8 border-border/50 shadow-elegant mb-8">
           <h2 className="text-2xl font-bold mb-4">Start Building with AI</h2>
           <p className="text-muted-foreground mb-6">
-            Connect the Hide Bot plugin in Roblox Studio to start creating games with AI
+            Connect the Bloxsmith plugin in Roblox Studio to start creating games with AI
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button className="bg-background text-primary hover:bg-background/90">
-              Download Plugin
-            </Button>
-            <Button variant="outline">
-              View Documentation
-            </Button>
+            <a href="/Bloxsmith.lua" download="Bloxsmith.lua">
+              <Button className="bg-background text-primary hover:bg-background/90 w-full">
+                Download Plugin (.lua)
+              </Button>
+            </a>
+            <a href="/docs">
+              <Button variant="outline" className="w-full">
+                View Documentation
+              </Button>
+            </a>
           </div>
+
         </Card>
 
         {/* Purchase Prompts */}
@@ -164,7 +169,7 @@ const Dashboard = () => {
 
           <div className="mt-6 p-4 bg-background/30 rounded-lg border border-border/50">
             <p className="text-sm text-center">
-              <span className="font-semibold">Support the Project:</span> Donate via PayPal to help keep Hide Bot free
+              <span className="font-semibold">Support the Project:</span> Donate via PayPal to help keep Bloxsmith free
             </p>
             <div className="flex justify-center mt-3">
               <Button variant="outline" size="sm">

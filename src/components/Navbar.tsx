@@ -36,7 +36,7 @@ const Navbar = () => {
             </Link>
           ))}
           <a
-            href="https://discord.gg/hidebot"
+            href="https://discord.gg/gkYGrVBbca"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-foreground/80 hover:text-foreground transition-colors"
@@ -70,7 +70,7 @@ const Navbar = () => {
               </Link>
             ))}
             <a
-              href="https://discord.gg/hidebot"
+              href="https://discord.gg/gkYGrVBbca"
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground/80 hover:text-foreground transition-colors"
