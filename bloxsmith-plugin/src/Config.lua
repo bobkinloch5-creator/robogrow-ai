@@ -8,10 +8,22 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.1.2"
+Config.Version = "3.2.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.2.0",
+		date = "2026-07-12",
+		title = "Effects That Actually Work",
+		changes = {
+			"NEW: Particle effects, fire, smoke, sparkles, beams and trails now auto-attach to a proper host part so they actually render — no more invisible effects.",
+			"NEW: Lights (point/spot/surface) and decals/textures also get a visible host so you see them instantly.",
+			"IMPROVED: AI-generated effects placed loosely are automatically hosted and ground-placed too, not just Toolbox inserts.",
+			"IMPROVED: Effect hosts are anchored, collision-free and camera-focused so nothing gets in your way.",
+		},
+	},
+
 	{
 		version = "3.1.2",
 		date = "2026-07-12",
