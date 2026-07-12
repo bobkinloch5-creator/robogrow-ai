@@ -374,28 +374,53 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
   return data?.output?.message?.content?.map((c: { text?: string }) => c.text ?? "").join("") ?? "";
 }
 
+function jsonError(msg: string, status: number): Response {
+  return new Response(JSON.stringify({ error: msg }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  if (req.method !== "POST") return jsonError("Method not allowed", 405);
+
+  // Rate limit before doing any work.
+  const clientId = getClientId(req);
+  if (isRateLimited(clientId)) {
+    return jsonError("Too many requests. Please wait a moment and try again.", 429);
   }
 
   try {
-    const body = (await req.json()) as RequestBody & { query?: string; limit?: number };
+    // Reject oversized bodies early (guards against memory abuse).
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    if (contentLength > MAX_BODY_BYTES) {
+      return jsonError("Request too large.", 413);
+    }
+    const raw = await req.text();
+    if (raw.length > MAX_BODY_BYTES) {
+      return jsonError("Request too large.", 413);
+    }
+
+    let body: RequestBody & { query?: string; limit?: number };
+    try {
+      body = JSON.parse(raw);
+    } catch (_) {
+      return jsonError("Invalid JSON body.", 400);
+    }
+    if (typeof body !== "object" || body === null) {
+      return jsonError("Invalid request body.", 400);
+    }
+
     const mode = typeof body.mode === "string" ? body.mode : "chat";
+    if (!ALLOWED_MODES.has(mode)) {
+      return jsonError("Unsupported mode.", 400);
+    }
 
     // Toolbox / Creator Store model search — bypasses the AI model entirely.
     if (mode === "toolbox_search") {
-      const query = typeof body.query === "string" ? body.query.trim() : "";
-      if (!query) {
-        return new Response(JSON.stringify({ error: "No search query provided" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const query = sanitizeText(body.query, 120).trim();
+      if (!query) return jsonError("No search query provided", 400);
       const limit = Math.min(Math.max(Number(body.limit) || 18, 1), 30);
       const results = await searchToolbox(query, limit);
       return new Response(JSON.stringify({ results, mode }), {
@@ -403,21 +428,36 @@ Deno.serve(async (req) => {
       });
     }
 
-    const history = Array.isArray(body.messages) ? body.messages : [];
-    const prompt = typeof body.prompt === "string" ? body.prompt : "";
+    // Validate & sanitize conversation input.
+    const history = Array.isArray(body.messages) ? body.messages.slice(-MAX_MESSAGES) : [];
+    const prompt = sanitizeText(body.prompt, MAX_PROMPT_CHARS);
 
-    const convo: ChatMessage[] = history.filter(
-      (m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string",
-    );
+    const convo: ChatMessage[] = history
+      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => ({ role: m.role, content: sanitizeText(m.content, MAX_MESSAGE_CHARS) }))
+      .filter((m) => m.content.length > 0);
     if (prompt) convo.push({ role: "user", content: prompt });
     if (convo.length === 0) {
-      return new Response(JSON.stringify({ error: "No prompt or messages provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError("No prompt or messages provided", 400);
     }
 
-    const messages: ChatMessage[] = [{ role: "system", content: buildSystem(mode, body.context) }, ...convo];
+    const preferences: Preferences | undefined =
+      body.preferences && typeof body.preferences === "object"
+        ? {
+            persona: typeof body.preferences.persona === "string" ? body.preferences.persona : undefined,
+            responseLength:
+              typeof body.preferences.responseLength === "string" ? body.preferences.responseLength : undefined,
+            customInstructions:
+              typeof body.preferences.customInstructions === "string"
+                ? body.preferences.customInstructions
+                : undefined,
+          }
+        : undefined;
+
+    const messages: ChatMessage[] = [
+      { role: "system", content: buildSystem(mode, body.context, preferences) },
+      ...convo,
+    ];
 
     const provider = (Deno.env.get("AI_PROVIDER") || "nvidia").toLowerCase();
     let usedProvider = provider;
@@ -452,11 +492,14 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    // Log full detail server-side; never leak internals (stack traces, provider
+    // responses, keys) to the client. Only surface curated 4xx messages.
     const status = (err as { status?: number })?.status ?? 500;
-    const msg = (err as { msg?: string })?.msg ?? (err instanceof Error ? err.message : "Unexpected error");
-    return new Response(JSON.stringify({ error: msg }), {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const rawMsg = (err as { msg?: string })?.msg ?? (err instanceof Error ? err.message : "Unexpected error");
+    console.error(`[bloxsmith-ai] error (status ${status}):`, err);
+    const clientMsg = status >= 500
+      ? "The AI service hit an unexpected error. Please try again shortly."
+      : rawMsg;
+    return jsonError(clientMsg, status);
   }
 });
