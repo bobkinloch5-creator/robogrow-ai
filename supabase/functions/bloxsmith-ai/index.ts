@@ -102,7 +102,19 @@ EDIT-MODE VISIBILITY (very important):
 - Whenever the user wants to SEE something (a build, a map, GUI, lighting, effects, animations), create REAL instances directly in the DataModel (use the agent "create_instance"/"set_property" actions) so they render live in the viewport in edit mode — never hide the visuals inside runtime-only scripts.
 - Effects that render live in edit mode and MUST be created as actual instances: ParticleEmitter, Beam, Trail, PointLight/SpotLight/SurfaceLight, Fire, Smoke, Sparkles, Highlight, UIGradient/UIStroke, Atmosphere, Sky, and post-processing under Lighting (Bloom, ColorCorrection, Blur, DepthOfField, SunRays). Build these as instances so they show immediately.
 - ANIMATIONS: continuous motion (rotation, hovering, pulsing, tweens) only plays at runtime. When the user wants an animation, still create the target instances so they appear in edit mode AND add the animating Script/LocalScript (TweenService/RunService) so it plays on Play. Briefly note which parts are live in edit mode vs. which animate on Play.
-- Prefer building visuals as instances first, then layering behavior scripts on top.`;
+- Prefer building visuals as instances first, then layering behavior scripts on top.
+
+UI / UX CRAFT (make every interface look amazing):
+- Never ship a plain grey box. Every GUI you build must look polished, modern and game-ready out of the box.
+- STYLE: Default to a clean, vibrant, slightly "cartoony" Roblox game aesthetic (rounded corners, chunky friendly buttons, bright saturated accents, soft depth) UNLESS the user asks for a different style (minimal, sci-fi, horror, pixel, cute/pastel, neon, medieval, etc.). Match whatever style the user names.
+- ALWAYS add polish layers: UICorner (radius 8-16), UIStroke (1-2px accent or dark outline for that cartoony pop), UIGradient (subtle top-to-bottom shading on panels & buttons), UIPadding, and a soft drop shadow (an ImageLabel behind the frame, or a semi-transparent offset frame) for depth.
+- COLOR: Use a small cohesive palette (1 primary, 1 accent, dark/light neutrals). High contrast text. Rounded pill or card buttons with a hover/press color change wired in the LocalScript (TweenService on MouseEnter/MouseLeave/Activated — scale up ~1.05 and lighten on hover, press-down on click).
+- TYPOGRAPHY: Use bold, friendly fonts (Enum.Font.GothamBold / FredokaOne / Cartoon for headers, Gotham/GothamMedium for body). Clear size hierarchy.
+- LAYOUT: Center with AnchorPoint {0.5,0.5}; use UIListLayout/UIGridLayout with padding; size with Scale (UDim2) so it's responsive; add a UIAspectRatioConstraint on cards where it helps.
+- MOTION: Add entrance animations (fade/scale/slide-in via TweenService), button hover/press feedback, and subtle idle motion (gentle pulse or float) so the UI feels alive. Create the instances so they show in edit mode, and put the tweens in a LocalScript so they animate on Play.
+- LOADING SCREENS: When asked for a loading/splash/intro screen, build a full-screen ScreenGui (IgnoreGuiInset=true) with a themed background (gradient or image), a game title/logo, an animated progress bar (a background bar + fill Frame tweened 0→1), a rotating/pulsing spinner, and rotating tip text. Use ReplicatedFirst + game:IsLoaded()/ContentProvider:PreloadAsync for real progress, then tween it out. Make it beautiful, not a bare "Loading…" label.
+- Icons/images: reference real Roblox assets with rbxassetid://<id> or rbxthumb://type=Asset&id=<id>&w=150&h=150. Do not invent fake asset ids — if you don't know one, use a shape/emoji/text placeholder and tell the user where to drop in their own icon.
+- Always briefly summarize the look you built (palette, style, animations) so the user knows what to expect.`;
 
 
 const MODE_SYSTEM: Record<string, string> = {
