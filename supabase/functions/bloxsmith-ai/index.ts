@@ -3,8 +3,8 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-// Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the non-Gemini fallback model.
-const DEFAULT_MODEL = "openai/gpt-5.4-mini";
+// Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the fallback model.
+const DEFAULT_MODEL = "openai/gpt-5.5";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -362,14 +362,50 @@ async function callLovable(messages: ChatMessage[]): Promise<string> {
   if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
   const res = await fetch(LOVABLE_GATEWAY, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
     body: JSON.stringify({ model: Deno.env.get("BLOXSMITH_MODEL") || DEFAULT_MODEL, messages, temperature: 0.4 }),
   });
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 402) throw { status: 402, msg: "AI credits exhausted. Add credits to keep generating." };
   if (!res.ok) throw { status: 502, msg: `AI provider error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "Lovable AI returned an empty response." };
+  return text;
+}
+
+function contentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object") {
+          const p = part as Record<string, unknown>;
+          return contentToText(p.text ?? p.content ?? p.output_text ?? p.value);
+        }
+        return "";
+      })
+      .join("");
+  }
+  return "";
+}
+
+function extractAiText(data: unknown): string {
+  const root = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const choices = Array.isArray(root.choices) ? root.choices : [];
+  const first = (choices[0] && typeof choices[0] === "object" ? choices[0] : {}) as Record<string, unknown>;
+  const message = (first.message && typeof first.message === "object" ? first.message : {}) as Record<string, unknown>;
+
+  return (
+    contentToText(message.content) ||
+    contentToText(message.reasoning_content) ||
+    contentToText(message.reasoning) ||
+    contentToText(first.text) ||
+    contentToText(root.output_text) ||
+    contentToText(root.content) ||
+    ""
+  );
 }
 
 // NVIDIA NIM (OpenAI-compatible) — primary provider. Serves GLM and other hosted models.
@@ -398,7 +434,9 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
     throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
   if (!res.ok) throw { status: 502, msg: `NVIDIA error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "NVIDIA returned an empty response." };
+  return text;
 }
 
 // Provider abstraction — Bedrock path is ready for when a valid key is supplied.
@@ -419,7 +457,9 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
   );
   if (!res.ok) throw { status: 502, msg: `Bedrock error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
-  return data?.output?.message?.content?.map((c: { text?: string }) => c.text ?? "").join("") ?? "";
+  const text = data?.output?.message?.content?.map((c: { text?: string }) => c.text ?? "").join("") ?? "";
+  if (!text.trim()) throw { status: 502, msg: "Bedrock returned an empty response." };
+  return text;
 }
 
 function jsonError(msg: string, status: number): Response {
