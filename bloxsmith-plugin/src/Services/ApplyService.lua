@@ -356,4 +356,12 @@ function ApplyService:replaceSource(scriptInstance, newSource, label)
 	return { ok = true }
 end
 
+-- Insert a Toolbox / Creator Store model by asset id, with undo support.
+function ApplyService:insertAsset(assetId, name)
+	return self:applyActions(
+		{ { action = "insert_asset", assetId = assetId, path = "Workspace", name = name } },
+		"Bloxsmith insert asset"
+	)
+end
+
 return ApplyService
