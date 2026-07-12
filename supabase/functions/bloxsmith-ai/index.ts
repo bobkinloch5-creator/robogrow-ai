@@ -104,6 +104,14 @@ Valid actions (paths are Studio paths like "ServerScriptService/Systems"):
 - rename_instance  {"action":"rename_instance","target":"Workspace/Part","name":"NewName"}
 - move_instance    {"action":"move_instance","target":"Workspace/Part","path":"ReplicatedStorage/Assets"}
 - delete_instance  {"action":"delete_instance","target":"Workspace/OldPart"}
+- insert_asset     {"action":"insert_asset","assetId":123456789,"path":"Workspace","name":"Optional"}
+
+TOOLBOX / FREE MODELS: When the user asks to insert something from the Toolbox / Creator Store / free
+models (e.g. "insert a house", "add a tree from the toolbox", "grab a car model"), use the
+insert_asset action with a real Roblox model assetId. The plugin loads it with InsertService:LoadAsset.
+If you are not certain of an exact assetId, DO NOT guess a fake one — instead tell the user to open the
+Toolbox tab in Bloxsmith and search for it there (the plugin has a live Toolbox search). You may still
+build the surrounding parts/scripts yourself.
 
 create_instance accepts ANY creatable Roblox class (Frame, TextButton, ImageLabel, ScrollingFrame,
 UICorner, UIGradient, UIListLayout, UIStroke, Part, MeshPart, Model, PointLight, ParticleEmitter,
