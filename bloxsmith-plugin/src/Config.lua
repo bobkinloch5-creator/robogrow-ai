@@ -8,10 +8,21 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.1.0"
+Config.Version = "3.1.1"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.1.1",
+		date = "2026-07-12",
+		title = "Insert Anything Fix",
+		changes = {
+			"FIXED: Skyboxes now insert into Lighting (not Workspace) so you actually SEE the sky change.",
+			"FIXED: Atmosphere, clouds and post-effects (bloom, blur, color correction, sun rays, depth of field) route into Lighting so they take effect.",
+			"IMPROVED: Inserts now tell you exactly where the asset landed and auto-focus the camera on visible models.",
+		},
+	},
+
 	{
 		version = "3.1.0",
 		date = "2026-07-12",
