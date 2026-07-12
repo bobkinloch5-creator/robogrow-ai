@@ -97,6 +97,9 @@ updateButton()
 
 -- Clean shutdown
 plugin.Unloading:Connect(function()
+	pcall(function()
+		app:saveCurrentConversation()
+	end)
 	deps.errors:stop()
 	Log.info("unloaded.")
 end)
