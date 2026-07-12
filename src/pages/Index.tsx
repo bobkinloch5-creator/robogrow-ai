@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import bloxsmithIcon from "@/assets/bloxsmith-icon.png";
 import heroBg from "@/assets/roblox-hero-bg.jpg";
+import tutorialVideo from "@/assets/plugin-tutorial.mp4.asset.json";
 
 
 const features = [
