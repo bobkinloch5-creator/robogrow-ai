@@ -990,6 +990,7 @@ function App:mount(gui)
 
 	self:buildChatView(self.views.Chat)
 	self:buildToolsView(self.views.Tools)
+	self:buildToolboxView(self.views.Toolbox)
 	self:buildAnalysisView(self.views.Analysis)
 	self:buildHealthView(self.views.Health)
 	self:buildErrorsView(self.views.Errors)
