@@ -1991,7 +1991,7 @@ function App:buildToolboxView(parent)
 	end)
 end
 
-
+function App:buildSettingsView(parent)
 	local view = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Parent = parent })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), Parent = view })
 	pad(0).Parent = view
