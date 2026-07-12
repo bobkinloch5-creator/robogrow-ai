@@ -83,7 +83,7 @@ const Docs = () => {
                     The Bloxsmith plugin provides a clean interface with the following sections:
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
-                    <li><strong>Account Status:</strong> Shows your email and prompt balance</li>
+                    <li><strong>Account Status:</strong> Shows your signed-in account</li>
                     <li><strong>Game Builder:</strong> Input field for your game ideas</li>
                     <li><strong>History:</strong> View your recent prompts and generations</li>
                     <li><strong>Settings:</strong> Configure AI behavior and preferences</li>
