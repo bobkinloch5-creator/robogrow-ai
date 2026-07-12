@@ -139,9 +139,32 @@ function App:addBubble(role, text)
 		Parent = holder,
 	})
 
-	for i, block in ipairs(blocks) do
-		self:addCodeBlock(holder, block, i + 1)
+	-- "Insert all" shortcut when the reply contains multiple files.
+	if #blocks > 1 then
+		local insertAll = button(("＋ Insert all %d files into Studio"):format(#blocks), {
+			LayoutOrder = 2,
+			BackgroundColor3 = C.Success,
+			TextColor3 = C.Bg,
+		})
+		insertAll.Parent = holder
+		insertAll.Activated:Connect(function()
+			local actions = {}
+			for i, block in ipairs(blocks) do
+				table.insert(actions, Parser.blockToAction(block, i))
+			end
+			local res = self.deps.apply:applyActions(actions, "Bloxsmith insert files")
+			if res.ok then
+				self:toast(("Inserted %d files (Ctrl+Z to undo)"):format(res.applied or #actions), "success")
+			else
+				self:toast(("Inserted %d of %d — check output."):format(res.applied or 0, #actions), "warning")
+			end
+		end)
 	end
+
+	for i, block in ipairs(blocks) do
+		self:addCodeBlock(holder, block, i + 10)
+	end
+
 
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
 end
