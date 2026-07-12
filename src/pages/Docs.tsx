@@ -202,13 +202,13 @@ const Docs = () => {
                 <section>
                   <h3 className="text-xl font-semibold mb-3">Rate Limits</h3>
                   <p className="text-muted-foreground">
-                    API requests are subject to the following limits:
+                    Bloxsmith is free for everyone. Fair-use rate limits keep the service fast:
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-4">
-                    <li>100 requests per hour for free accounts</li>
-                    <li>500 requests per hour for paid accounts</li>
-                    <li>Prompt usage deducted from your balance</li>
+                    <li>Generous free usage for all accounts</li>
+                    <li>No credits, balances, or charges — ever</li>
                   </ul>
+
                 </section>
 
                 <section>
