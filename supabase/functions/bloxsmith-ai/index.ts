@@ -3,7 +3,8 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const DEFAULT_MODEL = "google/gemini-3.1-flash-lite";
+// Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the non-Gemini fallback model.
+const DEFAULT_MODEL = "openai/gpt-5.4-mini";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
