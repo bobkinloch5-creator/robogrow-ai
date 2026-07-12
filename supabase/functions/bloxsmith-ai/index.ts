@@ -154,6 +154,75 @@ function buildSystem(mode: string, context: unknown): string {
   return parts.join("\n\n");
 }
 
+// ---- Roblox Toolbox (Creator Store) search -----------------------------------
+// Queries Roblox's public toolbox-service for free MODELS (category 10), then
+// enriches each with a name, creator and thumbnail. No auth required.
+interface ToolboxResult {
+  id: number;
+  name: string;
+  creator: string;
+  thumbnail: string | null;
+}
+
+async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]> {
+  const q = encodeURIComponent(query.slice(0, 120));
+  const marketUrl =
+    `https://apis.roblox.com/toolbox-service/v1/marketplace/10?limit=${limit}&keyword=${q}&sortType=0`;
+  const res = await fetch(marketUrl, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw { status: 502, msg: `Toolbox search failed (${res.status}).` };
+  const market = await res.json();
+  const ids: number[] = (market?.data ?? [])
+    .map((d: { id?: number }) => d?.id)
+    .filter((n: unknown): n is number => typeof n === "number")
+    .slice(0, limit);
+  if (ids.length === 0) return [];
+
+  // Details (names + creators) and thumbnails in parallel.
+  const idList = ids.join(",");
+  const [detailsRes, thumbsRes] = await Promise.all([
+    fetch(`https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=${idList}`, {
+      headers: { Accept: "application/json" },
+    }).catch(() => null),
+    fetch(
+      `https://thumbnails.roblox.com/v1/assets?assetIds=${idList}&size=150x150&format=Png&isCircular=false`,
+      { headers: { Accept: "application/json" } },
+    ).catch(() => null),
+  ]);
+
+  const nameById = new Map<number, { name: string; creator: string }>();
+  if (detailsRes && detailsRes.ok) {
+    const details = await detailsRes.json();
+    for (const item of details?.data ?? []) {
+      const id = item?.asset?.id;
+      if (typeof id === "number") {
+        nameById.set(id, {
+          name: item?.asset?.name ?? "Model",
+          creator: item?.creator?.name ?? "Roblox",
+        });
+      }
+    }
+  }
+
+  const thumbById = new Map<number, string>();
+  if (thumbsRes && thumbsRes.ok) {
+    const thumbs = await thumbsRes.json();
+    for (const t of thumbs?.data ?? []) {
+      if (typeof t?.targetId === "number" && t?.imageUrl) {
+        thumbById.set(t.targetId, t.imageUrl);
+      }
+    }
+  }
+
+  return ids.map((id) => ({
+    id,
+    name: nameById.get(id)?.name ?? "Model",
+    creator: nameById.get(id)?.creator ?? "Roblox",
+    thumbnail: thumbById.get(id) ?? null,
+  }));
+}
+
+
+
 async function callLovable(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
