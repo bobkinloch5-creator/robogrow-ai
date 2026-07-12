@@ -142,23 +142,27 @@ function App:addBubble(role, text)
 
 	-- Render the reply with code blocks stripped into their own panels.
 	local blocks = Parser.extractBlocks(workingText)
-	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n[code block below]\n")
+	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n〔 code block below 〕\n")
 	prose = prose:gsub("^%s+", ""):gsub("%s+$", "")
 
-	Create("TextLabel", {
-		Text = prose,
-		Font = Theme.Font,
-		TextSize = 13,
-		TextColor3 = C.Text,
-		BackgroundTransparency = 1,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		AutomaticSize = Enum.AutomaticSize.Y,
-		Size = UDim2.new(1, 0, 0, 0),
-		LayoutOrder = 2,
-		Parent = holder,
-	})
+	if prose ~= "" then
+		Create("TextLabel", {
+			Text = Parser.toRichText(prose),
+			RichText = true,
+			Font = Theme.Font,
+			TextSize = 13,
+			TextColor3 = C.Text,
+			BackgroundTransparency = 1,
+			TextWrapped = true,
+			LineHeight = 1.08,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Size = UDim2.new(1, 0, 0, 0),
+			LayoutOrder = 2,
+			Parent = holder,
+		})
+	end
 
 	-- "Insert all" shortcut when the reply contains multiple files.
 	if #blocks > 1 then
