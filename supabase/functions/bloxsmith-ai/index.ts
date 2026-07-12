@@ -29,6 +29,8 @@ const MAX_MESSAGES = 40;
 const MAX_CONTEXT_CHARS = 12000;
 const MAX_BODY_BYTES = 200_000;
 const MAX_CUSTOM_INSTRUCTIONS = 1000;
+const PRIMARY_AI_TIMEOUT_MS = 22_000;
+const FALLBACK_AI_TIMEOUT_MS = 32_000;
 
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
@@ -360,11 +362,15 @@ async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]
 async function callLovable(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
-  const res = await fetch(LOVABLE_GATEWAY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
-    body: JSON.stringify({ model: Deno.env.get("BLOXSMITH_MODEL") || DEFAULT_MODEL, messages, temperature: 0.4 }),
-  });
+  const res = await fetchWithTimeout(
+    LOVABLE_GATEWAY,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
+      body: JSON.stringify({ model: Deno.env.get("BLOXSMITH_MODEL") || DEFAULT_MODEL, messages, temperature: 0.4 }),
+    },
+    FALLBACK_AI_TIMEOUT_MS,
+  );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 402) throw { status: 402, msg: "AI credits exhausted. Add credits to keep generating." };
   if (!res.ok) throw { status: 502, msg: `AI provider error (${res.status}): ${(await res.text()).slice(0, 300)}` };
@@ -372,6 +378,21 @@ async function callLovable(messages: ChatMessage[]): Promise<string> {
   const text = extractAiText(data);
   if (!text.trim()) throw { status: 502, msg: "Lovable AI returned an empty response." };
   return text;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort("AI request timed out"), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw { status: 504, msg: "AI request timed out. Please try a shorter request or run it again." };
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function contentToText(content: unknown): string {
@@ -415,20 +436,24 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   // Faster responses without changing the model: cap output length, disable the
   // slow chain-of-thought "thinking" pass GLM does by default, and stream=false.
-  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.35,
-      top_p: 0.9,
-      max_tokens: 4096,
-      // GLM/NIM reasoning toggles — ignored by models that don't support them.
-      chat_template_kwargs: { thinking: false },
-      reasoning_effort: "low",
-    }),
-  });
+  const res = await fetchWithTimeout(
+    "https://integrate.api.nvidia.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.35,
+        top_p: 0.9,
+        max_tokens: 2048,
+        // GLM/NIM reasoning toggles — ignored by models that don't support them.
+        chat_template_kwargs: { thinking: false },
+        reasoning_effort: "low",
+      }),
+    },
+    PRIMARY_AI_TIMEOUT_MS,
+  );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
     throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
@@ -447,13 +472,14 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
   if (!key) throw { status: 500, msg: "BEDROCK_API_KEY not set" };
   const system = messages.filter((m) => m.role === "system").map((m) => ({ text: m.content }));
   const convo = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: [{ text: m.content }] }));
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(model)}/converse`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 4096, temperature: 0.4 } }),
+      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 2048, temperature: 0.4 } }),
     },
+    PRIMARY_AI_TIMEOUT_MS,
   );
   if (!res.ok) throw { status: 502, msg: `Bedrock error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
