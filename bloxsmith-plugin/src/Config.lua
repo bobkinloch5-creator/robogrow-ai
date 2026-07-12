@@ -8,10 +8,21 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.1.1"
+Config.Version = "3.1.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.1.2",
+		date = "2026-07-12",
+		title = "Smart Ground Placement",
+		changes = {
+			"NEW: Inserted models now snap to the ground with a downward raycast — no more floating in the air or sinking underground.",
+			"IMPROVED: Assets are placed just in front of you, sitting flush on the surface, with the camera auto-framing them.",
+			"IMPROVED: Placement accounts for each model's real size so its base rests exactly on the floor.",
+		},
+	},
+
 	{
 		version = "3.1.1",
 		date = "2026-07-12",
