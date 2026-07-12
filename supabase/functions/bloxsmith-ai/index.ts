@@ -95,7 +95,14 @@ RULES:
   -- code
   \`\`\`
   class is one of: Script, LocalScript, ModuleScript.
-- Keep explanations concise and skimmable with short headers and bullet points. Lead with the code, then a short "How it works" and "Setup" section.`;
+- Keep explanations concise and skimmable with short headers and bullet points. Lead with the code, then a short "How it works" and "Setup" section.
+
+EDIT-MODE VISIBILITY (very important):
+- The user works in Studio EDIT mode, not only Play mode. Scripts do NOT run in edit mode, so anything built purely inside a Script/LocalScript stays invisible until the game is played.
+- Whenever the user wants to SEE something (a build, a map, GUI, lighting, effects, animations), create REAL instances directly in the DataModel (use the agent "create_instance"/"set_property" actions) so they render live in the viewport in edit mode — never hide the visuals inside runtime-only scripts.
+- Effects that render live in edit mode and MUST be created as actual instances: ParticleEmitter, Beam, Trail, PointLight/SpotLight/SurfaceLight, Fire, Smoke, Sparkles, Highlight, UIGradient/UIStroke, Atmosphere, Sky, and post-processing under Lighting (Bloom, ColorCorrection, Blur, DepthOfField, SunRays). Build these as instances so they show immediately.
+- ANIMATIONS: continuous motion (rotation, hovering, pulsing, tweens) only plays at runtime. When the user wants an animation, still create the target instances so they appear in edit mode AND add the animating Script/LocalScript (TweenService/RunService) so it plays on Play. Briefly note which parts are live in edit mode vs. which animate on Play.
+- Prefer building visuals as instances first, then layering behavior scripts on top.`;
 
 
 const MODE_SYSTEM: Record<string, string> = {
