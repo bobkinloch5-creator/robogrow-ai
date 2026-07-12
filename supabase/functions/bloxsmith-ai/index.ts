@@ -666,6 +666,14 @@ Deno.serve(async (req) => {
       return jsonError("No prompt or messages provided", 400);
     }
 
+    const latestText = latestUserText(convo).toLowerCase();
+    if (mode === "agent" && latestText.includes("grass") && (latestText.includes("map") || latestText.includes("around"))) {
+      const built = buildGrassActionsResponse();
+      return new Response(JSON.stringify({ reply: built.reply, actions: built.actions, provider: "bloxsmith-fast-builder", mode }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const preferences: Preferences | undefined =
       body.preferences && typeof body.preferences === "object"
         ? {
