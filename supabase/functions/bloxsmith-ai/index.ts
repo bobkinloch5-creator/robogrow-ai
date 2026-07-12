@@ -156,8 +156,23 @@ Deno.serve(async (req) => {
 
     const messages: ChatMessage[] = [{ role: "system", content: buildSystem(mode, body.context) }, ...convo];
 
-    const provider = (Deno.env.get("AI_PROVIDER") || "lovable").toLowerCase();
-    const reply = provider === "bedrock" ? await callBedrock(messages) : await callLovable(messages);
+    const provider = (Deno.env.get("AI_PROVIDER") || "nvidia").toLowerCase();
+    let usedProvider = provider;
+    let reply: string;
+    try {
+      if (provider === "nvidia") reply = await callNvidia(messages);
+      else if (provider === "bedrock") reply = await callBedrock(messages);
+      else reply = await callLovable(messages);
+    } catch (primaryErr) {
+      // Fall back to Lovable AI if the primary provider fails (auth/network/etc).
+      if (provider !== "lovable") {
+        console.error("Primary provider failed, falling back to Lovable AI:", primaryErr);
+        usedProvider = "lovable";
+        reply = await callLovable(messages);
+      } else {
+        throw primaryErr;
+      }
+    }
 
     // Extract structured agent actions if present.
     let actions: unknown = null;
