@@ -121,4 +121,53 @@ function AIService:request(opts)
 	return result
 end
 
+--[[
+	searchToolbox(query) -> { ok, results = { {id, name, creator, thumbnail}... }, error? }
+	Searches the Roblox Toolbox (free models) through the secure backend.
+	Yields — call from within task.spawn / a coroutine.
+]]
+function AIService:searchToolbox(query, limit)
+	local ok, body = pcall(function()
+		return HttpService:JSONEncode({ mode = "toolbox_search", query = query, limit = limit })
+	end)
+	if not ok then
+		return { ok = false, error = "Failed to encode search." }
+	end
+
+	local success, response = pcall(function()
+		return HttpService:RequestAsync({
+			Url = self:getUrl(),
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+				["apikey"] = Config.PublishableKey,
+				["Authorization"] = "Bearer " .. Config.PublishableKey,
+			},
+			Body = body,
+		})
+	end)
+
+	if not success then
+		return { ok = false, error = "Network error. Enable HTTP requests and check the backend URL." }
+	end
+
+	local decoded
+	local decodeOk = pcall(function()
+		decoded = HttpService:JSONDecode(response.Body)
+	end)
+
+	if not response.Success then
+		local msg = (decodeOk and decoded and decoded.error) or ("Search failed (" .. tostring(response.StatusCode) .. ")")
+		return { ok = false, error = msg }
+	end
+	if not decodeOk or not decoded then
+		return { ok = false, error = "Malformed search response." }
+	end
+	if decoded.error then
+		return { ok = false, error = decoded.error }
+	end
+
+	return { ok = true, results = decoded.results or {} }
+end
+
 return AIService
