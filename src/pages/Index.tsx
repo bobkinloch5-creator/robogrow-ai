@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Gauge,
   Puzzle,
+  PlayCircle,
 } from "lucide-react";
 import bloxsmithIcon from "@/assets/bloxsmith-icon.png";
 import heroBg from "@/assets/roblox-hero-bg.jpg";
@@ -61,12 +62,12 @@ const steps = [
   {
     step: "01",
     title: "Install the plugin",
-    description: "Add the Bloxsmith plugin to Roblox Studio in one click.",
+    description: "Add the Bloxsmith plugin to Roblox Studio in one click — no account required.",
   },
   {
     step: "02",
-    title: "Sign in & connect",
-    description: "Link your account and prompt balance securely to the plugin.",
+    title: "Open Bloxsmith",
+    description: "Launch the plugin from your Studio toolbar and you're ready to go instantly.",
   },
   {
     step: "03",
@@ -129,15 +130,15 @@ const Index = () => {
               inside Roblox Studio.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Link to="/auth?mode=signup">
+              <a href="#tutorial">
                 <Button
                   size="lg"
                   className="bg-gradient-primary shadow-glow text-lg px-8 h-14"
                 >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Start Building Free
+                  <PlayCircle className="mr-2 h-5 w-5" />
+                  Watch Install Tutorial
                 </Button>
-              </Link>
+              </a>
               <Link to="/docs">
                 <Button
                   size="lg"
@@ -239,6 +240,59 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Video Tutorial Section */}
+      <section id="tutorial" className="py-20 px-4 scroll-mt-20">
+        <div className="container mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-sm text-muted-foreground backdrop-blur-sm mb-4">
+              <PlayCircle className="h-4 w-4 text-primary" />
+              Step-by-step video guide
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              How to{" "}
+              <span className="bg-gradient-primary bg-clip-text text-transparent">
+                Install
+              </span>{" "}
+              the Plugin
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Watch this quick tutorial to get Bloxsmith running inside Roblox
+              Studio in minutes.
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-gradient-card border-border/50 p-2 md:p-3 shadow-elegant overflow-hidden">
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-background/60">
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster={heroBg}
+                  className="h-full w-full object-cover"
+                >
+                  <source src="/plugin-tutorial.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </Card>
+            <p className="text-center text-sm text-muted-foreground mt-4">
+              Need help? Join our{" "}
+              <a
+                href="https://discord.gg/gkYGrVBbca"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Discord community
+              </a>{" "}
+              for live support.
+            </p>
+          </div>
+        </div>
+      </section>
+
+
       {/* CTA Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
@@ -253,13 +307,13 @@ const Index = () => {
                 faster than ever.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/auth?mode=signup">
+                <Link to="/docs">
                   <Button
                     size="lg"
                     className="bg-background text-primary hover:bg-background/90 shadow-glow text-lg px-8 h-14"
                   >
                     <Rocket className="mr-2 h-5 w-5" />
-                    Get Started Now — It's Free
+                    Get the Plugin — It's Free
                   </Button>
                 </Link>
               </div>
@@ -281,12 +335,12 @@ const Index = () => {
                 >
                   Documentation
                 </Link>
-                <Link
-                  to="/dashboard"
+                <a
+                  href="#tutorial"
                   className="block text-muted-foreground hover:text-foreground"
                 >
-                  Dashboard
-                </Link>
+                  Install Tutorial
+                </a>
               </div>
             </div>
             <div>
