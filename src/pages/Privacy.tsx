@@ -52,7 +52,7 @@ const Privacy = () => {
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>PayPal for payment processing</li>
-                <li>Amazon Bedrock for AI functionality</li>
+                <li>NVIDIA AI for AI functionality</li>
                 <li>Discord for community support</li>
               </ul>
             </section>
