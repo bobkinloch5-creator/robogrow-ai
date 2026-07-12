@@ -34,10 +34,20 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.0.1"
+Config.Version = "3.1.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.1.0",
+		date = "2026-07-12",
+		title = "Persistent Memory",
+		changes = {
+			"NEW: Bloxsmith now remembers your conversation across plugin reloads and Studio restarts — it picks up right where you left off.",
+			"NEW: Your active chat auto-saves after every message, so nothing is lost if Studio closes.",
+			"IMPROVED: Clearing the chat still archives it to History and starts a clean, empty memory.",
+		},
+	},
 	{
 		version = "3.0.1",
 		date = "2026-07-12",
@@ -47,6 +57,7 @@ Config.Changelog = {
 			"IMPROVED: If Roblox blocks an asset, Bloxsmith explains that the asset is private/restricted instead of silently failing.",
 		},
 	},
+
 	{
 		version = "3.0.0",
 		date = "2026-07-12",
@@ -1709,6 +1720,9 @@ function App:send(promptText, mode)
 			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
 			self:toast(result.error or "Request failed.", "error")
 		end
+		-- Persist the running conversation so Bloxsmith remembers it across
+		-- plugin reloads / Studio restarts.
+		self:saveActiveSession()
 	end)
 end
 
@@ -1855,6 +1869,7 @@ end
 -- Chat history (persisted via plugin settings) + clear
 --========================================================================
 local HISTORY_KEY = "Bloxsmith_ChatHistory"
+local ACTIVE_KEY = "Bloxsmith_ActiveSession"
 
 function App:loadHistoryStore()
 	local ok, data = pcall(function()
@@ -1871,6 +1886,47 @@ function App:saveHistoryStore(list)
 		self.deps.plugin:SetSetting(HISTORY_KEY, list)
 	end)
 end
+
+-- Persist the *current* conversation so Bloxsmith remembers context between
+-- plugin reloads and Studio restarts (long-term memory).
+function App:saveActiveSession()
+	pcall(function()
+		local snapshot = {}
+		for _, m in ipairs(self.history or {}) do
+			table.insert(snapshot, { role = m.role, content = m.content })
+		end
+		self.deps.plugin:SetSetting(ACTIVE_KEY, snapshot)
+	end)
+end
+
+-- Restore the last active conversation on startup so the AI keeps its memory.
+function App:restoreActiveSession()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(ACTIVE_KEY)
+	end)
+	if not (ok and type(data) == "table" and #data > 0) then
+		return false
+	end
+	self.history = {}
+	for _, m in ipairs(data) do
+		if type(m) == "table" and m.role and m.content then
+			table.insert(self.history, { role = m.role, content = m.content })
+		end
+	end
+	if #self.history == 0 then
+		return false
+	end
+	if self._welcomeCard then
+		self._welcomeCard:Destroy()
+		self._welcomeCard = nil
+	end
+	self:clearChatBubbles()
+	for _, m in ipairs(self.history) do
+		self:addBubble(m.role, m.content)
+	end
+	return true
+end
+
 
 -- Save the current conversation into persistent history (deduped, capped).
 function App:saveCurrentConversation()
@@ -1929,6 +1985,7 @@ function App:clearChat()
 	end
 	self:saveCurrentConversation()
 	self.history = {}
+	self:saveActiveSession()
 	self:clearChatBubbles()
 	self:showWelcome()
 	self:toast("Chat cleared — saved to History.", "success")
@@ -1943,6 +2000,7 @@ function App:loadConversation(convo)
 	for _, m in ipairs(self.history) do
 		self:addBubble(m.role, m.content)
 	end
+	self:saveActiveSession()
 	self:toggleHistoryPanel(false)
 	self:toast("Conversation loaded.", "success")
 end
@@ -2655,7 +2713,13 @@ function App:mount(gui)
 	self:buildSettingsView(self.views.Settings)
 
 	self:selectView("Chat")
-	self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
+	-- Restore the previous conversation (memory). Only greet on a fresh start.
+	local restored = self:restoreActiveSession()
+	if restored then
+		self:toast("Restored your last conversation.", "success")
+	else
+		self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. I remember our conversation across sessions. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
+	end
 end
 
 return App
