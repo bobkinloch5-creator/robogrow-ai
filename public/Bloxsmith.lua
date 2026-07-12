@@ -28,7 +28,7 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "1.2.0"
+Config.Version = "1.3.0"
 
 -- Secure backend (Lovable Cloud edge function). Overridable via plugin settings.
 Config.DefaultBackendUrl =
@@ -45,7 +45,20 @@ Config.MaxContextInstances = 400 -- cap hierarchy walk for performance
 Config.Settings = {
 	BackendUrl = "bloxsmith_backend_url",
 	AutoContext = "bloxsmith_auto_context",
+	Persona = "bloxsmith_persona",
+	ResponseLength = "bloxsmith_response_length",
+	CustomInstructions = "bloxsmith_custom_instructions",
 }
+
+-- Customization options exposed in Settings and sent to the secure backend.
+Config.Personas = { "Professional", "Friendly", "Teacher", "Concise", "Creative" }
+Config.ResponseLengths = { "Brief", "Balanced", "Detailed" }
+Config.Defaults = {
+	Persona = "Professional",
+	ResponseLength = "Balanced",
+	CustomInstructions = "",
+}
+Config.MaxCustomInstructions = 1000
 
 return Config
 end
@@ -82,6 +95,27 @@ end
 
 function AIService:setUrl(url)
 	self.plugin:SetSetting(Config.Settings.BackendUrl, url)
+end
+
+-- Reads the user's saved customization (persona, response length, custom
+-- instructions) so every request carries the developer's preferences.
+function AIService:getPreferences()
+	local get = function(key, default)
+		local v = self.plugin:GetSetting(key)
+		if v == nil or v == "" then
+			return default
+		end
+		return v
+	end
+	local instructions = get(Config.Settings.CustomInstructions, Config.Defaults.CustomInstructions)
+	if type(instructions) == "string" then
+		instructions = string.sub(instructions, 1, Config.MaxCustomInstructions)
+	end
+	return {
+		persona = get(Config.Settings.Persona, Config.Defaults.Persona),
+		responseLength = get(Config.Settings.ResponseLength, Config.Defaults.ResponseLength),
+		customInstructions = instructions,
+	}
 end
 
 -- Single HTTP attempt. Returns a normalized table describing the outcome.
@@ -149,6 +183,7 @@ function AIService:request(opts)
 		prompt = opts.prompt,
 		messages = opts.messages,
 		context = opts.context,
+		preferences = opts.preferences or self:getPreferences(),
 	}
 
 	local ok, body = pcall(function()
@@ -1991,10 +2026,55 @@ function App:buildToolboxView(parent)
 	end)
 end
 
+-- A labelled control that cycles through a list of options on click and
+-- persists the chosen value to a plugin setting.
+function App:cyclePref(parent, label, settingKey, options, default)
+	Create("TextLabel", { Text = label, Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Text, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 18), Parent = parent })
+	local current = self.deps.ai.plugin:GetSetting(settingKey) or default
+	local idx = 1
+	for i, opt in ipairs(options) do
+		if opt == current then idx = i break end
+	end
+	local btn = button("◀   " .. current .. "   ▶", { Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = C.Panel, TextColor3 = C.Text })
+	stroke(C.Border).Parent = btn
+	btn.Parent = parent
+	local function set(newIdx)
+		idx = ((newIdx - 1) % #options) + 1
+		btn.Text = "◀   " .. options[idx] .. "   ▶"
+		self.deps.ai.plugin:SetSetting(settingKey, options[idx])
+	end
+	btn.Activated:Connect(function()
+		set(idx + 1)
+		self:toast(label .. ": " .. options[idx], "success")
+	end)
+end
+
 function App:buildSettingsView(parent)
-	local view = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), Parent = parent })
+	local view = Create("ScrollingFrame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 4, ScrollBarImageColor3 = C.Border, BorderSizePixel = 0, Parent = parent })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), Parent = view })
 	pad(0).Parent = view
+
+	-- Customization
+	Create("TextLabel", { Text = "🎨 Customization", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
+
+	self:cyclePref(view, "AI personality", Config.Settings.Persona, Config.Personas, Config.Defaults.Persona)
+	self:cyclePref(view, "Response length", Config.Settings.ResponseLength, Config.ResponseLengths, Config.Defaults.ResponseLength)
+
+	Create("TextLabel", { Text = "Custom instructions", Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Text, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 18), Parent = view })
+	local ci = self.deps.ai.plugin:GetSetting(Config.Settings.CustomInstructions) or ""
+	local ciBox = Create("TextBox", { PlaceholderText = "e.g. Always use OOP modules. Comment every function. Prefer Knit framework.", Text = ci, Font = Theme.Font, TextSize = 12, TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ClearTextOnFocus = false, MultiLine = true, TextWrapped = true, Size = UDim2.new(1, 0, 0, 70), Parent = view }, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+	local ciSave = button("Save custom instructions", { Size = UDim2.new(1, 0, 0, 30) })
+	ciSave.Parent = view
+	ciSave.Activated:Connect(function()
+		local txt = string.sub(ciBox.Text or "", 1, Config.MaxCustomInstructions)
+		self.deps.ai.plugin:SetSetting(Config.Settings.CustomInstructions, txt)
+		self:toast("Custom instructions saved.", "success")
+	end)
+
+	Create("TextLabel", { Text = "Personality, length and custom instructions shape every AI reply and are sent securely with each request.", Font = Theme.Font, TextSize = 11, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
+
+	-- Connection
+	Create("TextLabel", { Text = "🔌 Connection", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
 
 	Create("TextLabel", { Text = "Backend URL", Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Text, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 18), Parent = view })
 	local urlBox = Create("TextBox", { Text = self.deps.ai:getUrl(), Font = Theme.FontMono, TextSize = 12, TextColor3 = C.Text, BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, TextWrapped = true, Size = UDim2.new(1, 0, 0, 50), Parent = view }, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
@@ -2005,7 +2085,7 @@ function App:buildSettingsView(parent)
 		self:toast("Backend URL saved.", "success")
 	end)
 
-	Create("TextLabel", { Text = "The plugin never stores an AI key — it calls a secure backend that holds the provider credentials. Switch providers (Bedrock, etc.) on the backend without updating the plugin.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
+	Create("TextLabel", { Text = "The plugin never stores an AI key — it calls a secure backend that holds the provider credentials. All requests are validated, rate-limited and sent over HTTPS.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
 
 	Create("TextLabel", { Text = ("Bloxsmith v%s"):format(Config.Version), Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 16), Parent = view })
 end
