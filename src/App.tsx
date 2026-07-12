@@ -9,7 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
-import Refund from "./pages/Refund";
+
 import FAQ from "./pages/FAQ";
 import Docs from "./pages/Docs";
 import SupportChat from "./components/SupportChat";
