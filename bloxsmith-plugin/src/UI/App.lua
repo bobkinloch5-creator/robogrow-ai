@@ -190,6 +190,109 @@ function App:addBubble(role, text)
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
 end
 
+-- Collapsible "💭 Thinking" panel showing the AI's plan/reasoning.
+function App:addThinkingPanel(parent, thinking, order)
+	local panel = Create("Frame", {
+		BackgroundColor3 = C.PanelAlt,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = order or 1,
+		Parent = parent,
+	}, { corner(UDim.new(0, 6)), pad(8), stroke(C.Accent2) })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = panel })
+
+	local expanded = false
+	local header = Create("TextButton", {
+		Text = "💭 Thinking  ▸",
+		Font = Theme.FontBold,
+		TextSize = 12,
+		TextColor3 = C.Accent2,
+		BackgroundTransparency = 1,
+		AutoButtonColor = false,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, 0, 0, 16),
+		LayoutOrder = 0,
+		Parent = panel,
+	})
+
+	local body = Create("TextLabel", {
+		Text = thinking,
+		Font = Theme.Font,
+		TextSize = 12,
+		TextColor3 = C.TextDim,
+		BackgroundTransparency = 1,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0),
+		Visible = false,
+		LayoutOrder = 1,
+		Parent = panel,
+	})
+
+	header.Activated:Connect(function()
+		expanded = not expanded
+		body.Visible = expanded
+		header.Text = expanded and "💭 Thinking  ▾" or "💭 Thinking  ▸"
+	end)
+end
+
+-- Live animated "thinking" indicator shown while a request is in flight.
+function App:startThinking()
+	local holder = Create("Frame", {
+		BackgroundColor3 = C.AiBubble,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = self.chatScroll,
+	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.Accent2) })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), Parent = holder })
+	Create("TextLabel", {
+		Text = "Bloxsmith", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.Accent,
+		BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, 0, 0, 14), Parent = holder,
+	})
+	local status = Create("TextLabel", {
+		Text = "💭 Thinking.", Font = Theme.Font, TextSize = 13, TextColor3 = C.TextDim,
+		BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+		AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = holder,
+	})
+	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
+
+	local phases = {
+		"💭 Understanding your request",
+		"🧭 Planning the build",
+		"🧩 Designing the structure",
+		"⌨️ Writing Luau",
+		"🔌 Wiring it all up",
+		"✨ Polishing the result",
+	}
+	local running = true
+	task.spawn(function()
+		local i, dots = 1, 1
+		while running and holder.Parent do
+			status.Text = phases[i] .. string.rep(".", dots)
+			dots += 1
+			if dots > 3 then
+				dots = 1
+				i = (i % #phases) + 1
+			end
+			task.wait(0.5)
+		end
+	end)
+
+	return {
+		stop = function()
+			running = false
+			if holder and holder.Parent then
+				holder:Destroy()
+			end
+		end,
+	}
+end
+
+
+
 function App:addCodeBlock(parent, block, order)
 	local panel = Create("Frame", {
 		BackgroundColor3 = C.Bg,
