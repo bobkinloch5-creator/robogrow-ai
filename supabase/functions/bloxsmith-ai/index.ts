@@ -149,7 +149,7 @@ RULES:
   optimize_script:
     "Optimize the provided script for performance and readability. Return the improved full script in one code block and a bulleted list of the optimizations made.",
   generate_ui:
-    "Generate a Roblox UI. Produce a LocalScript (class=LocalScript) that builds the interface programmatically under a ScreenGui, using UICorner, UIListLayout/UIGridLayout, and theme-consistent colors. Make it responsive with Scale-based UDim2 where sensible.",
+    "Generate a stunning Roblox UI. Produce a LocalScript (class=LocalScript) that builds the interface programmatically under a ScreenGui, following the UI/UX CRAFT rules above: rounded corners, UIStroke, UIGradient, drop shadow, a cohesive palette, bold friendly fonts, hover/press animations and an entrance tween. Default to a vibrant cartoony game look unless the user asks otherwise. Make it responsive with Scale-based UDim2. Never output a plain grey box.",
   generate_system:
     "Generate a complete, modular game system (e.g. inventory, shop, quests, combat, leaderboard, progression). Split into server ModuleScript(s), RemoteEvents, and client controller(s). Each file in its own code block with path= and class= hints. Include a short setup guide.",
   security_scan:
