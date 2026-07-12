@@ -206,13 +206,16 @@ function ApplyService:applyOne(action)
 
 	elseif kind == "create_instance" then
 		local class = action.class
-		if not class or not CREATE_WHITELIST[class] then
-			return false, "Refused to create disallowed class: " .. tostring(class)
+		if type(class) ~= "string" or class == "" then
+			return false, "create_instance requires a class name"
+		end
+		if CREATE_BLACKLIST[class] then
+			return false, "Refused to create protected/service class: " .. tostring(class)
 		end
 		local parent = self:resolvePath(action.path or "Workspace", true)
 		local okNew, inst = pcall(Instance.new, class)
 		if not okNew or not inst then
-			return false, "Could not create instance of class " .. tostring(class)
+			return false, "Roblox cannot create an instance of class: " .. tostring(class)
 		end
 		inst.Name = action.name or class
 		if type(action.properties) == "table" then
