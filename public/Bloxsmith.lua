@@ -628,6 +628,70 @@ function ApplyService:insertAsset(assetId, name)
 	)
 end
 
+-- Wipe the place: remove ALL scripts, models, GUIs and assets across the common
+-- containers while keeping the Baseplate (and the un-removable Terrain/Camera).
+-- Fully undoable with a single Ctrl+Z via ChangeHistoryService.
+function ApplyService:resetPlace(keepBaseplate)
+	local recordId = ChangeHistoryService:TryBeginRecording("Bloxsmith reset place")
+	local removed = 0
+
+	local function clearContainer(container, protect)
+		if not container then
+			return
+		end
+		for _, child in ipairs(container:GetChildren()) do
+			if not (protect and protect(child)) then
+				local ok = pcall(function()
+					child:Destroy()
+				end)
+				if ok then
+					removed += 1
+				end
+			end
+		end
+	end
+
+	-- Workspace: keep Terrain, Camera and the baseplate; remove everything else.
+	clearContainer(workspace, function(child)
+		if child:IsA("Terrain") or child:IsA("Camera") then
+			return true
+		end
+		if keepBaseplate ~= false and child.Name == "Baseplate" then
+			return true
+		end
+		return false
+	end)
+
+	-- Wipe the standard containers entirely.
+	local services = {
+		"ServerScriptService", "ServerStorage", "ReplicatedStorage",
+		"ReplicatedFirst", "StarterGui", "StarterPack", "Lighting",
+	}
+	for _, name in ipairs(services) do
+		local ok, svc = pcall(function()
+			return game:GetService(name)
+		end)
+		if ok and svc then
+			clearContainer(svc)
+		end
+	end
+
+	-- StarterPlayer holds its scripts in sub-containers; clear those, not the
+	-- containers themselves (which Roblox recreates/needs).
+	local okSP, sp = pcall(function()
+		return game:GetService("StarterPlayer")
+	end)
+	if okSP and sp then
+		clearContainer(sp:FindFirstChild("StarterPlayerScripts"))
+		clearContainer(sp:FindFirstChild("StarterCharacterScripts"))
+	end
+
+	if recordId then
+		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
+	end
+	return { ok = true, removed = removed }
+end
+
 return ApplyService
 end
 
@@ -2086,6 +2150,39 @@ function App:buildSettingsView(parent)
 	end)
 
 	Create("TextLabel", { Text = "The plugin never stores an AI key — it calls a secure backend that holds the provider credentials. All requests are validated, rate-limited and sent over HTTPS.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
+
+	-- Danger Zone: full place reset.
+	Create("TextLabel", { Text = "⚠️ Danger Zone", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Error, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
+	Create("TextLabel", { Text = "Refresh place — permanently removes ALL scripts, models, GUIs and assets across Workspace, ServerScriptService, ReplicatedStorage, StarterGui, StarterPlayer, Lighting and more. The Baseplate is kept. Undo the whole wipe with Ctrl+Z.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
+
+	local resetBtn = button("🔄 Refresh place (keep Baseplate)", { Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = C.Error, TextColor3 = C.Bg })
+	resetBtn.Parent = view
+	local armed = false
+	local resetToken = 0
+	resetBtn.Activated:Connect(function()
+		if not armed then
+			armed = true
+			resetBtn.Text = "⚠️ Click again to confirm wipe"
+			resetToken += 1
+			local myToken = resetToken
+			task.delay(4, function()
+				if armed and myToken == resetToken then
+					armed = false
+					resetBtn.Text = "🔄 Refresh place (keep Baseplate)"
+				end
+			end)
+			return
+		end
+		armed = false
+		resetToken += 1
+		resetBtn.Text = "🔄 Refresh place (keep Baseplate)"
+		local res = self.deps.apply:resetPlace(true)
+		if res.ok then
+			self:toast(("Place refreshed — removed %d item(s). Ctrl+Z to undo."):format(res.removed or 0), "success")
+		else
+			self:toast("Refresh failed: " .. (res.error or "unknown"), "error")
+		end
+	end)
 
 	Create("TextLabel", { Text = ("Bloxsmith v%s"):format(Config.Version), Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 16), Parent = view })
 end
