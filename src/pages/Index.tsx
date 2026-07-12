@@ -272,7 +272,7 @@ const Index = () => {
                   poster={heroBg}
                   className="h-full w-full object-cover"
                 >
-                  <source src="/plugin-tutorial.mp4" type="video/mp4" />
+                  <source src={tutorialVideo.url} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               </div>
