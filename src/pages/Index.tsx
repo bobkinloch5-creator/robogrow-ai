@@ -61,12 +61,12 @@ const steps = [
   {
     step: "01",
     title: "Install the plugin",
-    description: "Add the Bloxsmith plugin to Roblox Studio in one click.",
+    description: "Add the Bloxsmith plugin to Roblox Studio in one click — no account required.",
   },
   {
     step: "02",
-    title: "Sign in & connect",
-    description: "Link your account and prompt balance securely to the plugin.",
+    title: "Open Bloxsmith",
+    description: "Launch the plugin from your Studio toolbar and you're ready to go instantly.",
   },
   {
     step: "03",
