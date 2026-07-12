@@ -68,8 +68,8 @@ const Privacy = () => {
               <h2 className="text-2xl font-bold mb-4">5. Third-Party Services</h2>
               <ul className="list-disc list-inside text-muted-foreground space-y-1">
                 <li>NVIDIA-hosted AI models for AI functionality</li>
-                <li>Our payment provider for secure checkout</li>
                 <li>Discord for community and support</li>
+
               </ul>
             </section>
 
