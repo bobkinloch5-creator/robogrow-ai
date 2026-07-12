@@ -89,6 +89,24 @@ async function callLovable(messages: ChatMessage[]): Promise<string> {
   return data?.choices?.[0]?.message?.content ?? "";
 }
 
+// NVIDIA NIM (OpenAI-compatible) — primary provider. Serves GLM and other hosted models.
+async function callNvidia(messages: ChatMessage[]): Promise<string> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  const model = Deno.env.get("NVIDIA_MODEL") || "z-ai/glm-5.2";
+  if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 4096 }),
+  });
+  if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
+  if (res.status === 401 || res.status === 403)
+    throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
+  if (!res.ok) throw { status: 502, msg: `NVIDIA error (${res.status}): ${(await res.text()).slice(0, 300)}` };
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "";
+}
+
 // Provider abstraction — Bedrock path is ready for when a valid key is supplied.
 async function callBedrock(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("BEDROCK_API_KEY");
