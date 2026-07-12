@@ -20,7 +20,7 @@ const Terms = () => {
             <section>
               <h2 className="text-2xl font-bold mb-4">1. Acceptance of Terms</h2>
               <p className="text-muted-foreground">
-                By accessing or using Bloxsmith (the website at hideoutbot.lol and the Bloxsmith Roblox
+                By accessing or using Bloxsmith (the website at bloxsmiths.xyz and the Bloxsmith Roblox
                 Studio plugin, together the "Service"), you agree to be bound by these Terms of Service. If
                 you do not agree, do not use the Service.
               </p>
@@ -104,7 +104,7 @@ const Terms = () => {
             <section>
               <h2 className="text-2xl font-bold mb-4">11. Contact</h2>
               <p className="text-muted-foreground mb-4">
-                Questions about these Terms? Email support@hideoutbot.lol or join our Discord.
+                Questions about these Terms? Email support@bloxsmiths.xyz or join our Discord.
               </p>
               <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
                 <Button className="bg-gradient-primary shadow-glow">

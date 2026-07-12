@@ -20,7 +20,7 @@ const Privacy = () => {
             <section>
               <p className="text-muted-foreground">
                 This Privacy Policy explains how Bloxsmith ("we", "us", or "our") collects, uses, and
-                protects your information when you use the Bloxsmith website at hideoutbot.lol and the
+                protects your information when you use the Bloxsmith website at bloxsmiths.xyz and the
                 Bloxsmith Roblox Studio plugin (together, the "Service").
               </p>
             </section>
@@ -110,7 +110,7 @@ const Privacy = () => {
             <section>
               <h2 className="text-2xl font-bold mb-4">10. Contact Us</h2>
               <p className="text-muted-foreground mb-4">
-                Questions about privacy? Email privacy@hideoutbot.lol or reach us on Discord.
+                Questions about privacy? Email privacy@bloxsmiths.xyz or reach us on Discord.
               </p>
               <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
                 <Button className="bg-gradient-primary shadow-glow">
