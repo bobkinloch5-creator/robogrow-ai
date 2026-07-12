@@ -307,13 +307,13 @@ const Index = () => {
                 faster than ever.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/auth?mode=signup">
+                <Link to="/docs">
                   <Button
                     size="lg"
                     className="bg-background text-primary hover:bg-background/90 shadow-glow text-lg px-8 h-14"
                   >
                     <Rocket className="mr-2 h-5 w-5" />
-                    Get Started Now — It's Free
+                    Get the Plugin — It's Free
                   </Button>
                 </Link>
               </div>
