@@ -78,12 +78,13 @@ const Dashboard = () => {
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gradient-card p-6 border-border/50">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-muted-foreground">Prompt Balance</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Your Plan</h3>
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
-            <p className="text-3xl font-bold">50</p>
-            <p className="text-xs text-muted-foreground mt-1">prompts remaining</p>
+            <p className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">Free</p>
+            <p className="text-xs text-muted-foreground mt-1">unlimited prompts</p>
           </Card>
+
 
           <Card className="bg-gradient-card p-6 border-border/50">
             <div className="flex items-center justify-between mb-2">
