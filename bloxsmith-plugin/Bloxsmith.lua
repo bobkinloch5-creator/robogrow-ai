@@ -1340,23 +1340,27 @@ function App:addBubble(role, text)
 
 	-- Render the reply with code blocks stripped into their own panels.
 	local blocks = Parser.extractBlocks(workingText)
-	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n[code block below]\n")
+	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n〔 code block below 〕\n")
 	prose = prose:gsub("^%s+", ""):gsub("%s+$", "")
 
-	Create("TextLabel", {
-		Text = prose,
-		Font = Theme.Font,
-		TextSize = 13,
-		TextColor3 = C.Text,
-		BackgroundTransparency = 1,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		AutomaticSize = Enum.AutomaticSize.Y,
-		Size = UDim2.new(1, 0, 0, 0),
-		LayoutOrder = 2,
-		Parent = holder,
-	})
+	if prose ~= "" then
+		Create("TextLabel", {
+			Text = Parser.toRichText(prose),
+			RichText = true,
+			Font = Theme.Font,
+			TextSize = 13,
+			TextColor3 = C.Text,
+			BackgroundTransparency = 1,
+			TextWrapped = true,
+			LineHeight = 1.08,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Size = UDim2.new(1, 0, 0, 0),
+			LayoutOrder = 2,
+			Parent = holder,
+		})
+	end
 
 	-- "Insert all" shortcut when the reply contains multiple files.
 	if #blocks > 1 then
@@ -1414,12 +1418,14 @@ function App:addThinkingPanel(parent, thinking, order)
 	})
 
 	local body = Create("TextLabel", {
-		Text = thinking,
+		Text = Parser.toRichText(thinking),
+		RichText = true,
 		Font = Theme.Font,
 		TextSize = 12,
 		TextColor3 = C.TextDim,
 		BackgroundTransparency = 1,
 		TextWrapped = true,
+		LineHeight = 1.08,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -2498,6 +2504,79 @@ function Parser.blockToAction(block, index)
 		class = class,
 		source = block.source,
 	}
+end
+
+-- Escape the characters that are special inside a Roblox RichText string.
+local function escapeRich(s)
+	s = s:gsub("&", "&amp;")
+	s = s:gsub("<", "&lt;")
+	s = s:gsub(">", "&gt;")
+	return s
+end
+
+--[[
+	toRichText(text, opts) -> string
+	Converts a subset of Markdown into Roblox RichText so AI replies render as
+	clean formatted text instead of raw **asterisks**, #hashes and `backticks`.
+
+	Supported:
+	  # / ## / ###  headers        -> bold (larger via <font size>)
+	  **bold**  / __bold__          -> <b>…</b>
+	  *italic*  / _italic_          -> <i>…</i>
+	  `inline code`                 -> colored monospace-style span
+	  - / * / • bullets             -> • bullet
+	  1. numbered lists             -> kept as "1." with a thin space
+	  ---/*** horizontal rules      -> a subtle divider line
+	opts.codeColor = "#RRGGBB" for inline code (defaults to a soft cyan).
+]]
+function Parser.toRichText(text, opts)
+	if type(text) ~= "string" then
+		return ""
+	end
+	opts = opts or {}
+	local codeColor = opts.codeColor or "#8be9fd"
+
+	-- Escape first so user/AI angle brackets never inject tags.
+	local out = escapeRich(text)
+
+	-- Process line-by-line for block-level markdown (headers, bullets, rules).
+	local lines = string.split(out, "\n")
+	for i, line in ipairs(lines) do
+		local trimmed = line:gsub("^%s+", "")
+
+		-- Horizontal rule.
+		if trimmed:match("^%-%-%-+$") or trimmed:match("^%*%*%*+$") or trimmed:match("^___+$") then
+			lines[i] = '<font color="#3a4356">──────────</font>'
+		else
+			-- Headers (#, ##, ###) -> bold, slightly larger for the biggest.
+			local hashes, htext = line:match("^%s*(#+)%s+(.*)$")
+			if hashes then
+				local size = #hashes == 1 and 17 or (#hashes == 2 and 15 or 14)
+				lines[i] = ('<font size="%d"><b>%s</b></font>'):format(size, htext)
+			else
+				-- Bullets: "- ", "* ", "+ " -> "• "
+				local indent, btext = line:match("^(%s*)[%-%*%+]%s+(.*)$")
+				if btext then
+					lines[i] = indent .. "• " .. btext
+				end
+			end
+		end
+	end
+	out = table.concat(lines, "\n")
+
+	-- Inline code first so ** or * inside code isn't reinterpreted.
+	out = out:gsub("`([^`]+)`", '<font color="' .. codeColor .. '">%1</font>')
+
+	-- Bold (** or __) before italic so the ** pair wins over single *.
+	out = out:gsub("%*%*(.-)%*%*", "<b>%1</b>")
+	out = out:gsub("__(.-)__", "<b>%1</b>")
+
+	-- Italic (single * or _). Require non-space next to the marker so it does
+	-- not eat stray asterisks.
+	out = out:gsub("%*(%S.-%S)%*", "<i>%1</i>")
+	out = out:gsub("%*(%S)%*", "<i>%1</i>")
+
+	return out
 end
 
 return Parser
