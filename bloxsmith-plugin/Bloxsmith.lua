@@ -2036,10 +2036,18 @@ function App:buildToolboxView(parent)
 		for i, item in ipairs(items) do
 			local card = Create("Frame", { BackgroundColor3 = C.Panel, LayoutOrder = i, Parent = results }, { corner(UDim.new(0, 8)), pad(6), stroke(C.Border) })
 			Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = card })
-			Create("ImageLabel", {
-				Image = item.thumbnail or "", BackgroundColor3 = C.Bg, ScaleType = Enum.ScaleType.Fit,
-				Size = UDim2.new(1, 0, 0, 78), LayoutOrder = 0, Parent = card,
+			-- Use Roblox's native thumbnail endpoint so the REAL model image renders
+			-- inside Studio. ImageLabel cannot load raw CDN https URLs, but rbxthumb:// is
+			-- resolved natively by the engine from the asset id.
+			local thumb = item.id and ("rbxthumb://type=Asset&id=%d&w=150&h=150"):format(item.id) or (item.thumbnail or "")
+			local imgHolder = Create("Frame", {
+				BackgroundColor3 = C.Bg, Size = UDim2.new(1, 0, 0, 78), LayoutOrder = 0, Parent = card,
 			}, { corner(UDim.new(0, 6)) })
+			Create("ImageLabel", {
+				Image = thumb, BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit,
+				Size = UDim2.new(1, 0, 1, 0), Parent = imgHolder,
+			})
+
 			Create("TextLabel", {
 				Text = item.name or "Model", Font = Theme.FontBold, TextSize = 12, TextColor3 = C.Text,
 				BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
