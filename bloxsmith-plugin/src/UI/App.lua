@@ -163,7 +163,7 @@ function App:addBubble(role, text)
 	-- "Insert all" shortcut when the reply contains multiple files.
 	if #blocks > 1 then
 		local insertAll = button(("＋ Insert all %d files into Studio"):format(#blocks), {
-			LayoutOrder = 2,
+			LayoutOrder = 3,
 			BackgroundColor3 = C.Success,
 			TextColor3 = C.Bg,
 		})
