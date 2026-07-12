@@ -14,6 +14,7 @@ import {
   Gauge,
   Puzzle,
 } from "lucide-react";
+import bloxsmithIcon from "@/assets/bloxsmith-icon.png";
 
 const features = [
   {
