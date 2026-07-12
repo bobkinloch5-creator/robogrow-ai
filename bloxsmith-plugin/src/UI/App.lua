@@ -451,6 +451,26 @@ function App:buildChatView(parent)
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = view })
 	pad(0).Parent = view
 
+	-- Header row: Clear + History
+	local headerRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = 0, Parent = view })
+	Create("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 6),
+		Parent = headerRow,
+	})
+	local historyBtn = button("🕘 History", { Size = UDim2.new(0, 92, 1, 0), BackgroundColor3 = C.Panel, TextSize = 12 })
+	historyBtn.Parent = headerRow
+	historyBtn.Activated:Connect(function()
+		self:toggleHistoryPanel(true)
+	end)
+	local clearBtn = button("🗑 Clear", { Size = UDim2.new(0, 80, 1, 0), BackgroundColor3 = C.Panel, TextSize = 12 })
+	clearBtn.Parent = headerRow
+	clearBtn.Activated:Connect(function()
+		self:clearChat()
+	end)
+
 	-- Selection context strip
 	self.contextLabel = Create("TextLabel", {
 		Text = "No selection",
@@ -460,20 +480,20 @@ function App:buildChatView(parent)
 		BackgroundColor3 = C.Panel,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Size = UDim2.new(1, 0, 0, 26),
-		LayoutOrder = 0,
+		LayoutOrder = 1,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(6) })
 
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -110),
+		Size = UDim2.new(1, 0, 1, -150),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.Accent,
 		BorderSizePixel = 0,
-		LayoutOrder = 1,
+		LayoutOrder = 2,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.chatScroll })
