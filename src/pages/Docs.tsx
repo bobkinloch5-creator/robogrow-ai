@@ -26,7 +26,7 @@ const Docs = () => {
                 <section>
                   <h3 className="text-xl font-semibold mb-3">1. Create Your Account</h3>
                   <p className="text-muted-foreground">
-                    Sign up for a free account at hideoutbot.lol. You'll receive 50 free prompts to start building.
+                    Sign up for a free account at hideoutbot.lol. Bloxsmith is 100% free — no payment required.
                   </p>
                 </section>
 
