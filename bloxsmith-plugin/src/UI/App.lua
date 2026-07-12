@@ -344,12 +344,16 @@ function App:addCodeBlock(parent, block, order)
 	local insert = button("＋ Insert into Studio", { LayoutOrder = 2, BackgroundColor3 = C.AccentDim })
 	insert.Parent = panel
 	insert.Activated:Connect(function()
+		insert.Text = "Inserting…"
 		local action = Parser.blockToAction(block, order)
 		local res = self.deps.apply:applyActions({ action }, "Bloxsmith insert script")
-		if res.ok then
-			self:toast("Inserted " .. (action.name or "script") .. " (Ctrl+Z to undo)", "success")
+		if res.ok and (res.applied or 0) > 0 then
+			local where = action.path or "ServerScriptService"
+			self:toast(("✓ Added '%s' to %s (open Explorer to see it). Ctrl+Z to undo."):format(action.name or "script", where), "success")
+			insert.Text = "✓ Inserted into " .. where
 		else
 			self:toast("Insert failed: " .. (res.error or "unknown"), "error")
+			insert.Text = "＋ Retry insert"
 		end
 	end)
 end
