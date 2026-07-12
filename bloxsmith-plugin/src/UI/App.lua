@@ -408,6 +408,9 @@ function App:send(promptText, mode)
 			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
 			self:toast(result.error or "Request failed.", "error")
 		end
+		-- Persist the running conversation so Bloxsmith remembers it across
+		-- plugin reloads / Studio restarts.
+		self:saveActiveSession()
 	end)
 end
 
