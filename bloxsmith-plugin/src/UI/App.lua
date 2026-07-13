@@ -305,12 +305,9 @@ function App:startThinking()
 	end
 
 	cancelBtn.Activated:Connect(function()
-		handle.cancelled = true
-		handle.stop()
-		self.busy = false
-		self.sendBtn.Text = "Send"
-		self:toast("Build cancelled.", "warning")
+		self:stopActiveBuild()
 	end)
+
 
 	return handle
 end
