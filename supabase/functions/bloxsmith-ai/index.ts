@@ -1078,8 +1078,19 @@ Deno.serve(async (req) => {
 
     // Access gate: OPEN to everyone (public). The allow-list table, the
     // isRobloxUserAllowed() helper, and the admin page are kept intact so
-    // access can be re-restricted later by re-enabling the check here.
-    // (Public mode — no allow-list enforcement.)
+    // access can be re-restricted later by re-enabling that check here.
+    // Instead of an allow-list, we enforce a per-Roblox-user DAILY rate limit.
+    const robloxUserId = Number(body.robloxUserId) || 0;
+    if (mode !== "support" && mode !== "chat") {
+      if (!(await isWithinDailyLimit(robloxUserId))) {
+        return jsonError(
+          `You've hit today's limit of ${DAILY_REQUEST_LIMIT} builds. Your quota resets at midnight UTC — try again then.`,
+          429,
+        );
+      }
+    }
+
+
 
 
 
