@@ -14,7 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      allowed_roblox_users: {
+        Row: {
+          created_at: string
+          label: string | null
+          roblox_user_id: number
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          label?: string | null
+          roblox_user_id: number
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          label?: string | null
+          roblox_user_id?: number
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
