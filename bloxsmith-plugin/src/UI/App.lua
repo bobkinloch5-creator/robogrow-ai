@@ -496,22 +496,52 @@ function App:buildChatView(parent)
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(6) })
 
+	-- Selection-aware quick edits — instant, undoable tweaks to whatever is
+	-- selected in Studio (no AI round-trip needed).
+	local selRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 2, Parent = view })
+	Create("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 4),
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Parent = selRow,
+	})
+	local selEdits = {
+		{ "➕ Bigger", "scale", 1.25 },
+		{ "➖ Smaller", "scale", 0.8 },
+		{ "⧉ Duplicate", "duplicate" },
+		{ "⚓ Anchor", "anchor", true },
+		{ "🗑 Delete", "delete" },
+	}
+	for _, e in ipairs(selEdits) do
+		local chip = button(e[1], { Size = UDim2.new(0, 78, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
+		chip.Parent = selRow
+		chip.Activated:Connect(function()
+			local res = self.deps.apply:editSelection(e[2], e[3])
+			if res.ok then
+				self:toast(("Edited %d object(s). Ctrl+Z to undo."):format(res.count or 1), "success")
+				self:refreshSelectionStrip()
+			else
+				self:toast(res.error or "Selection edit failed.", "warning")
+			end
+		end)
+	end
+
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -150),
+		Size = UDim2.new(1, 0, 1, -184),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.Accent,
 		BorderSizePixel = 0,
-		LayoutOrder = 2,
+		LayoutOrder = 3,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.chatScroll })
 
 	-- Mode buttons row
-	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 3, Parent = view })
+	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 4, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
 	local modes = { { "Chat", "chat" }, { "Generate", "agent" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
 	self.modeButtons = {}
