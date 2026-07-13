@@ -749,7 +749,7 @@ function extractAiText(data: unknown): string {
 // NVIDIA NIM (OpenAI-compatible) — primary provider. Serves GLM and other hosted models.
 async function callNvidia(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_MODEL") || "google/gemma-4-31b-it";
+  const model = Deno.env.get("NVIDIA_MODEL") || "meta/llama-3.1-70b-instruct";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   // Faster responses without changing the model: cap output length, disable the
   // slow chain-of-thought "thinking" pass GLM does by default, and stream=false.
@@ -818,7 +818,7 @@ async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_
 // NVIDIA NIM — tertiary fallback using GPT-OSS-120B (fast).
 async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "nvidia/nemotron-3-super-120b-a12b";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "meta/llama-3.1-8b-instruct";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -849,7 +849,7 @@ async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI
 // NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash (fast, thinking off).
 async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "qwen/qwen3.5-122b-a10b";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "mistralai/mistral-small-4-119b-2603";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -882,7 +882,7 @@ async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_
 // NVIDIA NIM — quintenary fallback using Moonshot Kimi K2.6.
 async function callNvidiaKimi(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_4") || "moonshotai/kimi-k2.6";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_4") || "meta/llama-3.1-8b-instruct";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
