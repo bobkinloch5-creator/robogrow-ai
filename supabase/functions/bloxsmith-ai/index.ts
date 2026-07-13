@@ -83,6 +83,28 @@ async function isRobloxUserAllowed(robloxUserId: number): Promise<boolean> {
   }
 }
 
+// Records one request against this Roblox user's daily quota and returns whether
+// they are still within the limit. Fails OPEN (returns true) on any error so a
+// backend hiccup never blocks legitimate users.
+async function isWithinDailyLimit(robloxUserId: number): Promise<boolean> {
+  if (!robloxUserId || robloxUserId <= 0) return true; // can't identify — don't block
+  try {
+    const sb = getServiceClient();
+    const { data, error } = await sb.rpc("check_and_increment_roblox_usage", {
+      _roblox_user_id: robloxUserId,
+      _daily_limit: DAILY_REQUEST_LIMIT,
+    });
+    if (error) {
+      console.error("Daily-limit check failed:", error);
+      return true;
+    }
+    return data !== false;
+  } catch (err) {
+    console.error("Daily-limit check threw:", err);
+    return true;
+  }
+}
+
 // Resolve a Roblox username to its numeric user id via the public Roblox API.
 async function resolveRobloxUsername(username: string): Promise<{ id: number; name: string } | null> {
   try {
