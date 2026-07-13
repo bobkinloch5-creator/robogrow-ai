@@ -1290,10 +1290,13 @@ function App:buildToolboxView(parent)
 	end
 
 	local function runSearch(query)
-		if not query or query == "" then return end
+		query = query and query:gsub("^%s+", ""):gsub("%s+$", "") or ""
+		-- Blend in the active category so filters narrow the results.
+		local full = (currentCategory ~= "") and (currentCategory .. " " .. query) or query
+		if full == "" then return end
 		status("🔎 Searching the Toolbox…")
 		task.spawn(function()
-			local res = self.deps.ai:searchToolbox(query)
+			local res = self.deps.ai:searchToolbox(full)
 			if res.ok then
 				renderResults(res.results or {})
 			else
