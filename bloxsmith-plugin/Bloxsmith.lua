@@ -34,10 +34,23 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.4.0"
+Config.Version = "3.5.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.5.0",
+		date = "2026-07-13",
+		title = "Reliability & Stop Button",
+		changes = {
+			"FIXED: Builds no longer hang or 'do nothing' — the backend now has a strict time budget and falls back through multiple AI models fast, so you always get a response.",
+			"NEW: Multi-model failover — if the main AI is busy, Bloxsmith instantly retries on backup models (Nemotron, GPT-OSS, DeepSeek) and finally ChatGPT.",
+			"NEW: The Send button turns into a ⛔ Stop button while a build runs — tap it any time to stop instantly and free the UI.",
+			"IMPROVED: Fallback models run in fast mode so responses come back well within Studio's request limit.",
+		},
+	},
+
+
 	{
 		version = "3.4.0",
 		date = "2026-07-13",
@@ -1992,12 +2005,9 @@ function App:startThinking()
 	end
 
 	cancelBtn.Activated:Connect(function()
-		handle.cancelled = true
-		handle.stop()
-		self.busy = false
-		self.sendBtn.Text = "Send"
-		self:toast("Build cancelled.", "warning")
+		self:stopActiveBuild()
 	end)
+
 
 	return handle
 end
@@ -2075,7 +2085,7 @@ function App:send(promptText, mode)
 		return
 	end
 	self.busy = true
-	self.sendBtn.Text = "…"
+	self:setSendButtonStop(true)
 
 	-- Dismiss the onboarding card on first message.
 	if self._welcomeCard then
@@ -2092,6 +2102,7 @@ function App:send(promptText, mode)
 
 	-- Show the live thinking indicator while the request is in flight.
 	local thinkingHandle = self:startThinking()
+	self._activeThinking = thinkingHandle
 
 	task.spawn(function()
 		local result = self.deps.ai:request({
@@ -2099,14 +2110,15 @@ function App:send(promptText, mode)
 			messages = self.history,
 			context = context,
 		})
-		-- If the user cancelled while the request was in flight, discard the
-		-- result entirely — the UI was already freed by the cancel handler.
+		-- If the user cancelled/stopped while the request was in flight, discard
+		-- the result entirely — the UI was already freed by the stop handler.
 		if thinkingHandle.cancelled then
 			return
 		end
 		thinkingHandle.stop()
+		self._activeThinking = nil
 		self.busy = false
-		self.sendBtn.Text = "Send"
+		self:setSendButtonStop(false)
 
 		if result.ok then
 			local reply = result.reply
@@ -2127,6 +2139,34 @@ function App:send(promptText, mode)
 		-- plugin reloads / Studio restarts.
 		self:saveActiveSession()
 	end)
+end
+
+-- Toggle the Send button between its normal state and an in-flight "Stop" state.
+function App:setSendButtonStop(isStopping)
+	if not self.sendBtn then
+		return
+	end
+	if isStopping then
+		self.sendBtn.Text = "⛔ Stop"
+	else
+		self.sendBtn.Text = "Send"
+	end
+end
+
+-- Stop the current in-flight build: discard its result and free the UI. Shared
+-- by the Send/Stop button and the in-bubble Cancel button.
+function App:stopActiveBuild()
+	local handle = self._activeThinking
+	if handle then
+		handle.cancelled = true
+		if handle.stop then
+			handle.stop()
+		end
+		self._activeThinking = nil
+	end
+	self.busy = false
+	self:setSendButtonStop(false)
+	self:toast("Build stopped.", "warning")
 end
 
 -- Human-readable one-line summary of a single agent action, for the plan checklist.
@@ -2410,6 +2450,11 @@ function App:buildChatView(parent)
 	self.sendBtn.Position = UDim2.new(1, -62, 0, 0)
 	self.sendBtn.Parent = inputRow
 	self.sendBtn.Activated:Connect(function()
+		-- While a build is in flight the Send button acts as a Stop button.
+		if self.busy then
+			self:stopActiveBuild()
+			return
+		end
 		local text = self.input.Text
 		self.input.Text = ""
 		self:send(text, self.mode)
