@@ -33,11 +33,12 @@ const MAX_CUSTOM_INSTRUCTIONS = 1000;
 // Roblox HttpService aborts a request at ~60s, so the WHOLE call — primary plus
 // every fallback attempt — must finish comfortably under that. We keep a global
 // deadline and give each provider a short slice of it.
-const PRIMARY_AI_TIMEOUT_MS = 12_000; // was 18s — GLM was eating too much of the budget before handing off
-const FALLBACK_AI_TIMEOUT_MS = 11_000; // was 14s — tightened to match, still enough for a full script response
+const PRIMARY_AI_TIMEOUT_MS = 45_000; // was 12s — give the primary model plenty of time to generate code
+const FALLBACK_AI_TIMEOUT_MS = 40_000; // was 11s — give fallbacks enough time to complete
 const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
 const MIN_ATTEMPT_MS = 5_000; // was 6s — slightly more room to fit in one more fallback attempt late in the budget
-const HEDGE_DELAY_MS = 4_000; // was 6s — race the next provider sooner instead of waiting on a possibly-slow primary
+const HEDGE_DELAY_MS = 25_000; // was 4s — race the next provider after 25s if primary is slow, rather than instantly flooding the API
+
 
 // Per-Roblox-user daily rate limit and access mode are owner-configurable and
 // stored in the app_settings table (see getSettings). The DAILY_REQUEST_LIMIT
