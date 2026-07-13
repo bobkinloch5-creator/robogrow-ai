@@ -8,10 +8,21 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.6.0"
+Config.Version = "3.7.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.7.0",
+		date = "2026-07-13",
+		title = "Private Access & No Limits",
+		changes = {
+			"NEW: Bloxsmith is now private — it only works for the Roblox accounts the owner has approved, tied to your own Roblox login. No sign-in or codes needed.",
+			"NEW: Removed all rate limiting — approved users can build as much as they want with no cooldowns.",
+			"IMPROVED: If your account isn't approved yet, Bloxsmith now tells you your Roblox ID so you can share it with the owner to get access.",
+		},
+	},
+
 	{
 		version = "3.6.0",
 		date = "2026-07-13",
