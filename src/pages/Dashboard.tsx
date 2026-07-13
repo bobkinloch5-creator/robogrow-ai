@@ -121,7 +121,7 @@ const Dashboard = () => {
             Connect the Bloxsmith plugin in Roblox Studio to start creating games with AI
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <a href="/Bloxsmith.lua" download="Bloxsmith.lua">
+            <a href="https://kxvblxlyawnozipeehnl.supabase.co/functions/v1/download-plugin" download="Bloxsmith.lua">
               <Button className="bg-background text-primary hover:bg-background/90 w-full">
                 Download Plugin (.lua)
               </Button>

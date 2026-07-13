@@ -30,7 +30,7 @@ const Docs = () => {
                 Local Plugin. That's it — you're ready to build.
               </p>
             </div>
-            <a href="/Bloxsmith.lua" download="Bloxsmith.lua" className="shrink-0">
+            <a href="https://kxvblxlyawnozipeehnl.supabase.co/functions/v1/download-plugin" download="Bloxsmith.lua" className="shrink-0">
               <Button size="lg" className="bg-gradient-primary shadow-glow text-lg px-8 h-14">
                 <Download className="mr-2 h-5 w-5" />
                 Download Plugin (.lua)
@@ -59,7 +59,7 @@ const Docs = () => {
                     <code className="text-primary">Bloxsmith.lua</code>. No account or sign-up
                     needed — Bloxsmith is completely free.
                   </p>
-                  <a href="/Bloxsmith.lua" download="Bloxsmith.lua">
+                  <a href="https://kxvblxlyawnozipeehnl.supabase.co/functions/v1/download-plugin" download="Bloxsmith.lua">
                     <Button variant="outline">
                       <Download className="mr-2 h-4 w-4" />
                       Download Bloxsmith.lua
