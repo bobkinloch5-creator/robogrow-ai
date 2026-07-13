@@ -39,6 +39,10 @@ const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
 const MIN_ATTEMPT_MS = 6_000; // don't start a provider with less than this left
 const HEDGE_DELAY_MS = 6_000; // if the current provider is still silent after this, race the next one
 
+// Per-Roblox-user daily rate limit. Access is public, but each Roblox account
+// may make at most this many build requests per calendar day (UTC).
+const DAILY_REQUEST_LIMIT = Number(Deno.env.get("DAILY_REQUEST_LIMIT")) || 100;
+
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
   "chat", "support", "generate_script", "fix_script", "explain_script",
@@ -76,6 +80,28 @@ async function isRobloxUserAllowed(robloxUserId: number): Promise<boolean> {
   } catch (err) {
     console.error("Allow-list lookup threw:", err);
     return false;
+  }
+}
+
+// Records one request against this Roblox user's daily quota and returns whether
+// they are still within the limit. Fails OPEN (returns true) on any error so a
+// backend hiccup never blocks legitimate users.
+async function isWithinDailyLimit(robloxUserId: number): Promise<boolean> {
+  if (!robloxUserId || robloxUserId <= 0) return true; // can't identify — don't block
+  try {
+    const sb = getServiceClient();
+    const { data, error } = await sb.rpc("check_and_increment_roblox_usage", {
+      _roblox_user_id: robloxUserId,
+      _daily_limit: DAILY_REQUEST_LIMIT,
+    });
+    if (error) {
+      console.error("Daily-limit check failed:", error);
+      return true;
+    }
+    return data !== false;
+  } catch (err) {
+    console.error("Daily-limit check threw:", err);
+    return true;
   }
 }
 
@@ -1052,8 +1078,19 @@ Deno.serve(async (req) => {
 
     // Access gate: OPEN to everyone (public). The allow-list table, the
     // isRobloxUserAllowed() helper, and the admin page are kept intact so
-    // access can be re-restricted later by re-enabling the check here.
-    // (Public mode — no allow-list enforcement.)
+    // access can be re-restricted later by re-enabling that check here.
+    // Instead of an allow-list, we enforce a per-Roblox-user DAILY rate limit.
+    const robloxUserId = Number(body.robloxUserId) || 0;
+    if (mode !== "support" && mode !== "chat") {
+      if (!(await isWithinDailyLimit(robloxUserId))) {
+        return jsonError(
+          `You've hit today's limit of ${DAILY_REQUEST_LIMIT} builds. Your quota resets at midnight UTC — try again then.`,
+          429,
+        );
+      }
+    }
+
+
 
 
 

@@ -35,12 +35,36 @@ export type Database = {
         }
         Relationships: []
       }
+      roblox_usage_daily: {
+        Row: {
+          request_count: number
+          roblox_user_id: number
+          updated_at: string
+          usage_date: string
+        }
+        Insert: {
+          request_count?: number
+          roblox_user_id: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Update: {
+          request_count?: number
+          roblox_user_id?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_and_increment_roblox_usage: {
+        Args: { _daily_limit: number; _roblox_user_id: number }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
