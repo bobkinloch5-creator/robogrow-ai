@@ -1349,18 +1349,35 @@ function App:buildToolboxView(parent)
 	idBtn.Position = UDim2.new(1, -66, 0, 0)
 	idBtn.Parent = idRow
 
-	-- Recently inserted strip — one-click re-insert of past models.
+	-- Favorites + recently inserted strips — one-click re-insert of saved models.
 	local recentsHolder = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 4, Parent = view })
 	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = recentsHolder })
 
+	-- Bulk insert row — drop every current search result at once.
+	local lastResults = {}
+	local bulkRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 5, Parent = view })
+	local bulkBtn = button("＋ Insert all results", { Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = C.AccentDim, TextSize = 12 })
+	bulkBtn.Visible = false
+	bulkBtn.Parent = bulkRow
+	local function updateBulk()
+		if #lastResults > 0 then
+			bulkRow.Size = UDim2.new(1, 0, 0, 28)
+			bulkBtn.Visible = true
+			bulkBtn.Text = ("＋ Insert all %d results"):format(#lastResults)
+		else
+			bulkRow.Size = UDim2.new(1, 0, 0, 0)
+			bulkBtn.Visible = false
+		end
+	end
+
 	-- Results scroll
 	local results = Create("ScrollingFrame", {
-		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -152), CanvasSize = UDim2.new(0, 0, 0, 0),
+		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -190), CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, ScrollBarImageColor3 = C.Accent,
-		BorderSizePixel = 0, LayoutOrder = 5, Parent = view,
+		BorderSizePixel = 0, LayoutOrder = 6, Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	local grid = Create("UIGridLayout", {
-		CellSize = UDim2.new(0.5, -6, 0, 176), CellPadding = UDim2.new(0, 8, 0, 8),
+		CellSize = UDim2.new(0.5, -6, 0, 202), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
 
