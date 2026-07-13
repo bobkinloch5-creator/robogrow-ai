@@ -798,26 +798,40 @@ Deno.serve(async (req) => {
     const provider = (Deno.env.get("AI_PROVIDER") || "nvidia").toLowerCase();
     let usedProvider = provider;
     let reply: string;
+
+    // Global deadline so primary + fallbacks always return before Roblox's ~60s
+    // HTTP timeout. We reserve time for a final Lovable AI call, which is fast
+    // and reliable, so the user always gets an answer.
+    const deadline = Date.now() + TOTAL_BUDGET_MS;
+    const LOVABLE_RESERVE_MS = 14_000;
+    const remaining = () => deadline - Date.now();
+
     try {
       if (provider === "nvidia") reply = await callNvidia(messages);
       else if (provider === "bedrock") reply = await callBedrock(messages);
-      else reply = await callLovable(messages);
+      else reply = await callLovable(messages, Math.min(FALLBACK_AI_TIMEOUT_MS, remaining()));
     } catch (primaryErr) {
       console.error("Primary provider failed:", primaryErr);
       // Fallback chain (only for NVIDIA-hosted primary):
       //   NVIDIA Nemotron -> NVIDIA GPT-OSS-120B -> NVIDIA DeepSeek V4 Flash -> Lovable AI (ChatGPT).
       let fellBack = false;
       if (provider === "nvidia") {
-        const nvidiaFallbacks: Array<{ name: string; call: () => Promise<string> }> = [
-          { name: "nvidia-nemotron", call: () => callNvidiaNemotron(messages) },
-          { name: "nvidia-gpt-oss", call: () => callNvidiaGptOss(messages) },
-          { name: "nvidia-deepseek", call: () => callNvidiaDeepseek(messages) },
+        const nvidiaFallbacks: Array<{ name: string; call: (t: number) => Promise<string> }> = [
+          { name: "nvidia-nemotron", call: (t) => callNvidiaNemotron(messages, t) },
+          { name: "nvidia-gpt-oss", call: (t) => callNvidiaGptOss(messages, t) },
+          { name: "nvidia-deepseek", call: (t) => callNvidiaDeepseek(messages, t) },
         ];
         for (const fb of nvidiaFallbacks) {
+          // Keep enough budget for the guaranteed final Lovable attempt.
+          const slice = Math.min(FALLBACK_AI_TIMEOUT_MS, remaining() - LOVABLE_RESERVE_MS);
+          if (slice < MIN_ATTEMPT_MS) {
+            console.error(`Skipping ${fb.name} — not enough time budget left.`);
+            continue;
+          }
           try {
-            console.error(`Falling back to ${fb.name}…`);
+            console.error(`Falling back to ${fb.name} (timeout ${slice}ms)…`);
             usedProvider = fb.name;
-            reply = await fb.call();
+            reply = await fb.call(slice);
             fellBack = true;
             break;
           } catch (fbErr) {
@@ -827,11 +841,12 @@ Deno.serve(async (req) => {
       }
       if (!fellBack) {
         if (provider === "lovable") throw primaryErr;
-        // Final fallback: Lovable AI (ChatGPT).
+        // Final fallback: Lovable AI (ChatGPT) — always gets a real slice of time.
         usedProvider = "lovable";
-        reply = await callLovable(messages);
+        reply = await callLovable(messages, Math.max(MIN_ATTEMPT_MS, Math.min(FALLBACK_AI_TIMEOUT_MS, remaining())));
       }
     }
+
 
 
 
