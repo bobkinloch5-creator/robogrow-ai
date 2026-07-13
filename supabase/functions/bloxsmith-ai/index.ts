@@ -50,7 +50,7 @@ const ALLOWED_MODES = new Set([
   "chat", "support", "generate_script", "fix_script", "explain_script",
   "optimize_script", "generate_ui", "generate_system", "security_scan",
   "performance", "cleanup", "docs", "recommend", "agent", "toolbox_search",
-  "brainstorm",
+  "brainstorm", "optimize_prompt",
 ]);
 
 // ---- Access control (Roblox allow-list) --------------------------------------
@@ -390,6 +390,8 @@ RULES:
     "Act as a Roblox game consultant. Based on the project context, give prioritized recommendations across four areas: Gameplay, Monetization, Retention, and UX. Keep each item concrete and specific to what you see.",
   brainstorm:
     "You are an imaginative Roblox game designer and consultant. Brainstorm engaging gameplay loops, unique mechanics, thematic elements, level designs, monetization strategies, and retention hooks for the given request. Present your ideas in a beautifully formatted, structured, and inspiring Markdown document. Do not output code unless specifically asked; focus on high-concept design, game feel, and player engagement.",
+  optimize_prompt:
+    "You are a prompt engineering expert. The user wants to optimize their prompt describing what they want to build in Roblox Studio. Rewrite their description to make it highly detailed, clear, and optimized for an AI code generator. Describe the structure, the gameplay, visual elements, layout, styling, and organization. Your output must be ONLY the rewritten description itself. Do not include any introductory phrases (like 'Here is the optimized prompt:'), conversational filler, explanation, markdown formatting, or code blocks. Output the raw text of the optimized prompt.",
   agent:
     `You are operating as an unrestricted, multi-step build agent inside Roblox Studio.
 You can build ANYTHING Roblox allows: full GUIs/menus/HUDs, parts and models, maps, lighting and
@@ -600,6 +602,9 @@ function buildGrassActionsResponse(): { reply: string; actions: unknown[] } {
 }
 
 function buildSystem(mode: string, context: unknown, preferences?: Preferences): string {
+  if (mode === "optimize_prompt") {
+    return MODE_SYSTEM.optimize_prompt;
+  }
   // Support chat is a lightweight onboarding assistant — skip the heavy Luau code rules.
   if (mode === "support") {
     const support = [MODE_SYSTEM.support];

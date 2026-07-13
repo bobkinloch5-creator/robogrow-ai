@@ -378,6 +378,7 @@ Config.MaxCustomInstructions = 5000
 
 return Config
 end
+end
 
 _modules["Services.AIService"] = function()
 
@@ -644,6 +645,7 @@ function AIService:searchToolbox(query, limit)
 end
 
 return AIService
+end
 end
 
 _modules["Services.ApplyService"] = function()
@@ -1607,6 +1609,7 @@ end
 
 return ApplyService
 end
+end
 
 _modules["Services.CleanupService"] = function()
 
@@ -1701,6 +1704,7 @@ function CleanupService:scan()
 end
 
 return CleanupService
+end
 end
 
 _modules["Services.ContextService"] = function()
@@ -1880,6 +1884,7 @@ end
 
 return ContextService
 end
+end
 
 _modules["Services.ErrorMonitor"] = function()
 
@@ -1937,6 +1942,7 @@ end
 
 return ErrorMonitor
 end
+end
 
 _modules["Services.HealthService"] = function()
 
@@ -1979,6 +1985,7 @@ function HealthService:compute()
 end
 
 return HealthService
+end
 end
 
 _modules["Services.PerformanceAnalyzer"] = function()
@@ -2073,6 +2080,7 @@ function PerformanceAnalyzer:analyze()
 end
 
 return PerformanceAnalyzer
+end
 end
 
 _modules["Services.SecurityScanner"] = function()
@@ -2176,6 +2184,7 @@ function SecurityScanner:scan()
 end
 
 return SecurityScanner
+end
 end
 
 _modules["UI.App"] = function()
@@ -3107,13 +3116,61 @@ function App:buildChatView(parent)
 		ClearTextOnFocus = false,
 		MultiLine = true,
 		TextWrapped = true,
-		Size = UDim2.new(1, -70, 1, 0),
+		Size = UDim2.new(1, -104, 1, 0),
 		Position = UDim2.new(0, 0, 0, 0),
 		Parent = inputRow,
 	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
 
-	self.sendBtn = button("Send", { Size = UDim2.new(0, 62, 1, 0) })
-	self.sendBtn.Position = UDim2.new(1, -62, 0, 0)
+	self.wandBtn = button("🪄", { Size = UDim2.new(0, 32, 1, 0), BackgroundColor3 = C.PanelAlt })
+	self.wandBtn.Position = UDim2.new(1, -100, 0, 0)
+	self.wandBtn.Parent = inputRow
+	self.wandBtn.Activated:Connect(function()
+		if self.busy then return end
+		local text = self.input.Text
+		local cleanText = text:gsub("^%s+", ""):gsub("%s+$", "")
+		if cleanText == "" then
+			self:toast("Type a prompt to optimize first.", "warning")
+			return
+		end
+
+		self.busy = true
+		self.wandBtn.Text = "⏳"
+		self.sendBtn.Active = false
+		self.sendBtn.BackgroundColor3 = C.PanelAlt
+		local grad = self.sendBtn:FindFirstChildOfClass("UIGradient")
+		if grad then
+			grad.Enabled = false
+		end
+		self.input.Editable = false
+
+		task.spawn(function()
+			local result = self.deps.ai:request({
+				mode = "optimize_prompt",
+				messages = { { role = "user", content = cleanText } },
+				context = "",
+			})
+
+			self.busy = false
+			self.wandBtn.Text = "🪄"
+			self.sendBtn.Active = true
+			self.sendBtn.BackgroundColor3 = C.Accent
+			local gradAfter = self.sendBtn:FindFirstChildOfClass("UIGradient")
+			if gradAfter then
+				gradAfter.Enabled = true
+			end
+			self.input.Editable = true
+
+			if result.ok then
+				self.input.Text = result.reply or ""
+				self:toast("Prompt optimized!", "success")
+			else
+				self:toast(result.error or "Optimization failed.", "error")
+			end
+		end)
+	end)
+
+	self.sendBtn = button("Send", { Size = UDim2.new(0, 64, 1, 0) })
+	self.sendBtn.Position = UDim2.new(1, -64, 0, 0)
 	self.sendBtn.Parent = inputRow
 	self.sendBtn.Activated:Connect(function()
 		-- While a build is in flight the Send button acts as a Stop button.
@@ -4445,6 +4502,7 @@ end
 
 return App
 end
+end
 
 _modules["UI.Create"] = function()
 
@@ -4479,6 +4537,7 @@ local function Create(className, props, children)
 end
 
 return Create
+end
 end
 
 _modules["UI.Theme"] = function()
@@ -4545,6 +4604,7 @@ end
 
 return Theme
 end
+end
 
 _modules["Util.Log"] = function()
 
@@ -4575,6 +4635,7 @@ function Log.try(label, fn, ...)
 end
 
 return Log
+end
 end
 
 _modules["Util.Parser"] = function()
@@ -4848,6 +4909,7 @@ function Parser.toRichText(text, opts)
 end
 
 return Parser
+end
 end
 
 _modules["Util.Signal"] = function()
