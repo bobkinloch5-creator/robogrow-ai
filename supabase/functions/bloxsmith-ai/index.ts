@@ -1340,12 +1340,24 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    // Log full detail server-side; never leak internals (stack traces, provider
-    // responses, keys) to the client. Only surface curated 4xx messages.
     const status = (err as { status?: number })?.status ?? 500;
     const rawMsg = (err as { msg?: string })?.msg ?? (err instanceof Error ? err.message : "Unexpected error");
     console.error(`[bloxsmith-ai] error (status ${status}):`, err);
-    const clientMsg = rawMsg;
-    return jsonError(clientMsg, status, { errorDetail: err });
+    
+    let detailStr = "";
+    try {
+      if (err instanceof Response) {
+        detailStr = `Response: status=${err.status}`;
+      } else if (err instanceof Error) {
+        detailStr = `${err.name}: ${err.message}\n${err.stack}`;
+      } else {
+        detailStr = JSON.stringify(err);
+      }
+    } catch (_) {
+      detailStr = String(err);
+    }
+    
+    const clientMsg = `${rawMsg} | Detail: ${detailStr}`;
+    return jsonError(clientMsg, status, { errorDetail: detailStr });
   }
 });
