@@ -35,6 +35,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          access_mode: string
+          daily_request_limit: number
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          access_mode?: string
+          daily_request_limit?: number
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          access_mode?: string
+          daily_request_limit?: number
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       roblox_usage_daily: {
         Row: {
           request_count: number
