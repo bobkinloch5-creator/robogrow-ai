@@ -1155,6 +1155,21 @@ Deno.serve(async (req) => {
 
     const mode = typeof body.mode === "string" ? body.mode : "chat";
 
+    if (mode === "debug_env") {
+      const envs = Deno.env.toObject();
+      const sanitized: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(envs)) {
+        if (k.includes("KEY") || k.includes("SECRET") || k.includes("TOKEN") || k.includes("PASSWORD")) {
+          sanitized[k] = `set (len: ${v.length}, start: ${v.slice(0, 5)}...${v.slice(-5)})`;
+        } else {
+          sanitized[k] = v;
+        }
+      }
+      return new Response(JSON.stringify({ env: sanitized }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Owner-only management from the website /admin page.
     if (mode.startsWith("admin_")) {
       return await handleAdmin(mode, body);
