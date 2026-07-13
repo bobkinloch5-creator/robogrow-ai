@@ -282,10 +282,12 @@ function App:startThinking()
 		"✨ Polishing the result",
 	}
 	local running = true
+	local startedAt = os.clock()
 	task.spawn(function()
 		local i, dots = 1, 1
 		while running and holder.Parent do
-			status.Text = phases[i] .. string.rep(".", dots)
+			local secs = math.floor(os.clock() - startedAt)
+			status.Text = phases[i] .. string.rep(".", dots) .. ("   ⏱ %ds"):format(secs)
 			dots += 1
 			if dots > 3 then
 				dots = 1
