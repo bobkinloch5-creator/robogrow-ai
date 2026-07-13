@@ -1,6 +1,7 @@
 // Bloxsmith AI backend — secure proxy between the Roblox Studio plugin and AI providers.
 // The plugin never holds an AI key; it only knows this function's public URL.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the fallback model.
