@@ -351,5 +351,4 @@ Config.Defaults = {
 Config.MaxCustomInstructions = 5000
 
 return Config
-end
 
