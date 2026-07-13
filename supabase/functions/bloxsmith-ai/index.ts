@@ -678,7 +678,7 @@ async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]
 
 async function callLovable(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
+  if (!key) throw { status: 503, msg: "Lovable AI unavailable (key not configured)." };
   const res = await fetchWithTimeout(
     LOVABLE_GATEWAY,
     {
