@@ -1918,6 +1918,90 @@ function App:mount(gui)
 	else
 		self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. I remember our conversation across sessions. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
 	end
+
+	-- First-run guided tour.
+	self:maybeShowTour()
+end
+
+-- One-time onboarding tour shown on first launch (dismissible, persisted).
+function App:maybeShowTour()
+	local seen = false
+	pcall(function()
+		seen = self.deps.plugin:GetSetting("Bloxsmith_TourSeen") and true or false
+	end)
+	if seen or not self.gui then
+		return
+	end
+
+	local steps = {
+		{ "👋 Welcome to Bloxsmith", "Your AI copilot for Roblox Studio. Take 20 seconds to see what it can do." },
+		{ "💬 Chat & Generate", "Describe anything — 'build a shop', 'add a leaderboard' — and approve the changes. Tap the quick-action chips above the input for instant builds." },
+		{ "🧰 Toolbox", "Search thousands of free models and insert them straight into your game. Favorite (☆) and re-insert them with one click, or use Insert-all." },
+		{ "🛠 Tools & Auto-fix", "Generate systems and UIs, save prompt presets, and one-tap fix errors from the Errors tab or the 🔧 chip." },
+		{ "🎨 Make it yours", "Set the AI's personality, response length and custom instructions in Settings. Enjoy building!" },
+	}
+
+	local overlay = Create("Frame", {
+		BackgroundColor3 = C.Bg, BackgroundTransparency = 0.2, Size = UDim2.new(1, 0, 1, 0),
+		ZIndex = 100, Parent = self.gui,
+	})
+	local card = Create("Frame", {
+		BackgroundColor3 = C.Panel, Size = UDim2.new(0, 300, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+		Position = UDim2.new(0.5, -150, 0.35, 0), ZIndex = 101, Parent = overlay,
+	}, { corner(UDim.new(0, 10)), pad(14), stroke(C.Accent) })
+	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = card })
+
+	local title = Create("TextLabel", {
+		Text = "", Font = Theme.FontBold, TextSize = 16, TextColor3 = C.Accent, BackgroundTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), ZIndex = 101, LayoutOrder = 0, Parent = card,
+	})
+	local body = Create("TextLabel", {
+		Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.TextDim, BackgroundTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), ZIndex = 101, LayoutOrder = 1, Parent = card,
+	})
+	local progress = Create("TextLabel", {
+		Text = "", Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 14), ZIndex = 101, LayoutOrder = 2, Parent = card,
+	})
+
+	local btnRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 32), ZIndex = 101, LayoutOrder = 3, Parent = card })
+	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 6), Parent = btnRow })
+
+	local idx = 1
+	local function finish()
+		pcall(function()
+			self.deps.plugin:SetSetting("Bloxsmith_TourSeen", true)
+		end)
+		overlay:Destroy()
+	end
+
+	local skip = button("Skip", { Size = UDim2.new(0, 70, 1, 0), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+	skip.ZIndex = 101
+	skip.Parent = btnRow
+	skip.Activated:Connect(finish)
+
+	local next = button("Next", { Size = UDim2.new(0, 90, 1, 0), TextSize = 12 })
+	next.ZIndex = 101
+	next.Parent = btnRow
+
+	local function render()
+		local step = steps[idx]
+		title.Text = step[1]
+		body.Text = step[2]
+		progress.Text = ("Step %d of %d"):format(idx, #steps)
+		next.Text = (idx == #steps) and "Get started" or "Next"
+	end
+	next.Activated:Connect(function()
+		if idx >= #steps then
+			finish()
+		else
+			idx += 1
+			render()
+		end
+	end)
+	render()
 end
 
 return App
