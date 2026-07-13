@@ -410,6 +410,11 @@ function App:send(promptText, mode)
 			messages = self.history,
 			context = context,
 		})
+		-- If the user cancelled while the request was in flight, discard the
+		-- result entirely — the UI was already freed by the cancel handler.
+		if thinkingHandle.cancelled then
+			return
+		end
 		thinkingHandle.stop()
 		self.busy = false
 		self.sendBtn.Text = "Send"
