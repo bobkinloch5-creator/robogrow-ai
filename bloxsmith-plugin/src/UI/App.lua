@@ -1326,13 +1326,49 @@ function App:buildToolboxView(parent)
 					or ("Inserted asset " .. id)
 				self:toast(msg .. " — Ctrl+Z to undo", "success")
 				idBox.Text = ""
-
+				self:addToolboxRecent(id, "Asset " .. tostring(id))
+				refreshRecents()
 			else
 				self:toast(res.error or "Insert failed.", "error")
 			end
 		end)
 	end)
 end
+
+-- Toolbox recents — persisted list of {id, name} for one-click re-insert.
+local TOOLBOX_RECENTS_KEY = "Bloxsmith_ToolboxRecents"
+
+function App:loadToolboxRecents()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(TOOLBOX_RECENTS_KEY)
+	end)
+	if ok and type(data) == "table" then
+		return data
+	end
+	return {}
+end
+
+function App:addToolboxRecent(id, name)
+	id = tonumber(id)
+	if not id then
+		return
+	end
+	local list = self:loadToolboxRecents()
+	-- De-dupe: drop any existing entry with the same id, then prepend.
+	for i = #list, 1, -1 do
+		if tonumber(list[i].id) == id then
+			table.remove(list, i)
+		end
+	end
+	table.insert(list, 1, { id = id, name = name or ("Asset " .. tostring(id)) })
+	while #list > 12 do
+		table.remove(list)
+	end
+	pcall(function()
+		self.deps.plugin:SetSetting(TOOLBOX_RECENTS_KEY, list)
+	end)
+end
+
 
 -- A labelled control that cycles through a list of options on click and
 -- persists the chosen value to a plugin setting.
