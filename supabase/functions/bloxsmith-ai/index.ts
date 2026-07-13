@@ -1050,11 +1050,11 @@ Deno.serve(async (req) => {
       return jsonError("Unsupported mode.", 400);
     }
 
-    // Access gate: OPEN to everyone (public). The allow-list table and admin
-    // page are kept intact so access can be re-restricted later by re-enabling
-    // the isRobloxUserAllowed() check below.
-    const robloxUserId = Number(body.robloxUserId) || 0;
+    // Access gate: OPEN to everyone (public). The allow-list table, the
+    // isRobloxUserAllowed() helper, and the admin page are kept intact so
+    // access can be re-restricted later by re-enabling the check here.
     // (Public mode — no allow-list enforcement.)
+
 
 
     // Toolbox / Creator Store model search — bypasses the AI model entirely.
