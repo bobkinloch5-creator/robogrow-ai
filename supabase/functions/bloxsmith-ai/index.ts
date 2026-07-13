@@ -475,7 +475,7 @@ async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]
 
 
 
-async function callLovable(messages: ChatMessage[]): Promise<string> {
+async function callLovable(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
   const res = await fetchWithTimeout(
@@ -485,7 +485,7 @@ async function callLovable(messages: ChatMessage[]): Promise<string> {
       headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
       body: JSON.stringify({ model: Deno.env.get("BLOXSMITH_MODEL") || DEFAULT_MODEL, messages, temperature: 0.4 }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 402) throw { status: 402, msg: "AI credits exhausted. Add credits to keep generating." };
