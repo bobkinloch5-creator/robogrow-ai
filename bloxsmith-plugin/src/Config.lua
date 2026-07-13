@@ -8,10 +8,23 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.4.0"
+Config.Version = "3.5.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.5.0",
+		date = "2026-07-13",
+		title = "Reliability & Stop Button",
+		changes = {
+			"FIXED: Builds no longer hang or 'do nothing' — the backend now has a strict time budget and falls back through multiple AI models fast, so you always get a response.",
+			"NEW: Multi-model failover — if the main AI is busy, Bloxsmith instantly retries on backup models (Nemotron, GPT-OSS, DeepSeek) and finally ChatGPT.",
+			"NEW: The Send button turns into a ⛔ Stop button while a build runs — tap it any time to stop instantly and free the UI.",
+			"IMPROVED: Fallback models run in fast mode so responses come back well within Studio's request limit.",
+		},
+	},
+
+
 	{
 		version = "3.4.0",
 		date = "2026-07-13",
