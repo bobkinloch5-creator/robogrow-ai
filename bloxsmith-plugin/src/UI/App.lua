@@ -1120,8 +1120,36 @@ function App:buildToolboxView(parent)
 	searchBtn.Position = UDim2.new(1, -66, 0, 0)
 	searchBtn.Parent = searchRow
 
+	-- Category filter chips — narrow searches to a kind of asset.
+	local currentCategory = ""
+	local categoryRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 24), LayoutOrder = 2, Parent = view })
+	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = categoryRow })
+	local categories = {
+		{ "All", "" },
+		{ "Models", "model" },
+		{ "Vehicles", "vehicle" },
+		{ "Buildings", "building" },
+		{ "Nature", "tree nature" },
+		{ "Weapons", "weapon" },
+	}
+	local catButtons = {}
+	local function setCategory(value, btn)
+		currentCategory = value
+		for _, cb in ipairs(catButtons) do
+			cb.BackgroundColor3 = (cb == btn) and C.Accent or C.Panel
+		end
+	end
+	for _, c in ipairs(categories) do
+		local cb = button(c[1], { Size = UDim2.new(0, 66, 1, 0), BackgroundColor3 = (c[2] == "") and C.Accent or C.Panel, TextSize = 11 })
+		cb.Parent = categoryRow
+		table.insert(catButtons, cb)
+		cb.Activated:Connect(function()
+			setCategory(c[2], cb)
+		end)
+	end
+
 	-- Insert-by-ID row (reliable fallback)
-	local idRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 2, Parent = view })
+	local idRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 3, Parent = view })
 	local idBox = Create("TextBox", {
 		PlaceholderText = "…or paste a model Asset ID", Text = "", Font = Theme.FontMono, TextSize = 12,
 		TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel,
@@ -1132,16 +1160,60 @@ function App:buildToolboxView(parent)
 	idBtn.Position = UDim2.new(1, -66, 0, 0)
 	idBtn.Parent = idRow
 
+	-- Recently inserted strip — one-click re-insert of past models.
+	local recentsHolder = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 4, Parent = view })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = recentsHolder })
+
 	-- Results scroll
 	local results = Create("ScrollingFrame", {
-		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -84), CanvasSize = UDim2.new(0, 0, 0, 0),
+		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -152), CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, ScrollBarImageColor3 = C.Accent,
-		BorderSizePixel = 0, LayoutOrder = 3, Parent = view,
+		BorderSizePixel = 0, LayoutOrder = 5, Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	local grid = Create("UIGridLayout", {
 		CellSize = UDim2.new(0.5, -6, 0, 176), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
+
+	-- Render the recents strip from persisted storage.
+	local function refreshRecents()
+		for _, c in ipairs(recentsHolder:GetChildren()) do
+			if not c:IsA("UIListLayout") then c:Destroy() end
+		end
+		local recents = self:loadToolboxRecents()
+		if #recents == 0 then return end
+		Create("TextLabel", {
+			Text = "🕘 Recently inserted", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim,
+			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+			Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = recentsHolder,
+		})
+		local strip = Create("ScrollingFrame", {
+			BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), CanvasSize = UDim2.new(0, 0, 0, 0),
+			AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollBarThickness = 3, ScrollBarImageColor3 = C.Accent,
+			ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0, LayoutOrder = 1, Parent = recentsHolder,
+		})
+		Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = strip })
+		for i, item in ipairs(recents) do
+			local chip = button("＋ " .. (item.name or ("Asset " .. tostring(item.id))), { Size = UDim2.new(0, 130, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
+			chip.LayoutOrder = i
+			chip.Parent = strip
+			chip.Activated:Connect(function()
+				chip.Text = "Inserting…"
+				task.spawn(function()
+					local res = self.deps.apply:insertAsset(item.id, item.name)
+					if res.ok then
+						self:toast(("Re-inserted '%s' — Ctrl+Z to undo."):format(item.name or "model"), "success")
+						chip.Text = "✓ Inserted"
+					else
+						self:toast(res.error or "Insert failed.", "error")
+						chip.Text = "＋ Retry"
+					end
+				end)
+			end)
+		end
+	end
+	self._refreshToolboxRecents = refreshRecents
+	refreshRecents()
 
 	local function clearResults()
 		for _, c in ipairs(results:GetChildren()) do
