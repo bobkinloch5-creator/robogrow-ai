@@ -721,9 +721,9 @@ function buildMainMenuActionsResponse(): { reply: string; actions: unknown[] } {
     { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "TextButton", name: "SettingsButton", properties: { LayoutOrder: 3, Size: [1, 0, 0, 44], BackgroundColor3: "#111F38", AutoButtonColor: false, Text: "⚙  SETTINGS", Font: "GothamBold", TextSize: 16, TextColor3: "#E9F6FF", BorderSizePixel: 0 } },
     { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/SettingsButton", class: "UICorner", name: "Corner", properties: { CornerRadius: [0, 10] } },
     { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/SettingsButton", class: "UIStroke", name: "Stroke", properties: { Color: "#2A5D91", Thickness: 1, Transparency: 0.15 } },
-    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "TextButton", name: "CreditsButton", properties: { LayoutOrder: 4, Size: [1, 0, 0, 44], BackgroundColor3: "#111F38", AutoButtonColor: false, Text: "★  CREDITS", Font: "GothamBold", TextSize: 16, TextColor3: "#E9F6FF", BorderSizePixel: 0 } },
-    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/CreditsButton", class: "UICorner", name: "Corner", properties: { CornerRadius: [0, 10] } },
-    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/CreditsButton", class: "UIStroke", name: "Stroke", properties: { Color: "#2A5D91", Thickness: 1, Transparency: 0.15 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "TextButton", name: "AboutButton", properties: { LayoutOrder: 4, Size: [1, 0, 0, 44], BackgroundColor3: "#111F38", AutoButtonColor: false, Text: "★  ABOUT", Font: "GothamBold", TextSize: 16, TextColor3: "#E9F6FF", BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/AboutButton", class: "UICorner", name: "Corner", properties: { CornerRadius: [0, 10] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/AboutButton", class: "UIStroke", name: "Stroke", properties: { Color: "#2A5D91", Thickness: 1, Transparency: 0.15 } },
 
     { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "TextLabel", name: "Footer", properties: { LayoutOrder: 5, Size: [1, 0, 0, 22], BackgroundTransparency: 1, Text: "Polished, responsive, animated menu — built by Bloxsmith", Font: "Gotham", TextSize: 13, TextColor3: "#6F89A7", TextXAlignment: "Center" } },
     { action: "create_script", path: "StarterGui/BloxsmithMainMenu", name: "MenuController", class: "LocalScript", source: `local TweenService = game:GetService("TweenService")
@@ -778,7 +778,7 @@ stack.SettingsButton.Activated:Connect(function()
 	panel.Subtitle.Text = "Settings panel placeholder — connect your own options here."
 end)
 
-stack.CreditsButton.Activated:Connect(function()
+stack.AboutButton.Activated:Connect(function()
 	panel.Subtitle.Text = "Created with Bloxsmith — customize the title and buttons anytime."
 end)` },
   ];
