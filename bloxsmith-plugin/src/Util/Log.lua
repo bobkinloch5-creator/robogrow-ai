@@ -1,3 +1,4 @@
+
 --[[ Log.lua — namespaced, level-aware logging so output is easy to filter. ]]
 local Log = {}
 

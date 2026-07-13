@@ -1,3 +1,4 @@
+
 --[[
 	CleanupService.lua
 	Detects organization issues: default names, duplicates, empty folders,

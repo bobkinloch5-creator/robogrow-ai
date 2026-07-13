@@ -1,10 +1,11 @@
+
 --[[
 	ErrorMonitor.lua
 	Captures Studio output errors via LogService and keeps a rolling buffer so the
 	UI can surface them and offer AI-powered fixes.
 ]]
 local LogService = game:GetService("LogService")
-local Signal = require(script.Parent.Parent.Util.Signal)
+local Signal = _R("Util.Signal")
 
 local ErrorMonitor = {}
 ErrorMonitor.__index = ErrorMonitor

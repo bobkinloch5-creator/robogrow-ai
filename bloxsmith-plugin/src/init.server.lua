@@ -6,21 +6,21 @@
 ]]
 local Selection = game:GetService("Selection")
 
-local Config = require(script.Config)
-local Log = require(script.Util.Log)
+local Config = _R("Config")
+local Log = _R("Util.Log")
 
 -- Services
-local AIService = require(script.Services.AIService)
-local ContextService = require(script.Services.ContextService)
-local ApplyService = require(script.Services.ApplyService)
-local SecurityScanner = require(script.Services.SecurityScanner)
-local PerformanceAnalyzer = require(script.Services.PerformanceAnalyzer)
-local CleanupService = require(script.Services.CleanupService)
-local ErrorMonitor = require(script.Services.ErrorMonitor)
-local HealthService = require(script.Services.HealthService)
+local AIService = _R("Services.AIService")
+local ContextService = _R("Services.ContextService")
+local ApplyService = _R("Services.ApplyService")
+local SecurityScanner = _R("Services.SecurityScanner")
+local PerformanceAnalyzer = _R("Services.PerformanceAnalyzer")
+local CleanupService = _R("Services.CleanupService")
+local ErrorMonitor = _R("Services.ErrorMonitor")
+local HealthService = _R("Services.HealthService")
 
 -- UI
-local App = require(script.UI.App)
+local App = _R("UI.App")
 
 Log.info(("v%s loading…"):format(Config.Version))
 
@@ -56,13 +56,13 @@ local deps = {
 	plugin = plugin,
 	ai = AIService.new(plugin),
 	context = ContextService.new(),
-	apply = ApplyService.new(),
 	security = security,
 	performance = performance,
 	cleanup = cleanup,
 	errors = ErrorMonitor.new(),
 	health = HealthService.new(security, performance, cleanup),
 }
+deps.apply = ApplyService.new(deps.context)
 
 deps.errors:start()
 

@@ -1,3 +1,4 @@
+
 --[[ Signal.lua — tiny event implementation for decoupling services from UI. ]]
 local Signal = {}
 Signal.__index = Signal

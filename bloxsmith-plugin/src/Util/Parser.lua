@@ -1,3 +1,4 @@
+
 --[[
 	Parser.lua
 	Turns AI markdown replies into actionable pieces:
@@ -26,7 +27,7 @@ function Parser.extractBlocks(text)
 		return blocks
 	end
 	-- Match ```<header>\n<body>```
-	for header, body in string.gmatch(text, "```([^\n]*)\n(.-)```") do
+	for header, body in string.gmatch(text, "```([^\n]*)\n([%s%S]-)```") do
 		local meta = parseHeader(header)
 		if meta.lang == "bloxsmith:actions" or meta.lang == "bloxsmith:thinking" then
 			-- handled separately (agent actions / thinking panel); skip here.
@@ -49,32 +50,115 @@ function Parser.extractThinking(text)
 	if type(text) ~= "string" then
 		return nil, text
 	end
-	local thinking = string.match(text, "```bloxsmith:thinking%s*\n(.-)```")
+	local thinking = string.match(text, "```bloxsmith:thinking%s*\n([%s%S]-)```")
 	if thinking then
-		local cleaned = string.gsub(text, "```bloxsmith:thinking%s*\n.-```", "", 1)
+		local cleaned = string.gsub(text, "```bloxsmith:thinking%s*\n[%s%S]-```", "", 1)
 		return (thinking:gsub("^%s+", ""):gsub("%s+$", "")), cleaned
 	end
 	return nil, text
 end
 
+-- Repairs JS-style single-quoted JSON without corrupting content. A blind
+-- '->" replace breaks the moment generated code contains an apostrophe
+-- (e.g. "it's", "player's Tool") — this walks the string tracking quote
+-- state so only quotes acting as string *delimiters* get converted; a `'`
+-- that reads as a literal apostrophe (not followed by a JSON structural
+-- character) is left alone, and any real `"` found inside a converted
+-- string gets escaped so it doesn't terminate early.
+local function smartSingleQuoteRepair(json)
+	local out, i, n = {}, 1, #json
+	local inDouble, inSingle = false, false
+	while i <= n do
+		local c = json:sub(i, i)
+		if c == "\\" and i < n then
+			out[#out + 1] = c
+			out[#out + 1] = json:sub(i + 1, i + 1)
+			i = i + 2
+		elseif inDouble then
+			if c == '"' then inDouble = false end
+			out[#out + 1] = c
+			i = i + 1
+		elseif inSingle then
+			if c == "'" then
+				local j = i + 1
+				while j <= n and json:sub(j, j):match("%s") do j = j + 1 end
+				local nextCh = json:sub(j, j)
+				if nextCh == "" or nextCh == "," or nextCh == "}" or nextCh == "]" or nextCh == ":" then
+					out[#out + 1] = '"'
+					inSingle = false
+				else
+					out[#out + 1] = "'" -- literal apostrophe; unescaped ' is valid inside a JSON string
+				end
+			elseif c == '"' then
+				out[#out + 1] = '\\"'
+			else
+				out[#out + 1] = c
+			end
+			i = i + 1
+		else
+			if c == '"' then
+				inDouble = true
+				out[#out + 1] = c
+			elseif c == "'" then
+				inSingle = true
+				out[#out + 1] = '"'
+			else
+				out[#out + 1] = c
+			end
+			i = i + 1
+		end
+	end
+	return table.concat(out)
+end
+
 -- Extract JSON actions from a ```bloxsmith:actions ... ``` block as a safety net
 -- in case the backend returns a reply but fails to populate decoded.actions.
+-- Returns (actionsTable or nil, textWithActionsRemoved, foundBlock).
 function Parser.extractActions(text)
 	if type(text) ~= "string" then
-		return nil
+		return nil, text, false
 	end
-	local json = string.match(text, "```bloxsmith:actions%s*\n(.-)```")
+	local json = string.match(text, "```bloxsmith:actions%s*\n([%s%S]-)```")
 	if not json or json == "" then
-		return nil
+		return nil, text, false
 	end
+	local cleaned = string.gsub(text, "```bloxsmith:actions%s*\n[%s%S]-```", "", 1)
+
 	local HttpService = game:GetService("HttpService")
+
+	-- 1) Try as-is first — the common case, and zero risk of corrupting code.
 	local ok, decoded = pcall(function()
 		return HttpService:JSONDecode(json)
 	end)
 	if ok and type(decoded) == "table" then
-		return decoded
+		return decoded, cleaned, true
 	end
-	return nil
+
+	-- 2) Strip trailing commas, a common small LLM slip.
+	local noTrailingCommas = (json:gsub(",(%s*[%]}])", "%1"))
+	local ok2, decoded2 = pcall(function()
+		return HttpService:JSONDecode(noTrailingCommas)
+	end)
+	if ok2 and type(decoded2) == "table" then
+		return decoded2, cleaned, true
+	end
+
+	-- 3) Quote-aware repair for JS-style single-quoted objects (see above) —
+	--    only used as a last resort, and safe for apostrophes in code.
+	local repaired = smartSingleQuoteRepair(noTrailingCommas)
+	local ok3, decoded3 = pcall(function()
+		return HttpService:JSONDecode(repaired)
+	end)
+	if ok3 and type(decoded3) == "table" then
+		return decoded3, cleaned, true
+	end
+
+	warn("[Bloxsmith Action Parser Error]: Failed to parse actions JSON block.")
+	warn("Error (raw):", tostring(decoded))
+	warn("Error (repaired):", tostring(decoded3))
+	print("[Bloxsmith Malformed Actions JSON]:\n" .. tostring(json))
+
+	return nil, cleaned, true
 end
 
 -- Convert a code block into a create_script action (best-effort defaults).
@@ -184,4 +268,3 @@ function Parser.toRichText(text, opts)
 end
 
 return Parser
-

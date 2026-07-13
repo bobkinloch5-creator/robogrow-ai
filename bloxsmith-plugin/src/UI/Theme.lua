@@ -1,3 +1,4 @@
+
 --[[ Theme.lua — single source of truth for the premium dark UI palette & spacing.
 	Matches the Bloxsmith brand: deep navy backgrounds with an electric blue → cyan accent. ]]
 local Theme = {}

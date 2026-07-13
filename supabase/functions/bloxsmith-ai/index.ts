@@ -1114,8 +1114,8 @@ function hedgedGenerate(
   });
 }
 
-function jsonError(msg: string, status: number, extra?: Record<string, unknown>): Response {
-  return new Response(JSON.stringify({ error: msg, ...(extra || {}) }), {
+function jsonError(msg: string, status: number): Response {
+  return new Response(JSON.stringify({ error: msg }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
@@ -1180,17 +1180,9 @@ Deno.serve(async (req) => {
       }
 
       if (!(await isWithinDailyLimit(robloxUserId, settings.daily_request_limit))) {
-        // Quota resets when the usage_date row rolls over at UTC midnight
-        // (see check_and_increment_roblox_usage — usage_date DEFAULT
-        // current_date, in UTC on Postgres' default clock). Compute that
-        // exact instant so the client can show a live countdown instead of
-        // just static "resets at midnight UTC" text.
-        const now = new Date();
-        const resetAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0);
         return jsonError(
           `You've hit today's limit of ${settings.daily_request_limit} builds. Your quota resets at midnight UTC — try again then.`,
           429,
-          { resetAt }, // epoch ms — client renders "Xh Ym Zs remaining" from this
         );
       }
     }

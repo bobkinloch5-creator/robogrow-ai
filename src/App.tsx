@@ -11,6 +11,8 @@ import Privacy from "./pages/Privacy";
 import FAQ from "./pages/FAQ";
 import Docs from "./pages/Docs";
 import Admin from "./pages/Admin";
+import Dashboard from "./pages/Dashboard";
+import Auth from "./pages/Auth";
 import SupportChat from "./components/SupportChat";
 
 
@@ -30,6 +32,8 @@ const App = () => (
           <Route path="/faq" element={<FAQ />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/auth" element={<Auth />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
@@ -41,3 +45,4 @@ const App = () => (
 );
 
 export default App;
+

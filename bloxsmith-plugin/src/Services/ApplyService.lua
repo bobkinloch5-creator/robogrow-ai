@@ -1,3 +1,4 @@
+
 --[[
 	ApplyService.lua
 	Applies AI-generated changes to the DataModel with full undo/redo support.
@@ -23,7 +24,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
 local InsertService = game:GetService("InsertService")
 
-local Log = require(script.Parent.Parent.Util.Log)
+local Log = _R("Util.Log")
 
 local ApplyService = {}
 ApplyService.__index = ApplyService
@@ -45,16 +46,54 @@ local CREATE_BLACKLIST = {
 }
 
 
-function ApplyService.new()
-	return setmetatable({}, ApplyService)
+local function sanitizeName(name)
+	if type(name) ~= "string" then
+		return name
+	end
+	return name:gsub("%.lua$", ""):gsub("%.LUA$", "")
 end
 
--- Resolve "ServerScriptService/Systems/Shop" into an Instance, creating folders as needed.
+local function sanitizeSource(src)
+	if type(src) ~= "string" then
+		return src
+	end
+	local clean = src:gsub("^%s+", ""):gsub("%s+$", "")
+	if string.sub(clean, 1, 3) == "```" then
+		clean = clean:gsub("^```%w*%s*", "")
+		clean = clean:gsub("%s*```$", "")
+	end
+	return clean
+end
+
+function ApplyService.new(contextService)
+	return setmetatable({ contextService = contextService }, ApplyService)
+end
+
+-- Any DataModel mutation invalidates the cached project-tree so the AI's
+-- next look at the hierarchy is never stale. Centralized here (rather than
+-- at each UI call site) so no future mutation path can forget it.
+function ApplyService:_invalidateContext()
+	if self.contextService then
+		self.contextService:invalidateTreeCache()
+	end
+end
+
+-- Resolve "ServerScriptService/Systems/Shop" or dot-notated paths into an Instance, creating folders as needed.
 function ApplyService:resolvePath(path, createFolders)
 	if type(path) ~= "string" or path == "" then
 		return nil
 	end
-	local segments = string.split(path, "/")
+	-- Strip .lua extension from end if present (e.g. "Script.lua" -> "Script")
+	local cleanPath = path:gsub("%.lua$", ""):gsub("%.LUA$", "")
+	-- Normalize separators: change dots and backslashes to slashes.
+	local normalized = cleanPath:gsub("%.", "/"):gsub("\\", "/")
+	-- Strip leading/trailing slashes and ignore game/ prefix
+	normalized = normalized:gsub("^/+", ""):gsub("/+$", "")
+	if string.sub(normalized, 1, 5) == "game/" then
+		normalized = string.sub(normalized, 6)
+	end
+	
+	local segments = string.split(normalized, "/")
 	local serviceName = segments[1]
 	local ok, current = pcall(function()
 		return game:GetService(serviceName)
@@ -69,6 +108,20 @@ function ApplyService:resolvePath(path, createFolders)
 			local nextInst = current:FindFirstChild(segname)
 			if not nextInst then
 				if not createFolders then
+					return nil
+				end
+				-- Only the LAST segment of a path is a folder Bloxsmith is
+				-- meant to create fresh (e.g. "Workspace/NewFolder"). A
+				-- missing MIDDLE segment almost always means a previous
+				-- action's exact name didn't match (typo, renamed by the
+				-- attachment-host fix, case difference, etc). Silently
+				-- spawning a substitute Folder here used to cause effects
+				-- like rain to get parented into an empty, wrongly-placed
+				-- Folder instead of the real host — with no visible error.
+				-- Fail loudly instead so the caller can react (or so this
+				-- shows up in logs) rather than rain silently not falling.
+				if i < #segments then
+					Log.warn(("resolvePath: missing intermediate segment '%s' in '%s' — refusing to substitute a Folder, since a later effect could get silently mis-parented."):format(segname, path))
 					return nil
 				end
 				nextInst = Instance.new("Folder")
@@ -385,11 +438,26 @@ function ApplyService:applyOne(action)
 		return true, "Created folder " .. folder:GetFullName(), folder
 
 	elseif kind == "create_script" then
-		local class = SCRIPT_CLASSES[action.class] and action.class or "Script"
 		local parent = self:resolvePath(action.path or "ServerScriptService", true)
+		local class = SCRIPT_CLASSES[action.class] and action.class or "Script"
+		
+		-- Coerce script class based on parent container for guaranteed execution
+		if parent then
+			local fullName = parent:GetFullName()
+			if class == "Script" then
+				if string.find(fullName, "StarterPlayer") or string.find(fullName, "StarterGui") or string.find(fullName, "Players") or string.find(fullName, "ReplicatedStorage") or string.find(fullName, "ReplicatedFirst") then
+					class = "LocalScript"
+				end
+			elseif class == "LocalScript" then
+				if string.find(fullName, "ServerScriptService") or string.find(fullName, "ServerStorage") then
+					class = "Script"
+				end
+			end
+		end
+
 		local inst = Instance.new(class)
-		inst.Name = action.name or "BloxsmithScript"
-		inst.Source = action.source or "-- (empty)"
+		inst.Name = sanitizeName(action.name or "BloxsmithScript")
+		inst.Source = sanitizeSource(action.source) or "-- (empty)"
 		inst.Parent = parent
 		return true, "Created " .. class .. " " .. inst:GetFullName(), inst
 
@@ -398,7 +466,7 @@ function ApplyService:applyOne(action)
 		if not target or not target:IsA("LuaSourceContainer") then
 			return false, "Could not find script to replace: " .. tostring(action.target)
 		end
-		target.Source = action.source or target.Source
+		target.Source = sanitizeSource(action.source) or target.Source
 		return true, "Updated " .. target:GetFullName(), target
 
 	elseif kind == "create_instance" then
@@ -410,11 +478,40 @@ function ApplyService:applyOne(action)
 			return false, "Refused to create protected/service class: " .. tostring(class)
 		end
 		local parent = self:resolvePath(action.path or "Workspace", true)
+
+		-- An Attachment only has a valid world position when parented to a
+		-- BasePart. If the AI creates one directly under Workspace/a Folder/a
+		-- Model, it silently fails to render — and everything hung off it
+		-- (particle emitters, beams, lights…) never shows up either. Give it
+		-- an anchored, invisible host Part instead, using the requested name,
+		-- so follow-up actions targeting this same path still resolve and its
+		-- children work correctly parented straight to a real BasePart.
+		if class == "Attachment" and parent and not parent:IsA("BasePart") then
+			local host = Instance.new("Part")
+			host.Name = sanitizeName(action.name or "Attachment")
+			host.Anchored = true
+			host.CanCollide = false
+			host.CanQuery = false
+			host.CanTouch = false
+			host.CastShadow = false
+			host.Transparency = 1
+			host.Size = Vector3.new(1, 1, 1)
+			if type(action.properties) == "table" then
+				for prop, val in pairs(action.properties) do
+					pcall(function()
+						host[prop] = coerceValue(host, prop, val)
+					end)
+				end
+			end
+			host.Parent = parent
+			return true, ("Created %s as an anchored host part (Attachments need a BasePart parent to render)"):format(host.Name), host
+		end
+
 		local okNew, inst = pcall(Instance.new, class)
 		if not okNew or not inst then
 			return false, "Roblox cannot create an instance of class: " .. tostring(class)
 		end
-		inst.Name = action.name or class
+		inst.Name = sanitizeName(action.name or class)
 		if type(action.properties) == "table" then
 			for prop, val in pairs(action.properties) do
 				pcall(function()
@@ -422,10 +519,40 @@ function ApplyService:applyOne(action)
 				end)
 			end
 		end
+
+		-- Safety net: a ParticleEmitter/Fire/Smoke can exist, be Enabled, and
+		-- still emit nothing VISIBLE if the AI's generated properties left
+		-- Rate/Lifetime/Speed at 0 or empty (e.g. an incomplete NumberSequence
+		-- for Size, or Rate = 0). This was showing up as "sometimes rain just
+		-- doesn't appear" with no error, since the instance itself was created
+		-- successfully. Only touch properties the AI actually left broken —
+		-- never override values it explicitly and validly set.
+		if inst:IsA("ParticleEmitter") then
+			pcall(function()
+				if inst.Rate <= 0 then inst.Rate = 40 end
+				if inst.Lifetime.Min <= 0 and inst.Lifetime.Max <= 0 then
+					inst.Lifetime = NumberRange.new(1, 2)
+				end
+				if inst.Speed.Min <= 0 and inst.Speed.Max <= 0 then
+					inst.Speed = NumberRange.new(5, 10)
+				end
+				if inst.Enabled == nil then inst.Enabled = true end
+			end)
+		elseif inst:IsA("Fire") or inst:IsA("Smoke") then
+			pcall(function()
+				if inst.Enabled == false and action.properties and action.properties.Enabled == nil then
+					inst.Enabled = true
+				end
+			end)
+		end
+
 		-- Effects (particles, fire, beams, lights, decals…) only render on a
-		-- BasePart/Attachment. If the AI created one loose in a container, give it
-		-- a visible, ground-placed host part so it actually shows up.
-		if isEffect(inst) and not (parent:IsA("BasePart") or parent:IsA("Attachment")) then
+		-- BasePart, or an Attachment that is itself properly parented to one.
+		-- If the AI created one loose in a container (or under a broken/
+		-- unparented Attachment), give it a visible, ground-placed host part.
+		local parentIsValidHost = parent:IsA("BasePart")
+			or (parent:IsA("Attachment") and parent.Parent ~= nil and parent.Parent:IsA("BasePart"))
+		if isEffect(inst) and not parentIsValidHost then
 			local host = createEffectHost(inst)
 			pcall(function() host.Parent = parent end)
 			pcall(function() placeOnGround(host, workspace.CurrentCamera) end)
@@ -601,6 +728,7 @@ function ApplyService:applyActions(actions, label)
 		end)
 	end
 
+	self:_invalidateContext()
 	return { ok = not anyFail, results = results, created = created, applied = okCount, error = firstError }
 end
 
@@ -611,7 +739,7 @@ function ApplyService:replaceSource(scriptInstance, newSource, label)
 		return { ok = false, error = "No valid script selected." }
 	end
 	local recordId = ChangeHistoryService:TryBeginRecording(label or "Bloxsmith edit script")
-	scriptInstance.Source = newSource
+	scriptInstance.Source = sanitizeSource(newSource) or scriptInstance.Source
 	if recordId then
 		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
 	end
@@ -687,6 +815,7 @@ function ApplyService:resetPlace(keepBaseplate)
 	if recordId then
 		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
 	end
+	self:_invalidateContext()
 	return { ok = true, removed = removed }
 end
 
@@ -767,6 +896,7 @@ function ApplyService:editSelection(op, arg)
 	if count == 0 then
 		return { ok = false, error = "Nothing in the selection could be edited that way." }
 	end
+	self:_invalidateContext()
 	return { ok = true, count = count }
 end
 

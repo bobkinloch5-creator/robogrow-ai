@@ -24,6 +24,7 @@ local function _R(name)
 end
 
 _modules["Config"] = function()
+
 --[[
 	Config.lua
 	Central, non-secret configuration for Bloxsmith.
@@ -379,6 +380,7 @@ return Config
 end
 
 _modules["Services.AIService"] = function()
+
 --[[
 	AIService.lua
 	The scalable service layer between the plugin and the AI backend.
@@ -645,6 +647,7 @@ return AIService
 end
 
 _modules["Services.ApplyService"] = function()
+
 --[[
 	ApplyService.lua
 	Applies AI-generated changes to the DataModel with full undo/redo support.
@@ -1550,6 +1553,7 @@ return ApplyService
 end
 
 _modules["Services.CleanupService"] = function()
+
 --[[
 	CleanupService.lua
 	Detects organization issues: default names, duplicates, empty folders,
@@ -1623,6 +1627,7 @@ return CleanupService
 end
 
 _modules["Services.ContextService"] = function()
+
 --[[
 	ContextService.lua
 	Gives the AI project-wide understanding: selection details, script sources,
@@ -1800,6 +1805,7 @@ return ContextService
 end
 
 _modules["Services.ErrorMonitor"] = function()
+
 --[[
 	ErrorMonitor.lua
 	Captures Studio output errors via LogService and keeps a rolling buffer so the
@@ -1856,6 +1862,7 @@ return ErrorMonitor
 end
 
 _modules["Services.HealthService"] = function()
+
 --[[
 	HealthService.lua
 	Aggregates the local analyzers into 0-100 scores for the health dashboard.
@@ -1898,6 +1905,7 @@ return HealthService
 end
 
 _modules["Services.PerformanceAnalyzer"] = function()
+
 --[[
 	PerformanceAnalyzer.lua
 	Heuristics for lag sources: unthrottled loops, per-frame work, excessive
@@ -1991,6 +1999,7 @@ return PerformanceAnalyzer
 end
 
 _modules["Services.SecurityScanner"] = function()
+
 --[[
 	SecurityScanner.lua
 	Static analysis that flags common Roblox exploit vectors & bad practices.
@@ -2075,6 +2084,7 @@ return SecurityScanner
 end
 
 _modules["UI.App"] = function()
+
 --[[
 	App.lua
 	The whole Bloxsmith interface: sidebar navigation, chat, tools, project
@@ -4334,6 +4344,7 @@ return App
 end
 
 _modules["UI.Create"] = function()
+
 --[[
 	Create.lua — declarative Instance builder to keep UI code readable.
 	Usage:
@@ -4368,6 +4379,7 @@ return Create
 end
 
 _modules["UI.Theme"] = function()
+
 --[[ Theme.lua — single source of truth for the premium dark UI palette & spacing.
 	Matches the Bloxsmith brand: deep navy backgrounds with an electric blue → cyan accent. ]]
 local Theme = {}
@@ -4432,6 +4444,7 @@ return Theme
 end
 
 _modules["Util.Log"] = function()
+
 --[[ Log.lua — namespaced, level-aware logging so output is easy to filter. ]]
 local Log = {}
 
@@ -4462,6 +4475,7 @@ return Log
 end
 
 _modules["Util.Parser"] = function()
+
 --[[
 	Parser.lua
 	Turns AI markdown replies into actionable pieces:
@@ -4734,6 +4748,7 @@ return Parser
 end
 
 _modules["Util.Signal"] = function()
+
 --[[ Signal.lua — tiny event implementation for decoupling services from UI. ]]
 local Signal = {}
 Signal.__index = Signal

@@ -1,3 +1,4 @@
+
 --[[
 	HealthService.lua
 	Aggregates the local analyzers into 0-100 scores for the health dashboard.

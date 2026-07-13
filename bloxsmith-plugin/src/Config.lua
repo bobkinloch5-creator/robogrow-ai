@@ -1,3 +1,4 @@
+
 --[[
 	Config.lua
 	Central, non-secret configuration for Bloxsmith.
@@ -8,10 +9,144 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.7.0"
+Config.Version = "3.9.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.9.2",
+		date = "2026-07-13",
+		title = "Fixed Invisible Attachment-Based Effects",
+		changes = {
+			"FIXED: Creating a bare Attachment (e.g. as a container for particle emitters like rain/mist/splash) directly under Workspace or a Folder silently failed to render, since Attachments only have a valid position when parented to a BasePart. Bloxsmith now automatically gives it an anchored, invisible host Part instead, so it and everything parented under it actually show up.",
+			"IMPROVED: The particle/light/beam auto-host check now also verifies an existing Attachment parent is itself properly attached to a BasePart, instead of assuming any Attachment is a valid host.",
+		},
+	},
+
+	{
+		version = "3.9.1",
+		date = "2026-07-13",
+		title = "Faster Scans & Complete Cache Invalidation",
+		changes = {
+			"OPTIMIZED: Security and Performance scanners now walk the project tree once instead of twice, roughly halving scan time on large places.",
+			"IMPROVED: Security/Performance/Cleanup scans and the Health dashboard's 'Compute' button now run off the main thread, so clicking them no longer visibly freezes Studio on big projects.",
+			"FIXED: The project-hierarchy cache (added in 3.9.0) is now invalidated after every DataModel mutation — including Reset Place, quick-action edits, and Toolbox inserts — not just Agent-approved actions, so the AI never sees a stale hierarchy.",
+		},
+	},
+
+	{
+		version = "3.9.0",
+		date = "2026-07-13",
+		title = "Faster Generation & Safer Action Parsing",
+		changes = {
+			"IMPROVED: The 'thinking' indicator now appears the instant you hit Send instead of after the project-hierarchy scan — context building moved off the critical path.",
+			"OPTIMIZED: Project hierarchy scans (used by Agent/Generate modes) are now cached for a few seconds instead of re-walking the whole place on every message, cutting latency on large projects.",
+			"FIXED: The action-JSON safety-net parser no longer blindly swaps every apostrophe for a quote — it's now quote-aware, so generated code containing apostrophes (e.g. \"it's\", \"player's Tool\") is no longer corrupted when the model uses single-quoted JSON.",
+			"IMPROVED: Malformed action JSON now also gets a trailing-comma repair pass before falling back to quote repair, catching more model slip-ups without any downside.",
+		},
+	},
+
+	{
+		version = "3.8.0",
+		date = "2026-07-13",
+		title = "Action JSON Debugging",
+		changes = {
+			"NEW: Enabled detailed JSON decode error logging for the action parser to easily pinpoint syntax errors from the model.",
+		},
+	},
+
+	{
+		version = "3.7.9",
+		date = "2026-07-13",
+		title = "Self-Healing & Debug Logging",
+		changes = {
+			"NEW: Added a clickable '🔁 Retry Request' action directly inside request error bubbles to easily resend failed prompts.",
+			"NEW: Added an automatic '🔧 Auto-Fix Exec Error' self-healing option on any script execution failure.",
+			"NEW: Enabled detailed backend HTTP error printing in the Studio Output window to help diagnose API/network blocks.",
+		},
+	},
+
+	{
+		version = "3.7.8",
+		date = "2026-07-13",
+		title = "Smart Chat History Optimization",
+		changes = {
+			"OPTIMIZED: Automatically compress conversation history when it exceeds 8,000 characters, pruning heavy historical code blocks from older turns while keeping the latest turns intact.",
+			"IMPROVED: Significantly reduced LLM input processing times and API latency during extended chat sessions.",
+		},
+	},
+
+	{
+		version = "3.7.7",
+		date = "2026-07-13",
+		title = "Long Prompt Input Improvements",
+		changes = {
+			"NEW: Enabled `TextWrapped = true` on all chat and quick-action prompt textboxes, allowing multi-line prompts to wrap and scroll correctly.",
+			"IMPROVED: Expanded the height of the main chat input field and optimized scroll layout offsets to comfortably fit long paragraph prompts.",
+		},
+	},
+
+	{
+		version = "3.7.6",
+		date = "2026-07-13",
+		title = "Robust JSON & Actions Parsing",
+		changes = {
+			"FIXED: Automatically fix LLM single-quote JSON generation errors to ensure the action checklist renders correctly.",
+			"FIXED: Ensured that `bloxsmith:actions` blocks are always stripped from the chat bubble even if JSON parsing fails.",
+		},
+	},
+
+	{
+		version = "3.7.5",
+		date = "2026-07-13",
+		title = "Performance & Generation Speedups",
+		changes = {
+			"IMPROVED: Noticeably accelerated AI response times by instructing the model to be extremely concise and direct.",
+			"OPTIMIZED: Excluded the project tree hierarchy from chat, explanation, optimization, and fix request payloads, saving network bandwidth and local serialization times.",
+		},
+	},
+
+	{
+		version = "3.7.4",
+		date = "2026-07-13",
+		title = "Instant Code Execution Support",
+		changes = {
+			"NEW: Added 'Execute / Run Code' option directly to all generated Lua/Luau script cards, running code immediately in Studio's command-line context.",
+			"NEW: Fully integrated with Studio's ChangeHistoryService, enabling complete Ctrl+Z undo support for executed scripts.",
+		},
+	},
+
+	{
+		version = "3.7.3",
+		date = "2026-07-13",
+		title = "Markdown Parsing & UI Fixes",
+		changes = {
+			"FIXED: Corrected Lua pattern matching in code blocks to support multiline extraction using `[%s%S]-` instead of `.`, fixing raw JSON blocks displaying in chat.",
+			"FIXED: Completely strip proposed action blocks from the chat bubble to keep chat clean and display them solely in the checklist interface.",
+		},
+	},
+
+	{
+		version = "3.7.2",
+		date = "2026-07-13",
+		title = "Smart Pathing & Code Sanitization",
+		changes = {
+			"NEW: Added smart path normalization to support dot notation (game.ServerScriptService) and strip redundant file extensions.",
+			"NEW: Automatically sanitize AI-generated code to strip leaked markdown code block wrappers (```lua).",
+			"IMPROVED: Intelligent script type coercion (automatically converting Scripts to LocalScripts in UI/client containers and vice-versa).",
+		},
+	},
+
+	{
+		version = "3.7.1",
+		date = "2026-07-13",
+		title = "Flawless Scripting & Quality Standards",
+		changes = {
+			"NEW: Embedded strict Roblox Luau scripting standards into the AI generator, ensuring all generated scripts are secure, modern, performant, and error-free.",
+			"IMPROVED: Increased custom instruction limit to 5000 characters and combined system instructions with user preferences.",
+		},
+	},
+
 	{
 		version = "3.7.0",
 		date = "2026-07-13",
@@ -213,6 +348,6 @@ Config.Defaults = {
 	ResponseLength = "Balanced",
 	CustomInstructions = "",
 }
-Config.MaxCustomInstructions = 1000
+Config.MaxCustomInstructions = 5000
 
 return Config

@@ -1,13 +1,14 @@
+
 --[[
 	App.lua
 	The whole Bloxsmith interface: sidebar navigation, chat, tools, project
 	analysis, health dashboard, error monitor and settings. Pure Instance-based
 	UI (no external libs) built through the Create helper and themed via Theme.
 ]]
-local Create = require(script.Parent.Create)
-local Theme = require(script.Parent.Theme)
-local Parser = require(script.Parent.Parent.Util.Parser)
-local Config = require(script.Parent.Parent.Config)
+local Create = _R("UI.Create")
+local Theme = _R("UI.Theme")
+local Parser = _R("Util.Parser")
+local Config = _R("Config")
 
 local App = {}
 App.__index = App
@@ -138,11 +139,13 @@ function App:addBubble(role, text)
 		if thinking and thinking ~= "" then
 			self:addThinkingPanel(holder, thinking, 1)
 		end
+		local _, cleanedActions = Parser.extractActions(workingText)
+		workingText = cleanedActions
 	end
 
 	-- Render the reply with code blocks stripped into their own panels.
 	local blocks = Parser.extractBlocks(workingText)
-	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n〔 code block below 〕\n")
+	local prose = string.gsub(workingText, "```[^\n]*\n([%s%S]-)```", "\n〔 code block below 〕\n")
 	prose = prose:gsub("^%s+", ""):gsub("%s+$", "")
 
 	if prose ~= "" then
@@ -192,6 +195,7 @@ function App:addBubble(role, text)
 
 
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
+	return holder
 end
 
 -- Collapsible "💭 Thinking" panel showing the AI's plan/reasoning.
@@ -371,6 +375,86 @@ function App:addCodeBlock(parent, block, order)
 			insert.Text = "＋ Retry insert"
 		end
 	end)
+
+	-- Always give an execute option for Lua/Luau script blocks.
+	if not block.lang or block.lang == "lua" or block.lang == "luau" or block.lang == "" then
+		local execute = button("⚡ Execute / Run Code", { LayoutOrder = 3, BackgroundColor3 = C.Accent })
+		execute.Parent = panel
+		execute.Activated:Connect(function()
+			execute.Text = "Executing…"
+			execute.Active = false
+			task.spawn(function()
+				local ChangeHistoryService = game:GetService("ChangeHistoryService")
+				local recordId = ChangeHistoryService:TryBeginRecording("Bloxsmith execute code")
+				
+				local ok, err = pcall(function()
+					local fn, loadErr = loadstring(block.source)
+					if not fn then
+						error(loadErr)
+					end
+					setfenv(fn, getfenv(0))
+					fn()
+				end)
+				
+				if recordId then
+					ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
+				end
+				
+				execute.Active = true
+				if ok then
+					self:toast("✓ Executed successfully. Ctrl+Z to undo.", "success")
+					execute.Text = "⚡ Executed"
+					if self._activeFixBtn then
+						self._activeFixBtn:Destroy()
+						self._activeFixBtn = nil
+					end
+				else
+					self:toast("Execution failed: " .. tostring(err), "error")
+					execute.Text = "⚡ Retry Execution"
+					warn("[Bloxsmith Exec Error]:", err)
+
+					if self._activeFixBtn then
+						self._activeFixBtn:Destroy()
+					end
+					local fixBtn = button("🔧 Auto-Fix Exec Error with AI", { LayoutOrder = 4, BackgroundColor3 = C.Warning })
+					fixBtn.Parent = panel
+					self._activeFixBtn = fixBtn
+					fixBtn.Activated:Connect(function()
+						fixBtn.Text = "Diagnosing…"
+						fixBtn.Active = false
+						self:send("The script failed with execution error:\n" .. tostring(err) .. "\n\nOriginal Code:\n" .. block.source, "fix_script")
+					end)
+				end
+			end)
+		end)
+	end
+end
+
+local function buildOptimizedMessages(history)
+	local messages = {}
+	local totalLen = 0
+	for _, m in ipairs(history) do
+		totalLen = totalLen + string.len(m.content or "")
+	end
+
+	-- If history is short, send it as-is.
+	if totalLen <= 8000 then
+		for _, m in ipairs(history) do
+			table.insert(messages, { role = m.role, content = m.content })
+		end
+		return messages
+	end
+
+	-- If history is long, prune older messages' code blocks.
+	for i, m in ipairs(history) do
+		local content = m.content
+		-- Prune code blocks from older messages (leaving the last two turns fully intact)
+		if i < #history - 1 and type(content) == "string" then
+			content = string.gsub(content, "```[^\n]*\n[%s%S]-```", "\n[code block omitted for speed]\n")
+		end
+		table.insert(messages, { role = m.role, content = content })
+	end
+	return messages
 end
 
 --========================================================================
@@ -396,18 +480,21 @@ function App:send(promptText, mode)
 	self:addBubble("user", promptText)
 	table.insert(self.history, { role = "user", content = promptText })
 
-
-	local includeTree = mode ~= "chat"
-	local context = self.deps.context:build(includeTree)
-
-	-- Show the live thinking indicator while the request is in flight.
+	-- Show the live thinking indicator immediately — don't make the user
+	-- wait on a (possibly cold) hierarchy walk before they get feedback that
+	-- something is happening. Context building + message optimization now
+	-- happen inside the background task below, off the UI thread.
 	local thinkingHandle = self:startThinking()
 	self._activeThinking = thinkingHandle
 
+	local includeTree = (mode == "agent" or mode == "generate_system" or mode == "generate_ui")
+
 	task.spawn(function()
+		local context = self.deps.context:build(includeTree)
+		local optimizedMessages = buildOptimizedMessages(self.history)
 		local result = self.deps.ai:request({
 			mode = mode or self.mode,
-			messages = self.history,
+			messages = optimizedMessages,
 			context = context,
 		})
 		-- If the user cancelled/stopped while the request was in flight, discard
@@ -422,17 +509,107 @@ function App:send(promptText, mode)
 
 		if result.ok then
 			local reply = result.reply
+			local actions, cleanedReply, foundBlock = Parser.extractActions(reply)
+			if foundBlock then
+				reply = cleanedReply
+			end
+			if not actions then
+				actions = result.actions
+			end
 			if type(reply) ~= "string" or reply == "" then
 				reply = "I prepared changes for your game. Review and approve them below."
 			end
 			self:addBubble("assistant", reply)
 			table.insert(self.history, { role = "assistant", content = reply })
-			local actions = result.actions or Parser.extractActions(reply)
 			if actions then
 				self:proposeAgentActions(actions)
 			end
 		else
-			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
+			local bubble = self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
+
+			if type(result.resetAt) == "number" and result.resetAt > 0 then
+				-- Rate-limited with a known reset time: show a live countdown
+				-- instead of a Retry button that can't succeed until reset.
+				local countdownLabel = Create("TextLabel", {
+					Text = "⏳ Calculating…",
+					Font = Theme.FontBold,
+					TextSize = 12,
+					TextColor3 = C.Warning,
+					BackgroundTransparency = 1,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Size = UDim2.new(1, 0, 0, 18),
+					LayoutOrder = 100,
+					Parent = bubble,
+				})
+
+				local resetAtSeconds = result.resetAt / 1000 -- backend sends epoch ms
+				local tickConn
+				local function formatRemaining(secs)
+					if secs <= 0 then return nil end
+					local h = math.floor(secs / 3600)
+					local m = math.floor((secs % 3600) / 60)
+					local s = math.floor(secs % 60)
+					if h > 0 then
+						return ("⏳ Resets in %dh %dm %ds"):format(h, m, s)
+					elseif m > 0 then
+						return ("⏳ Resets in %dm %ds"):format(m, s)
+					else
+						return ("⏳ Resets in %ds"):format(s)
+					end
+				end
+
+				local function updateCountdown()
+					if not countdownLabel or not countdownLabel.Parent then
+						if tickConn then pcall(task.cancel, tickConn) end
+						return
+					end
+					local remaining = resetAtSeconds - os.time()
+					local text = formatRemaining(remaining)
+					if not text then
+						countdownLabel.Text = "✅ Quota reset — you can try again now."
+						countdownLabel.TextColor3 = C.Success
+						if tickConn then pcall(task.cancel, tickConn) end
+						-- Swap in a real Retry button now that the wait is over.
+						local retryBtn = button("🔁 Retry Request", { LayoutOrder = 101, BackgroundColor3 = C.Panel, Size = UDim2.new(0, 120, 0, 26) })
+						retryBtn.Parent = bubble
+						retryBtn.Activated:Connect(function()
+							retryBtn:Destroy()
+							local lastPromptText = ""
+							if #self.history > 0 and self.history[#self.history].role == "user" then
+								local last = table.remove(self.history)
+								lastPromptText = last.content
+							end
+							if lastPromptText ~= "" then
+								self:send(lastPromptText, mode)
+							end
+						end)
+						return
+					end
+					countdownLabel.Text = text
+				end
+
+				updateCountdown()
+				tickConn = task.spawn(function()
+					while countdownLabel and countdownLabel.Parent do
+						task.wait(1)
+						updateCountdown()
+					end
+				end)
+			else
+				local retryBtn = button("🔁 Retry Request", { LayoutOrder = 100, BackgroundColor3 = C.Panel, Size = UDim2.new(0, 120, 0, 26) })
+				retryBtn.Parent = bubble
+				retryBtn.Activated:Connect(function()
+					retryBtn:Destroy()
+					local lastPromptText = ""
+					if #self.history > 0 and self.history[#self.history].role == "user" then
+						local last = table.remove(self.history)
+						lastPromptText = last.content
+					end
+					if lastPromptText ~= "" then
+						self:send(lastPromptText, mode)
+					end
+				end)
+			end
 			self:toast(result.error or "Request failed.", "error")
 		end
 		-- Persist the running conversation so Bloxsmith remembers it across
@@ -702,7 +879,7 @@ function App:buildChatView(parent)
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -218),
+		Size = UDim2.new(1, 0, 1, -242),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
@@ -728,7 +905,7 @@ function App:buildChatView(parent)
 	end
 
 	-- Input row
-	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 6, Parent = view })
+	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 64), LayoutOrder = 6, Parent = view })
 	self.input = Create("TextBox", {
 		PlaceholderText = "Ask Bloxsmith or describe what to build…",
 		Text = "",
@@ -741,6 +918,7 @@ function App:buildChatView(parent)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		ClearTextOnFocus = false,
 		MultiLine = true,
+		TextWrapped = true,
 		Size = UDim2.new(1, -70, 1, 0),
 		Position = UDim2.new(0, 0, 0, 0),
 		Parent = inputRow,
@@ -1106,16 +1284,39 @@ function App:buildAnalysisView(parent)
 	local results = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = view })
 	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = results })
 
-	sec.Activated:Connect(function()
+	-- Runs a scan off the UI thread so a large place doesn't visibly freeze
+	-- Studio when the button is clicked, and disables the button meanwhile
+	-- so double-clicks don't queue up overlapping scans.
+	local function runScan(btn, label, fn)
+		local scanning = false
+		btn.Activated:Connect(function()
+			if scanning then return end
+			scanning = true
+			local original = btn.Text
+			btn.Text = "Scanning…"
+			btn.Active = false
+			task.spawn(function()
+				local ok, err = pcall(fn)
+				btn.Text = original
+				btn.Active = true
+				scanning = false
+				if not ok then
+					self:toast("Scan failed: " .. tostring(err), "error")
+				end
+			end)
+		end)
+	end
+
+	runScan(sec, "security", function()
 		self:renderFindings(results, self.deps.security:scan(), "No security issues detected.")
 		self:toast("Security scan complete.", "success")
 	end)
-	perf.Activated:Connect(function()
+	runScan(perf, "performance", function()
 		local r = self.deps.performance:analyze()
 		self:renderFindings(results, r.findings, "No performance issues detected.")
 		self:toast(("Perf: %d parts, %d scripts, %d unions."):format(r.metrics.parts, r.metrics.scripts, r.metrics.unions), "info")
 	end)
-	clean.Activated:Connect(function()
+	runScan(clean, "cleanup", function()
 		self:renderFindings(results, self.deps.cleanup:scan(), "Project is tidy!")
 		self:toast("Cleanup scan complete.", "success")
 	end)
@@ -1148,22 +1349,39 @@ function App:buildHealthView(parent)
 	local results = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = view })
 	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = results })
 
+	local computing = false
 	computeBtn.Activated:Connect(function()
-		local h = self.deps.health:compute()
-		secNum.Text = tostring(h.security.score)
-		secNum.TextColor3 = Theme.scoreColor(h.security.score)
-		perfNum.Text = tostring(h.performance.score)
-		perfNum.TextColor3 = Theme.scoreColor(h.performance.score)
-		orgNum.Text = tostring(h.organization.score)
-		orgNum.TextColor3 = Theme.scoreColor(h.organization.score)
-		local all = {}
-		for _, list in ipairs({ h.security.findings, h.performance.findings, h.organization.findings }) do
-			for _, f in ipairs(list) do
-				table.insert(all, f)
+		if computing then return end
+		computing = true
+		local original = computeBtn.Text
+		computeBtn.Text = "Computing…"
+		computeBtn.Active = false
+		task.spawn(function()
+			local ok, h = pcall(function()
+				return self.deps.health:compute()
+			end)
+			computeBtn.Text = original
+			computeBtn.Active = true
+			computing = false
+			if not ok then
+				self:toast("Health compute failed: " .. tostring(h), "error")
+				return
 			end
-		end
-		self:renderFindings(results, all, "Excellent — no issues across the board!")
-		self:toast("Health computed.", "success")
+			secNum.Text = tostring(h.security.score)
+			secNum.TextColor3 = Theme.scoreColor(h.security.score)
+			perfNum.Text = tostring(h.performance.score)
+			perfNum.TextColor3 = Theme.scoreColor(h.performance.score)
+			orgNum.Text = tostring(h.organization.score)
+			orgNum.TextColor3 = Theme.scoreColor(h.organization.score)
+			local all = {}
+			for _, list in ipairs({ h.security.findings, h.performance.findings, h.organization.findings }) do
+				for _, f in ipairs(list) do
+					table.insert(all, f)
+				end
+			end
+			self:renderFindings(results, all, "Excellent — no issues across the board!")
+			self:toast("Health computed.", "success")
+		end)
 	end)
 
 	recBtn.Activated:Connect(function()
@@ -1229,7 +1447,7 @@ function App:buildToolsView(parent)
 
 	Create("TextLabel", { Text = "Quick actions — type a description, then run. Uses your current selection & project as context.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
 
-	local box = Create("TextBox", { PlaceholderText = "e.g. a wave-based zombie survival shop with 6 weapons", Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ClearTextOnFocus = false, MultiLine = true, Size = UDim2.new(1, 0, 0, 56), Parent = view }, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+	local box = Create("TextBox", { PlaceholderText = "e.g. a wave-based zombie survival shop with 6 weapons", Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ClearTextOnFocus = false, MultiLine = true, TextWrapped = true, Size = UDim2.new(1, 0, 0, 72), Parent = view }, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
 
 	local tools = {
 		{ "🎮 Generate game system", "generate_system", "Build a complete system for: " },

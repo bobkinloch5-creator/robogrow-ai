@@ -24,6 +24,7 @@ local function _R(name)
 end
 
 _modules["Config"] = function()
+
 --[[
 	Config.lua
 	Central, non-secret configuration for Bloxsmith.
@@ -34,10 +35,144 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.7.0"
+Config.Version = "3.9.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.9.2",
+		date = "2026-07-13",
+		title = "Fixed Invisible Attachment-Based Effects",
+		changes = {
+			"FIXED: Creating a bare Attachment (e.g. as a container for particle emitters like rain/mist/splash) directly under Workspace or a Folder silently failed to render, since Attachments only have a valid position when parented to a BasePart. Bloxsmith now automatically gives it an anchored, invisible host Part instead, so it and everything parented under it actually show up.",
+			"IMPROVED: The particle/light/beam auto-host check now also verifies an existing Attachment parent is itself properly attached to a BasePart, instead of assuming any Attachment is a valid host.",
+		},
+	},
+
+	{
+		version = "3.9.1",
+		date = "2026-07-13",
+		title = "Faster Scans & Complete Cache Invalidation",
+		changes = {
+			"OPTIMIZED: Security and Performance scanners now walk the project tree once instead of twice, roughly halving scan time on large places.",
+			"IMPROVED: Security/Performance/Cleanup scans and the Health dashboard's 'Compute' button now run off the main thread, so clicking them no longer visibly freezes Studio on big projects.",
+			"FIXED: The project-hierarchy cache (added in 3.9.0) is now invalidated after every DataModel mutation — including Reset Place, quick-action edits, and Toolbox inserts — not just Agent-approved actions, so the AI never sees a stale hierarchy.",
+		},
+	},
+
+	{
+		version = "3.9.0",
+		date = "2026-07-13",
+		title = "Faster Generation & Safer Action Parsing",
+		changes = {
+			"IMPROVED: The 'thinking' indicator now appears the instant you hit Send instead of after the project-hierarchy scan — context building moved off the critical path.",
+			"OPTIMIZED: Project hierarchy scans (used by Agent/Generate modes) are now cached for a few seconds instead of re-walking the whole place on every message, cutting latency on large projects.",
+			"FIXED: The action-JSON safety-net parser no longer blindly swaps every apostrophe for a quote — it's now quote-aware, so generated code containing apostrophes (e.g. \"it's\", \"player's Tool\") is no longer corrupted when the model uses single-quoted JSON.",
+			"IMPROVED: Malformed action JSON now also gets a trailing-comma repair pass before falling back to quote repair, catching more model slip-ups without any downside.",
+		},
+	},
+
+	{
+		version = "3.8.0",
+		date = "2026-07-13",
+		title = "Action JSON Debugging",
+		changes = {
+			"NEW: Enabled detailed JSON decode error logging for the action parser to easily pinpoint syntax errors from the model.",
+		},
+	},
+
+	{
+		version = "3.7.9",
+		date = "2026-07-13",
+		title = "Self-Healing & Debug Logging",
+		changes = {
+			"NEW: Added a clickable '🔁 Retry Request' action directly inside request error bubbles to easily resend failed prompts.",
+			"NEW: Added an automatic '🔧 Auto-Fix Exec Error' self-healing option on any script execution failure.",
+			"NEW: Enabled detailed backend HTTP error printing in the Studio Output window to help diagnose API/network blocks.",
+		},
+	},
+
+	{
+		version = "3.7.8",
+		date = "2026-07-13",
+		title = "Smart Chat History Optimization",
+		changes = {
+			"OPTIMIZED: Automatically compress conversation history when it exceeds 8,000 characters, pruning heavy historical code blocks from older turns while keeping the latest turns intact.",
+			"IMPROVED: Significantly reduced LLM input processing times and API latency during extended chat sessions.",
+		},
+	},
+
+	{
+		version = "3.7.7",
+		date = "2026-07-13",
+		title = "Long Prompt Input Improvements",
+		changes = {
+			"NEW: Enabled `TextWrapped = true` on all chat and quick-action prompt textboxes, allowing multi-line prompts to wrap and scroll correctly.",
+			"IMPROVED: Expanded the height of the main chat input field and optimized scroll layout offsets to comfortably fit long paragraph prompts.",
+		},
+	},
+
+	{
+		version = "3.7.6",
+		date = "2026-07-13",
+		title = "Robust JSON & Actions Parsing",
+		changes = {
+			"FIXED: Automatically fix LLM single-quote JSON generation errors to ensure the action checklist renders correctly.",
+			"FIXED: Ensured that `bloxsmith:actions` blocks are always stripped from the chat bubble even if JSON parsing fails.",
+		},
+	},
+
+	{
+		version = "3.7.5",
+		date = "2026-07-13",
+		title = "Performance & Generation Speedups",
+		changes = {
+			"IMPROVED: Noticeably accelerated AI response times by instructing the model to be extremely concise and direct.",
+			"OPTIMIZED: Excluded the project tree hierarchy from chat, explanation, optimization, and fix request payloads, saving network bandwidth and local serialization times.",
+		},
+	},
+
+	{
+		version = "3.7.4",
+		date = "2026-07-13",
+		title = "Instant Code Execution Support",
+		changes = {
+			"NEW: Added 'Execute / Run Code' option directly to all generated Lua/Luau script cards, running code immediately in Studio's command-line context.",
+			"NEW: Fully integrated with Studio's ChangeHistoryService, enabling complete Ctrl+Z undo support for executed scripts.",
+		},
+	},
+
+	{
+		version = "3.7.3",
+		date = "2026-07-13",
+		title = "Markdown Parsing & UI Fixes",
+		changes = {
+			"FIXED: Corrected Lua pattern matching in code blocks to support multiline extraction using `[%s%S]-` instead of `.`, fixing raw JSON blocks displaying in chat.",
+			"FIXED: Completely strip proposed action blocks from the chat bubble to keep chat clean and display them solely in the checklist interface.",
+		},
+	},
+
+	{
+		version = "3.7.2",
+		date = "2026-07-13",
+		title = "Smart Pathing & Code Sanitization",
+		changes = {
+			"NEW: Added smart path normalization to support dot notation (game.ServerScriptService) and strip redundant file extensions.",
+			"NEW: Automatically sanitize AI-generated code to strip leaked markdown code block wrappers (```lua).",
+			"IMPROVED: Intelligent script type coercion (automatically converting Scripts to LocalScripts in UI/client containers and vice-versa).",
+		},
+	},
+
+	{
+		version = "3.7.1",
+		date = "2026-07-13",
+		title = "Flawless Scripting & Quality Standards",
+		changes = {
+			"NEW: Embedded strict Roblox Luau scripting standards into the AI generator, ensuring all generated scripts are secure, modern, performant, and error-free.",
+			"IMPROVED: Increased custom instruction limit to 5000 characters and combined system instructions with user preferences.",
+		},
+	},
+
 	{
 		version = "3.7.0",
 		date = "2026-07-13",
@@ -239,12 +374,13 @@ Config.Defaults = {
 	ResponseLength = "Balanced",
 	CustomInstructions = "",
 }
-Config.MaxCustomInstructions = 1000
+Config.MaxCustomInstructions = 5000
 
 return Config
 end
 
 _modules["Services.AIService"] = function()
+
 --[[
 	AIService.lua
 	The scalable service layer between the plugin and the AI backend.
@@ -261,8 +397,9 @@ local Log = _R("Util.Log")
 local AIService = {}
 AIService.__index = AIService
 
-local MAX_RETRIES = 2 -- total attempts = MAX_RETRIES + 1
-local RETRYABLE_STATUS = { [429] = true, [500] = true, [502] = true, [503] = true, [504] = true }
+local MAX_RETRIES = 4 -- total attempts = MAX_RETRIES + 1 (was 2 — bigger generations need more chances)
+local RETRYABLE_STATUS = { [408] = true, [409] = true, [429] = true, [500] = true, [502] = true, [503] = true, [504] = true, [522] = true, [524] = true }
+-- 408/522/524 added: Cloudflare timeout-style statuses that show up on slow/large generations.
 
 -- The logged-in Studio user's Roblox account id. Used by the backend allow-list
 -- so only accounts the owner authorized can use Bloxsmith. Returns 0 if unknown.
@@ -300,7 +437,27 @@ function AIService:getPreferences()
 		end
 		return v
 	end
-	local instructions = get(Config.Settings.CustomInstructions, Config.Defaults.CustomInstructions)
+	local userInstructions = get(Config.Settings.CustomInstructions, "")
+	local systemInstructions = [[
+- Core Scripting Standards: Always write clean, modern, secure, and highly-performant Roblox Luau.
+- Use Modern task library: Use task.wait(), task.spawn(), task.delay(), and task.defer() instead of wait(), spawn(), delay(), and defer().
+- Explicit Services: Always use game:GetService("ServiceName") (e.g. game:GetService("Players")) instead of referencing game.Players directly.
+- Avoid Deprecated APIs: Use Connect() and Disconnect() with capital C/D. Do not use :Destroy()'s alias :Remove(). Use Debris:AddItem() instead of spawning custom delay destroyers.
+- Local Variables: Keep all variables local unless global scope is strictly required. Use local functions.
+- Client-Side Safety (WaitForChild): When writing client-side LocalScripts, always use WaitForChild to access workspace or ReplicatedStorage elements, as client instances stream in asynchronously.
+- Server-Side Validation: Never trust client parameters. Always validate inputs, types, ranges, and permissions in RemoteEvent / RemoteFunction server-side handlers to prevent exploits.
+- Wrap dangerous/async API calls in pcall: Wrap DataStore, HttpService, MessagingService, and game:GetObjects operations in pcall, checking for success and gracefully handling errors.
+- Prevent Memory Leaks: Ensure all Event connections are disconnected when no longer needed (e.g., using :Disconnect() or :Once() where appropriate). Destroy instances when they are done.
+- Unthrottled Loops: Never use while true do without task.wait() or a yielding signal, otherwise it will crash the client/server.
+- State Management: Do not use _G or shared; use ModuleScripts for clean state sharing.
+- UI Handling: Set ResetOnSpawn = false for ScreenGuis that need to persist across respawns. Avoid hardcoded offsets/sizes; use scale/aspect ratio constraint for responsive UI design.
+- Concise / Fast Generation Mode: Keep explanations extremely short, direct, and focused. Avoid conversational introductions or summaries to maximize generation speed.
+
+]]
+	local instructions = systemInstructions
+	if type(userInstructions) == "string" and userInstructions ~= "" then
+		instructions = instructions .. "\nAdditional user instructions:\n" .. userInstructions
+	end
 	if type(instructions) == "string" then
 		instructions = string.sub(instructions, 1, Config.MaxCustomInstructions)
 	end
@@ -328,10 +485,14 @@ function AIService:_attempt(body)
 
 	if not success then
 		Log.error("HTTP request failed:", response)
+		local msg = tostring(response)
+		local looksLikeTimeout = msg:find("time") or msg:find("Time") or msg:find("timed out")
 		return {
 			ok = false,
 			retryable = true,
-			error = "Network error. Enable HTTP requests (allow the permission prompt) and check the backend URL in Settings.",
+			error = looksLikeTimeout
+				and "The request timed out — this can happen on larger generations. Retrying automatically…"
+				or "Network error. Enable HTTP requests (allow the permission prompt) and check the backend URL in Settings.",
 		}
 	end
 
@@ -343,15 +504,33 @@ function AIService:_attempt(body)
 	if not response.Success then
 		local msg = (decodeOk and decoded and decoded.error)
 			or ("Backend error " .. tostring(response.StatusCode))
-		return { ok = false, retryable = RETRYABLE_STATUS[response.StatusCode] == true, error = msg }
+		warn("[Bloxsmith Backend Error]: Status " .. tostring(response.StatusCode) .. " - " .. tostring(msg))
+		if decodeOk and decoded and decoded.detail then
+			warn("[Bloxsmith Backend Detail]: " .. tostring(decoded.detail))
+		end
+		-- A 429 against the DAILY quota can't succeed on retry until reset,
+		-- so don't burn retries on it — but DO pass the resetAt timestamp
+		-- through so the UI can show a live countdown to when it clears.
+		local isRateLimit = response.StatusCode == 429
+		return {
+			ok = false,
+			retryable = isRateLimit and false or (RETRYABLE_STATUS[response.StatusCode] == true),
+			error = msg,
+			resetAt = decodeOk and decoded and decoded.resetAt or nil,
+		}
 	end
 
 	if not decodeOk or not decoded then
+		warn("[Bloxsmith JSON Decode Error]: Failed to parse response. Body: " .. tostring(response.Body))
 		return { ok = false, retryable = false, error = "Received a malformed response from the backend." }
 	end
 
 	if decoded.error then
-		return { ok = false, retryable = false, error = decoded.error }
+		warn("[Bloxsmith Backend Error]: " .. tostring(decoded.error))
+		if decoded.detail then
+			warn("[Bloxsmith Backend Detail]: " .. tostring(decoded.detail))
+		end
+		return { ok = false, retryable = false, error = decoded.error, resetAt = decoded.resetAt }
 	end
 
 	if type(decoded.reply) ~= "string" or decoded.reply == "" then
@@ -402,10 +581,14 @@ function AIService:request(opts)
 			break
 		end
 		if attempt < MAX_RETRIES then
-			local backoff = 0.8 * (2 ^ attempt)
+			local backoff = 1.2 * (2 ^ attempt) -- was 0.8 — gives slow/large generations more room to finish
 			Log.warn(("Transient failure, retrying in %.1fs (attempt %d/%d)…"):format(backoff, attempt + 1, MAX_RETRIES))
 			task.wait(backoff)
 		end
+	end
+
+	if not result.ok and result.retryable then
+		result.error = (result.error or "Request failed") .. (" (failed after %d attempts)"):format(MAX_RETRIES + 1)
 	end
 
 	return result
@@ -464,6 +647,7 @@ return AIService
 end
 
 _modules["Services.ApplyService"] = function()
+
 --[[
 	ApplyService.lua
 	Applies AI-generated changes to the DataModel with full undo/redo support.
@@ -511,16 +695,54 @@ local CREATE_BLACKLIST = {
 }
 
 
-function ApplyService.new()
-	return setmetatable({}, ApplyService)
+local function sanitizeName(name)
+	if type(name) ~= "string" then
+		return name
+	end
+	return name:gsub("%.lua$", ""):gsub("%.LUA$", "")
 end
 
--- Resolve "ServerScriptService/Systems/Shop" into an Instance, creating folders as needed.
+local function sanitizeSource(src)
+	if type(src) ~= "string" then
+		return src
+	end
+	local clean = src:gsub("^%s+", ""):gsub("%s+$", "")
+	if string.sub(clean, 1, 3) == "```" then
+		clean = clean:gsub("^```%w*%s*", "")
+		clean = clean:gsub("%s*```$", "")
+	end
+	return clean
+end
+
+function ApplyService.new(contextService)
+	return setmetatable({ contextService = contextService }, ApplyService)
+end
+
+-- Any DataModel mutation invalidates the cached project-tree so the AI's
+-- next look at the hierarchy is never stale. Centralized here (rather than
+-- at each UI call site) so no future mutation path can forget it.
+function ApplyService:_invalidateContext()
+	if self.contextService then
+		self.contextService:invalidateTreeCache()
+	end
+end
+
+-- Resolve "ServerScriptService/Systems/Shop" or dot-notated paths into an Instance, creating folders as needed.
 function ApplyService:resolvePath(path, createFolders)
 	if type(path) ~= "string" or path == "" then
 		return nil
 	end
-	local segments = string.split(path, "/")
+	-- Strip .lua extension from end if present (e.g. "Script.lua" -> "Script")
+	local cleanPath = path:gsub("%.lua$", ""):gsub("%.LUA$", "")
+	-- Normalize separators: change dots and backslashes to slashes.
+	local normalized = cleanPath:gsub("%.", "/"):gsub("\\", "/")
+	-- Strip leading/trailing slashes and ignore game/ prefix
+	normalized = normalized:gsub("^/+", ""):gsub("/+$", "")
+	if string.sub(normalized, 1, 5) == "game/" then
+		normalized = string.sub(normalized, 6)
+	end
+	
+	local segments = string.split(normalized, "/")
 	local serviceName = segments[1]
 	local ok, current = pcall(function()
 		return game:GetService(serviceName)
@@ -535,6 +757,20 @@ function ApplyService:resolvePath(path, createFolders)
 			local nextInst = current:FindFirstChild(segname)
 			if not nextInst then
 				if not createFolders then
+					return nil
+				end
+				-- Only the LAST segment of a path is a folder Bloxsmith is
+				-- meant to create fresh (e.g. "Workspace/NewFolder"). A
+				-- missing MIDDLE segment almost always means a previous
+				-- action's exact name didn't match (typo, renamed by the
+				-- attachment-host fix, case difference, etc). Silently
+				-- spawning a substitute Folder here used to cause effects
+				-- like rain to get parented into an empty, wrongly-placed
+				-- Folder instead of the real host — with no visible error.
+				-- Fail loudly instead so the caller can react (or so this
+				-- shows up in logs) rather than rain silently not falling.
+				if i < #segments then
+					Log.warn(("resolvePath: missing intermediate segment '%s' in '%s' — refusing to substitute a Folder, since a later effect could get silently mis-parented."):format(segname, path))
 					return nil
 				end
 				nextInst = Instance.new("Folder")
@@ -851,11 +1087,26 @@ function ApplyService:applyOne(action)
 		return true, "Created folder " .. folder:GetFullName(), folder
 
 	elseif kind == "create_script" then
-		local class = SCRIPT_CLASSES[action.class] and action.class or "Script"
 		local parent = self:resolvePath(action.path or "ServerScriptService", true)
+		local class = SCRIPT_CLASSES[action.class] and action.class or "Script"
+		
+		-- Coerce script class based on parent container for guaranteed execution
+		if parent then
+			local fullName = parent:GetFullName()
+			if class == "Script" then
+				if string.find(fullName, "StarterPlayer") or string.find(fullName, "StarterGui") or string.find(fullName, "Players") or string.find(fullName, "ReplicatedStorage") or string.find(fullName, "ReplicatedFirst") then
+					class = "LocalScript"
+				end
+			elseif class == "LocalScript" then
+				if string.find(fullName, "ServerScriptService") or string.find(fullName, "ServerStorage") then
+					class = "Script"
+				end
+			end
+		end
+
 		local inst = Instance.new(class)
-		inst.Name = action.name or "BloxsmithScript"
-		inst.Source = action.source or "-- (empty)"
+		inst.Name = sanitizeName(action.name or "BloxsmithScript")
+		inst.Source = sanitizeSource(action.source) or "-- (empty)"
 		inst.Parent = parent
 		return true, "Created " .. class .. " " .. inst:GetFullName(), inst
 
@@ -864,7 +1115,7 @@ function ApplyService:applyOne(action)
 		if not target or not target:IsA("LuaSourceContainer") then
 			return false, "Could not find script to replace: " .. tostring(action.target)
 		end
-		target.Source = action.source or target.Source
+		target.Source = sanitizeSource(action.source) or target.Source
 		return true, "Updated " .. target:GetFullName(), target
 
 	elseif kind == "create_instance" then
@@ -876,11 +1127,40 @@ function ApplyService:applyOne(action)
 			return false, "Refused to create protected/service class: " .. tostring(class)
 		end
 		local parent = self:resolvePath(action.path or "Workspace", true)
+
+		-- An Attachment only has a valid world position when parented to a
+		-- BasePart. If the AI creates one directly under Workspace/a Folder/a
+		-- Model, it silently fails to render — and everything hung off it
+		-- (particle emitters, beams, lights…) never shows up either. Give it
+		-- an anchored, invisible host Part instead, using the requested name,
+		-- so follow-up actions targeting this same path still resolve and its
+		-- children work correctly parented straight to a real BasePart.
+		if class == "Attachment" and parent and not parent:IsA("BasePart") then
+			local host = Instance.new("Part")
+			host.Name = sanitizeName(action.name or "Attachment")
+			host.Anchored = true
+			host.CanCollide = false
+			host.CanQuery = false
+			host.CanTouch = false
+			host.CastShadow = false
+			host.Transparency = 1
+			host.Size = Vector3.new(1, 1, 1)
+			if type(action.properties) == "table" then
+				for prop, val in pairs(action.properties) do
+					pcall(function()
+						host[prop] = coerceValue(host, prop, val)
+					end)
+				end
+			end
+			host.Parent = parent
+			return true, ("Created %s as an anchored host part (Attachments need a BasePart parent to render)"):format(host.Name), host
+		end
+
 		local okNew, inst = pcall(Instance.new, class)
 		if not okNew or not inst then
 			return false, "Roblox cannot create an instance of class: " .. tostring(class)
 		end
-		inst.Name = action.name or class
+		inst.Name = sanitizeName(action.name or class)
 		if type(action.properties) == "table" then
 			for prop, val in pairs(action.properties) do
 				pcall(function()
@@ -888,10 +1168,40 @@ function ApplyService:applyOne(action)
 				end)
 			end
 		end
+
+		-- Safety net: a ParticleEmitter/Fire/Smoke can exist, be Enabled, and
+		-- still emit nothing VISIBLE if the AI's generated properties left
+		-- Rate/Lifetime/Speed at 0 or empty (e.g. an incomplete NumberSequence
+		-- for Size, or Rate = 0). This was showing up as "sometimes rain just
+		-- doesn't appear" with no error, since the instance itself was created
+		-- successfully. Only touch properties the AI actually left broken —
+		-- never override values it explicitly and validly set.
+		if inst:IsA("ParticleEmitter") then
+			pcall(function()
+				if inst.Rate <= 0 then inst.Rate = 40 end
+				if inst.Lifetime.Min <= 0 and inst.Lifetime.Max <= 0 then
+					inst.Lifetime = NumberRange.new(1, 2)
+				end
+				if inst.Speed.Min <= 0 and inst.Speed.Max <= 0 then
+					inst.Speed = NumberRange.new(5, 10)
+				end
+				if inst.Enabled == nil then inst.Enabled = true end
+			end)
+		elseif inst:IsA("Fire") or inst:IsA("Smoke") then
+			pcall(function()
+				if inst.Enabled == false and action.properties and action.properties.Enabled == nil then
+					inst.Enabled = true
+				end
+			end)
+		end
+
 		-- Effects (particles, fire, beams, lights, decals…) only render on a
-		-- BasePart/Attachment. If the AI created one loose in a container, give it
-		-- a visible, ground-placed host part so it actually shows up.
-		if isEffect(inst) and not (parent:IsA("BasePart") or parent:IsA("Attachment")) then
+		-- BasePart, or an Attachment that is itself properly parented to one.
+		-- If the AI created one loose in a container (or under a broken/
+		-- unparented Attachment), give it a visible, ground-placed host part.
+		local parentIsValidHost = parent:IsA("BasePart")
+			or (parent:IsA("Attachment") and parent.Parent ~= nil and parent.Parent:IsA("BasePart"))
+		if isEffect(inst) and not parentIsValidHost then
 			local host = createEffectHost(inst)
 			pcall(function() host.Parent = parent end)
 			pcall(function() placeOnGround(host, workspace.CurrentCamera) end)
@@ -1067,6 +1377,7 @@ function ApplyService:applyActions(actions, label)
 		end)
 	end
 
+	self:_invalidateContext()
 	return { ok = not anyFail, results = results, created = created, applied = okCount, error = firstError }
 end
 
@@ -1077,7 +1388,7 @@ function ApplyService:replaceSource(scriptInstance, newSource, label)
 		return { ok = false, error = "No valid script selected." }
 	end
 	local recordId = ChangeHistoryService:TryBeginRecording(label or "Bloxsmith edit script")
-	scriptInstance.Source = newSource
+	scriptInstance.Source = sanitizeSource(newSource) or scriptInstance.Source
 	if recordId then
 		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
 	end
@@ -1153,6 +1464,7 @@ function ApplyService:resetPlace(keepBaseplate)
 	if recordId then
 		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
 	end
+	self:_invalidateContext()
 	return { ok = true, removed = removed }
 end
 
@@ -1233,6 +1545,7 @@ function ApplyService:editSelection(op, arg)
 	if count == 0 then
 		return { ok = false, error = "Nothing in the selection could be edited that way." }
 	end
+	self:_invalidateContext()
 	return { ok = true, count = count }
 end
 
@@ -1240,6 +1553,7 @@ return ApplyService
 end
 
 _modules["Services.CleanupService"] = function()
+
 --[[
 	CleanupService.lua
 	Detects organization issues: default names, duplicates, empty folders,
@@ -1313,6 +1627,7 @@ return CleanupService
 end
 
 _modules["Services.ContextService"] = function()
+
 --[[
 	ContextService.lua
 	Gives the AI project-wide understanding: selection details, script sources,
@@ -1335,8 +1650,15 @@ local INSPECTED_SERVICES = {
 	"Lighting",
 }
 
+-- Tree walks over big places are the single most expensive thing Bloxsmith
+-- does per-request. Cache the result for a short window and reuse it across
+-- consecutive messages instead of re-walking the whole DataModel every time —
+-- this is the biggest lever on perceived "generation speed" for agent /
+-- generate modes on large places.
+local TREE_CACHE_TTL = 12 -- seconds
+
 function ContextService.new()
-	return setmetatable({}, ContextService)
+	return setmetatable({ _treeCache = nil, _treeCacheAt = 0 }, ContextService)
 end
 
 local function fullName(inst)
@@ -1351,7 +1673,11 @@ local function describe(inst)
 			return inst.Source
 		end)
 		if ok then
-			info.source = string.sub(src, 1, 6000)
+			if #src > 6000 then
+				info.source = string.sub(src, 1, 6000) .. "\n--[[ ...TRUNCATED: script is " .. #src .. " chars, only the first 6000 shown to the AI... ]]"
+			else
+				info.source = src
+			end
 		end
 	elseif inst:IsA("BasePart") then
 		info.size = tostring(inst.Size)
@@ -1383,19 +1709,28 @@ function ContextService:getSelectedScript()
 	return nil
 end
 
--- Bounded walk producing a lightweight tree + counts.
+-- Bounded walk producing a lightweight tree + counts. Cached for
+-- TREE_CACHE_TTL seconds so rapid back-to-back agent turns (the common case
+-- while iterating on a build) reuse the same walk instead of paying the full
+-- hierarchy-scan cost on every single message.
 function ContextService:getProjectTree()
+	local now = os.clock()
+	if self._treeCache and (now - self._treeCacheAt) < TREE_CACHE_TTL then
+		return self._treeCache
+	end
+
 	local budget = Config.MaxContextInstances
 	local counts = { scripts = 0, parts = 0, guis = 0, remotes = 0, total = 0 }
 
-	local function walk(inst, depth)
-		if budget <= 0 or depth > 4 then
-			return nil
+	local function walk(inst, depth, localBudget)
+		if localBudget <= 0 or depth > 4 then
+			return nil, localBudget
 		end
 		local node = { name = inst.Name, class = inst.ClassName }
 		local kids = inst:GetChildren()
 		local childNodes = {}
 		for _, child in ipairs(kids) do
+			localBudget -= 1
 			budget -= 1
 			counts.total += 1
 			if child:IsA("LuaSourceContainer") then
@@ -1407,10 +1742,11 @@ function ContextService:getProjectTree()
 			elseif child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
 				counts.remotes += 1
 			end
-			if budget <= 0 then
+			if localBudget <= 0 then
 				break
 			end
-			local sub = walk(child, depth + 1)
+			local sub
+			sub, localBudget = walk(child, depth + 1, localBudget)
 			if sub then
 				table.insert(childNodes, sub)
 			end
@@ -1418,19 +1754,40 @@ function ContextService:getProjectTree()
 		if #childNodes > 0 then
 			node.children = childNodes
 		end
-		return node
+		return node, localBudget
 	end
 
 	local tree = {}
+	-- Split the budget evenly across services up front so one big service
+	-- (Workspace, on almost any real game) can't silently eat the entire
+	-- walk and make every later service falsely look empty to the AI. Any
+	-- unused share from an early, smaller service rolls forward to the rest.
+	local perServiceBudget = math.max(1, math.floor(budget / #INSPECTED_SERVICES))
 	for _, svcName in ipairs(INSPECTED_SERVICES) do
 		local ok, svc = pcall(function()
 			return game:GetService(svcName)
 		end)
 		if ok and svc then
-			table.insert(tree, walk(svc, 0))
+			local thisBudget = math.min(perServiceBudget, math.max(budget, 0))
+			local node, leftover = walk(svc, 0, thisBudget)
+			-- Roll back whatever this service didn't use into the shared pool.
+			if leftover and leftover > 0 then
+				budget += leftover
+			end
+			table.insert(tree, node)
 		end
 	end
-	return { tree = tree, counts = counts }
+	local result = { tree = tree, counts = counts }
+	self._treeCache = result
+	self._treeCacheAt = now
+	return result
+end
+
+-- Force the next getProjectTree() call to re-walk instead of using the
+-- cache — called after Apply actions mutate the place, so the AI always
+-- sees an up-to-date hierarchy right after a change.
+function ContextService:invalidateTreeCache()
+	self._treeCache = nil
 end
 
 -- Full context bundle for AI calls.
@@ -1448,6 +1805,7 @@ return ContextService
 end
 
 _modules["Services.ErrorMonitor"] = function()
+
 --[[
 	ErrorMonitor.lua
 	Captures Studio output errors via LogService and keeps a rolling buffer so the
@@ -1504,6 +1862,7 @@ return ErrorMonitor
 end
 
 _modules["Services.HealthService"] = function()
+
 --[[
 	HealthService.lua
 	Aggregates the local analyzers into 0-100 scores for the health dashboard.
@@ -1546,6 +1905,7 @@ return HealthService
 end
 
 _modules["Services.PerformanceAnalyzer"] = function()
+
 --[[
 	PerformanceAnalyzer.lua
 	Heuristics for lag sources: unthrottled loops, per-frame work, excessive
@@ -1564,6 +1924,8 @@ function PerformanceAnalyzer:analyze()
 	local findings = {}
 	local metrics = { parts = 0, unanchored = 0, unions = 0, meshes = 0, scripts = 0, instances = 0 }
 
+	-- Single pass over the whole tree (this used to be two full
+	-- game:GetDescendants() walks — merged into one for large places).
 	for _, d in ipairs(game:GetDescendants()) do
 		metrics.instances += 1
 		if d:IsA("BasePart") then
@@ -1578,6 +1940,37 @@ function PerformanceAnalyzer:analyze()
 			end
 		elseif d:IsA("LuaSourceContainer") then
 			metrics.scripts += 1
+			local ok, src = pcall(function()
+				return d.Source
+			end)
+			if ok and src then
+				if string.find(src, "while%s+true%s+do") and not string.find(src, "task%.wait") and not string.find(src, "RunService") then
+					table.insert(findings, {
+						severity = "High",
+						title = "Unthrottled while-true loop",
+						advice = "Add task.wait() or it will spike CPU and can freeze the client.",
+						path = d:GetFullName(),
+					})
+				end
+				if string.find(src, "Heartbeat:Connect") or string.find(src, "RenderStepped:Connect") then
+					if string.find(src, ":FindFirstChild") or string.find(src, "Instance.new") then
+						table.insert(findings, {
+							severity = "Medium",
+							title = "Heavy work every frame",
+							advice = "Per-frame FindFirstChild/Instance.new allocates constantly. Cache references outside the loop.",
+							path = d:GetFullName(),
+						})
+					end
+				end
+				if string.find(src, ":Connect") and not string.find(src, ":Disconnect") and not string.find(src, "Once") then
+					table.insert(findings, {
+						severity = "Low",
+						title = "Possible connection leak",
+						advice = "Connections are never disconnected — store & clean them up to avoid memory growth.",
+						path = d:GetFullName(),
+					})
+				end
+			end
 		end
 		if metrics.instances > 60000 then
 			break
@@ -1599,43 +1992,6 @@ function PerformanceAnalyzer:analyze()
 		})
 	end
 
-	-- Script-level checks.
-	for _, s in ipairs(game:GetDescendants()) do
-		if s:IsA("LuaSourceContainer") then
-			local ok, src = pcall(function()
-				return s.Source
-			end)
-			if ok and src then
-				if string.find(src, "while%s+true%s+do") and not string.find(src, "task%.wait") and not string.find(src, "RunService") then
-					table.insert(findings, {
-						severity = "High",
-						title = "Unthrottled while-true loop",
-						advice = "Add task.wait() or it will spike CPU and can freeze the client.",
-						path = s:GetFullName(),
-					})
-				end
-				if string.find(src, "Heartbeat:Connect") or string.find(src, "RenderStepped:Connect") then
-					if string.find(src, ":FindFirstChild") or string.find(src, "Instance.new") then
-						table.insert(findings, {
-							severity = "Medium",
-							title = "Heavy work every frame",
-							advice = "Per-frame FindFirstChild/Instance.new allocates constantly. Cache references outside the loop.",
-							path = s:GetFullName(),
-						})
-					end
-				end
-				if string.find(src, ":Connect") and not string.find(src, ":Disconnect") and not string.find(src, "Once") then
-					table.insert(findings, {
-						severity = "Low",
-						title = "Possible connection leak",
-						advice = "Connections are never disconnected — store & clean them up to avoid memory growth.",
-						path = s:GetFullName(),
-					})
-				end
-			end
-		end
-	end
-
 	return { findings = findings, metrics = metrics }
 end
 
@@ -1643,6 +1999,7 @@ return PerformanceAnalyzer
 end
 
 _modules["Services.SecurityScanner"] = function()
+
 --[[
 	SecurityScanner.lua
 	Static analysis that flags common Roblox exploit vectors & bad practices.
@@ -1707,16 +2064,9 @@ function SecurityScanner:scan()
 					end
 				end
 			end
-		end
-	end
 
-	-- Client-side RemoteEvent handlers that touch leaderstats = trust-the-client smell.
-	for _, s in ipairs(scripts) do
-		if s:IsA("Script") then
-			local ok, src = pcall(function()
-				return s.Source
-			end)
-			if ok and src and string.find(src, "OnServerEvent") and not string.find(src, "typeof") and not string.find(src, "assert") then
+			-- Client-side RemoteEvent handlers that touch leaderstats = trust-the-client smell.
+			if s:IsA("Script") and string.find(src, "OnServerEvent") and not string.find(src, "typeof") and not string.find(src, "assert") then
 				table.insert(findings, {
 					severity = "Medium",
 					title = "unvalidated RemoteEvent",
@@ -1734,6 +2084,7 @@ return SecurityScanner
 end
 
 _modules["UI.App"] = function()
+
 --[[
 	App.lua
 	The whole Bloxsmith interface: sidebar navigation, chat, tools, project
@@ -1874,11 +2225,13 @@ function App:addBubble(role, text)
 		if thinking and thinking ~= "" then
 			self:addThinkingPanel(holder, thinking, 1)
 		end
+		local _, cleanedActions = Parser.extractActions(workingText)
+		workingText = cleanedActions
 	end
 
 	-- Render the reply with code blocks stripped into their own panels.
 	local blocks = Parser.extractBlocks(workingText)
-	local prose = string.gsub(workingText, "```[^\n]*\n.-```", "\n〔 code block below 〕\n")
+	local prose = string.gsub(workingText, "```[^\n]*\n([%s%S]-)```", "\n〔 code block below 〕\n")
 	prose = prose:gsub("^%s+", ""):gsub("%s+$", "")
 
 	if prose ~= "" then
@@ -1928,6 +2281,7 @@ function App:addBubble(role, text)
 
 
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
+	return holder
 end
 
 -- Collapsible "💭 Thinking" panel showing the AI's plan/reasoning.
@@ -2107,6 +2461,86 @@ function App:addCodeBlock(parent, block, order)
 			insert.Text = "＋ Retry insert"
 		end
 	end)
+
+	-- Always give an execute option for Lua/Luau script blocks.
+	if not block.lang or block.lang == "lua" or block.lang == "luau" or block.lang == "" then
+		local execute = button("⚡ Execute / Run Code", { LayoutOrder = 3, BackgroundColor3 = C.Accent })
+		execute.Parent = panel
+		execute.Activated:Connect(function()
+			execute.Text = "Executing…"
+			execute.Active = false
+			task.spawn(function()
+				local ChangeHistoryService = game:GetService("ChangeHistoryService")
+				local recordId = ChangeHistoryService:TryBeginRecording("Bloxsmith execute code")
+				
+				local ok, err = pcall(function()
+					local fn, loadErr = loadstring(block.source)
+					if not fn then
+						error(loadErr)
+					end
+					setfenv(fn, getfenv(0))
+					fn()
+				end)
+				
+				if recordId then
+					ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
+				end
+				
+				execute.Active = true
+				if ok then
+					self:toast("✓ Executed successfully. Ctrl+Z to undo.", "success")
+					execute.Text = "⚡ Executed"
+					if self._activeFixBtn then
+						self._activeFixBtn:Destroy()
+						self._activeFixBtn = nil
+					end
+				else
+					self:toast("Execution failed: " .. tostring(err), "error")
+					execute.Text = "⚡ Retry Execution"
+					warn("[Bloxsmith Exec Error]:", err)
+
+					if self._activeFixBtn then
+						self._activeFixBtn:Destroy()
+					end
+					local fixBtn = button("🔧 Auto-Fix Exec Error with AI", { LayoutOrder = 4, BackgroundColor3 = C.Warning })
+					fixBtn.Parent = panel
+					self._activeFixBtn = fixBtn
+					fixBtn.Activated:Connect(function()
+						fixBtn.Text = "Diagnosing…"
+						fixBtn.Active = false
+						self:send("The script failed with execution error:\n" .. tostring(err) .. "\n\nOriginal Code:\n" .. block.source, "fix_script")
+					end)
+				end
+			end)
+		end)
+	end
+end
+
+local function buildOptimizedMessages(history)
+	local messages = {}
+	local totalLen = 0
+	for _, m in ipairs(history) do
+		totalLen = totalLen + string.len(m.content or "")
+	end
+
+	-- If history is short, send it as-is.
+	if totalLen <= 8000 then
+		for _, m in ipairs(history) do
+			table.insert(messages, { role = m.role, content = m.content })
+		end
+		return messages
+	end
+
+	-- If history is long, prune older messages' code blocks.
+	for i, m in ipairs(history) do
+		local content = m.content
+		-- Prune code blocks from older messages (leaving the last two turns fully intact)
+		if i < #history - 1 and type(content) == "string" then
+			content = string.gsub(content, "```[^\n]*\n[%s%S]-```", "\n[code block omitted for speed]\n")
+		end
+		table.insert(messages, { role = m.role, content = content })
+	end
+	return messages
 end
 
 --========================================================================
@@ -2132,18 +2566,21 @@ function App:send(promptText, mode)
 	self:addBubble("user", promptText)
 	table.insert(self.history, { role = "user", content = promptText })
 
-
-	local includeTree = mode ~= "chat"
-	local context = self.deps.context:build(includeTree)
-
-	-- Show the live thinking indicator while the request is in flight.
+	-- Show the live thinking indicator immediately — don't make the user
+	-- wait on a (possibly cold) hierarchy walk before they get feedback that
+	-- something is happening. Context building + message optimization now
+	-- happen inside the background task below, off the UI thread.
 	local thinkingHandle = self:startThinking()
 	self._activeThinking = thinkingHandle
 
+	local includeTree = (mode == "agent" or mode == "generate_system" or mode == "generate_ui")
+
 	task.spawn(function()
+		local context = self.deps.context:build(includeTree)
+		local optimizedMessages = buildOptimizedMessages(self.history)
 		local result = self.deps.ai:request({
 			mode = mode or self.mode,
-			messages = self.history,
+			messages = optimizedMessages,
 			context = context,
 		})
 		-- If the user cancelled/stopped while the request was in flight, discard
@@ -2158,17 +2595,107 @@ function App:send(promptText, mode)
 
 		if result.ok then
 			local reply = result.reply
+			local actions, cleanedReply, foundBlock = Parser.extractActions(reply)
+			if foundBlock then
+				reply = cleanedReply
+			end
+			if not actions then
+				actions = result.actions
+			end
 			if type(reply) ~= "string" or reply == "" then
 				reply = "I prepared changes for your game. Review and approve them below."
 			end
 			self:addBubble("assistant", reply)
 			table.insert(self.history, { role = "assistant", content = reply })
-			local actions = result.actions or Parser.extractActions(reply)
 			if actions then
 				self:proposeAgentActions(actions)
 			end
 		else
-			self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
+			local bubble = self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
+
+			if type(result.resetAt) == "number" and result.resetAt > 0 then
+				-- Rate-limited with a known reset time: show a live countdown
+				-- instead of a Retry button that can't succeed until reset.
+				local countdownLabel = Create("TextLabel", {
+					Text = "⏳ Calculating…",
+					Font = Theme.FontBold,
+					TextSize = 12,
+					TextColor3 = C.Warning,
+					BackgroundTransparency = 1,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Size = UDim2.new(1, 0, 0, 18),
+					LayoutOrder = 100,
+					Parent = bubble,
+				})
+
+				local resetAtSeconds = result.resetAt / 1000 -- backend sends epoch ms
+				local tickConn
+				local function formatRemaining(secs)
+					if secs <= 0 then return nil end
+					local h = math.floor(secs / 3600)
+					local m = math.floor((secs % 3600) / 60)
+					local s = math.floor(secs % 60)
+					if h > 0 then
+						return ("⏳ Resets in %dh %dm %ds"):format(h, m, s)
+					elseif m > 0 then
+						return ("⏳ Resets in %dm %ds"):format(m, s)
+					else
+						return ("⏳ Resets in %ds"):format(s)
+					end
+				end
+
+				local function updateCountdown()
+					if not countdownLabel or not countdownLabel.Parent then
+						if tickConn then pcall(task.cancel, tickConn) end
+						return
+					end
+					local remaining = resetAtSeconds - os.time()
+					local text = formatRemaining(remaining)
+					if not text then
+						countdownLabel.Text = "✅ Quota reset — you can try again now."
+						countdownLabel.TextColor3 = C.Success
+						if tickConn then pcall(task.cancel, tickConn) end
+						-- Swap in a real Retry button now that the wait is over.
+						local retryBtn = button("🔁 Retry Request", { LayoutOrder = 101, BackgroundColor3 = C.Panel, Size = UDim2.new(0, 120, 0, 26) })
+						retryBtn.Parent = bubble
+						retryBtn.Activated:Connect(function()
+							retryBtn:Destroy()
+							local lastPromptText = ""
+							if #self.history > 0 and self.history[#self.history].role == "user" then
+								local last = table.remove(self.history)
+								lastPromptText = last.content
+							end
+							if lastPromptText ~= "" then
+								self:send(lastPromptText, mode)
+							end
+						end)
+						return
+					end
+					countdownLabel.Text = text
+				end
+
+				updateCountdown()
+				tickConn = task.spawn(function()
+					while countdownLabel and countdownLabel.Parent do
+						task.wait(1)
+						updateCountdown()
+					end
+				end)
+			else
+				local retryBtn = button("🔁 Retry Request", { LayoutOrder = 100, BackgroundColor3 = C.Panel, Size = UDim2.new(0, 120, 0, 26) })
+				retryBtn.Parent = bubble
+				retryBtn.Activated:Connect(function()
+					retryBtn:Destroy()
+					local lastPromptText = ""
+					if #self.history > 0 and self.history[#self.history].role == "user" then
+						local last = table.remove(self.history)
+						lastPromptText = last.content
+					end
+					if lastPromptText ~= "" then
+						self:send(lastPromptText, mode)
+					end
+				end)
+			end
 			self:toast(result.error or "Request failed.", "error")
 		end
 		-- Persist the running conversation so Bloxsmith remembers it across
@@ -2438,7 +2965,7 @@ function App:buildChatView(parent)
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -218),
+		Size = UDim2.new(1, 0, 1, -242),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
@@ -2464,7 +2991,7 @@ function App:buildChatView(parent)
 	end
 
 	-- Input row
-	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 6, Parent = view })
+	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 64), LayoutOrder = 6, Parent = view })
 	self.input = Create("TextBox", {
 		PlaceholderText = "Ask Bloxsmith or describe what to build…",
 		Text = "",
@@ -2477,6 +3004,7 @@ function App:buildChatView(parent)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		ClearTextOnFocus = false,
 		MultiLine = true,
+		TextWrapped = true,
 		Size = UDim2.new(1, -70, 1, 0),
 		Position = UDim2.new(0, 0, 0, 0),
 		Parent = inputRow,
@@ -2842,16 +3370,39 @@ function App:buildAnalysisView(parent)
 	local results = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = view })
 	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = results })
 
-	sec.Activated:Connect(function()
+	-- Runs a scan off the UI thread so a large place doesn't visibly freeze
+	-- Studio when the button is clicked, and disables the button meanwhile
+	-- so double-clicks don't queue up overlapping scans.
+	local function runScan(btn, label, fn)
+		local scanning = false
+		btn.Activated:Connect(function()
+			if scanning then return end
+			scanning = true
+			local original = btn.Text
+			btn.Text = "Scanning…"
+			btn.Active = false
+			task.spawn(function()
+				local ok, err = pcall(fn)
+				btn.Text = original
+				btn.Active = true
+				scanning = false
+				if not ok then
+					self:toast("Scan failed: " .. tostring(err), "error")
+				end
+			end)
+		end)
+	end
+
+	runScan(sec, "security", function()
 		self:renderFindings(results, self.deps.security:scan(), "No security issues detected.")
 		self:toast("Security scan complete.", "success")
 	end)
-	perf.Activated:Connect(function()
+	runScan(perf, "performance", function()
 		local r = self.deps.performance:analyze()
 		self:renderFindings(results, r.findings, "No performance issues detected.")
 		self:toast(("Perf: %d parts, %d scripts, %d unions."):format(r.metrics.parts, r.metrics.scripts, r.metrics.unions), "info")
 	end)
-	clean.Activated:Connect(function()
+	runScan(clean, "cleanup", function()
 		self:renderFindings(results, self.deps.cleanup:scan(), "Project is tidy!")
 		self:toast("Cleanup scan complete.", "success")
 	end)
@@ -2884,22 +3435,39 @@ function App:buildHealthView(parent)
 	local results = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = view })
 	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = results })
 
+	local computing = false
 	computeBtn.Activated:Connect(function()
-		local h = self.deps.health:compute()
-		secNum.Text = tostring(h.security.score)
-		secNum.TextColor3 = Theme.scoreColor(h.security.score)
-		perfNum.Text = tostring(h.performance.score)
-		perfNum.TextColor3 = Theme.scoreColor(h.performance.score)
-		orgNum.Text = tostring(h.organization.score)
-		orgNum.TextColor3 = Theme.scoreColor(h.organization.score)
-		local all = {}
-		for _, list in ipairs({ h.security.findings, h.performance.findings, h.organization.findings }) do
-			for _, f in ipairs(list) do
-				table.insert(all, f)
+		if computing then return end
+		computing = true
+		local original = computeBtn.Text
+		computeBtn.Text = "Computing…"
+		computeBtn.Active = false
+		task.spawn(function()
+			local ok, h = pcall(function()
+				return self.deps.health:compute()
+			end)
+			computeBtn.Text = original
+			computeBtn.Active = true
+			computing = false
+			if not ok then
+				self:toast("Health compute failed: " .. tostring(h), "error")
+				return
 			end
-		end
-		self:renderFindings(results, all, "Excellent — no issues across the board!")
-		self:toast("Health computed.", "success")
+			secNum.Text = tostring(h.security.score)
+			secNum.TextColor3 = Theme.scoreColor(h.security.score)
+			perfNum.Text = tostring(h.performance.score)
+			perfNum.TextColor3 = Theme.scoreColor(h.performance.score)
+			orgNum.Text = tostring(h.organization.score)
+			orgNum.TextColor3 = Theme.scoreColor(h.organization.score)
+			local all = {}
+			for _, list in ipairs({ h.security.findings, h.performance.findings, h.organization.findings }) do
+				for _, f in ipairs(list) do
+					table.insert(all, f)
+				end
+			end
+			self:renderFindings(results, all, "Excellent — no issues across the board!")
+			self:toast("Health computed.", "success")
+		end)
 	end)
 
 	recBtn.Activated:Connect(function()
@@ -2965,7 +3533,7 @@ function App:buildToolsView(parent)
 
 	Create("TextLabel", { Text = "Quick actions — type a description, then run. Uses your current selection & project as context.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
 
-	local box = Create("TextBox", { PlaceholderText = "e.g. a wave-based zombie survival shop with 6 weapons", Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ClearTextOnFocus = false, MultiLine = true, Size = UDim2.new(1, 0, 0, 56), Parent = view }, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+	local box = Create("TextBox", { PlaceholderText = "e.g. a wave-based zombie survival shop with 6 weapons", Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ClearTextOnFocus = false, MultiLine = true, TextWrapped = true, Size = UDim2.new(1, 0, 0, 72), Parent = view }, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
 
 	local tools = {
 		{ "🎮 Generate game system", "generate_system", "Build a complete system for: " },
@@ -3776,6 +4344,7 @@ return App
 end
 
 _modules["UI.Create"] = function()
+
 --[[
 	Create.lua — declarative Instance builder to keep UI code readable.
 	Usage:
@@ -3810,6 +4379,7 @@ return Create
 end
 
 _modules["UI.Theme"] = function()
+
 --[[ Theme.lua — single source of truth for the premium dark UI palette & spacing.
 	Matches the Bloxsmith brand: deep navy backgrounds with an electric blue → cyan accent. ]]
 local Theme = {}
@@ -3874,6 +4444,7 @@ return Theme
 end
 
 _modules["Util.Log"] = function()
+
 --[[ Log.lua — namespaced, level-aware logging so output is easy to filter. ]]
 local Log = {}
 
@@ -3904,6 +4475,7 @@ return Log
 end
 
 _modules["Util.Parser"] = function()
+
 --[[
 	Parser.lua
 	Turns AI markdown replies into actionable pieces:
@@ -3932,7 +4504,7 @@ function Parser.extractBlocks(text)
 		return blocks
 	end
 	-- Match ```<header>\n<body>```
-	for header, body in string.gmatch(text, "```([^\n]*)\n(.-)```") do
+	for header, body in string.gmatch(text, "```([^\n]*)\n([%s%S]-)```") do
 		local meta = parseHeader(header)
 		if meta.lang == "bloxsmith:actions" or meta.lang == "bloxsmith:thinking" then
 			-- handled separately (agent actions / thinking panel); skip here.
@@ -3955,32 +4527,115 @@ function Parser.extractThinking(text)
 	if type(text) ~= "string" then
 		return nil, text
 	end
-	local thinking = string.match(text, "```bloxsmith:thinking%s*\n(.-)```")
+	local thinking = string.match(text, "```bloxsmith:thinking%s*\n([%s%S]-)```")
 	if thinking then
-		local cleaned = string.gsub(text, "```bloxsmith:thinking%s*\n.-```", "", 1)
+		local cleaned = string.gsub(text, "```bloxsmith:thinking%s*\n[%s%S]-```", "", 1)
 		return (thinking:gsub("^%s+", ""):gsub("%s+$", "")), cleaned
 	end
 	return nil, text
 end
 
+-- Repairs JS-style single-quoted JSON without corrupting content. A blind
+-- '->" replace breaks the moment generated code contains an apostrophe
+-- (e.g. "it's", "player's Tool") — this walks the string tracking quote
+-- state so only quotes acting as string *delimiters* get converted; a `'`
+-- that reads as a literal apostrophe (not followed by a JSON structural
+-- character) is left alone, and any real `"` found inside a converted
+-- string gets escaped so it doesn't terminate early.
+local function smartSingleQuoteRepair(json)
+	local out, i, n = {}, 1, #json
+	local inDouble, inSingle = false, false
+	while i <= n do
+		local c = json:sub(i, i)
+		if c == "\\" and i < n then
+			out[#out + 1] = c
+			out[#out + 1] = json:sub(i + 1, i + 1)
+			i = i + 2
+		elseif inDouble then
+			if c == '"' then inDouble = false end
+			out[#out + 1] = c
+			i = i + 1
+		elseif inSingle then
+			if c == "'" then
+				local j = i + 1
+				while j <= n and json:sub(j, j):match("%s") do j = j + 1 end
+				local nextCh = json:sub(j, j)
+				if nextCh == "" or nextCh == "," or nextCh == "}" or nextCh == "]" or nextCh == ":" then
+					out[#out + 1] = '"'
+					inSingle = false
+				else
+					out[#out + 1] = "'" -- literal apostrophe; unescaped ' is valid inside a JSON string
+				end
+			elseif c == '"' then
+				out[#out + 1] = '\\"'
+			else
+				out[#out + 1] = c
+			end
+			i = i + 1
+		else
+			if c == '"' then
+				inDouble = true
+				out[#out + 1] = c
+			elseif c == "'" then
+				inSingle = true
+				out[#out + 1] = '"'
+			else
+				out[#out + 1] = c
+			end
+			i = i + 1
+		end
+	end
+	return table.concat(out)
+end
+
 -- Extract JSON actions from a ```bloxsmith:actions ... ``` block as a safety net
 -- in case the backend returns a reply but fails to populate decoded.actions.
+-- Returns (actionsTable or nil, textWithActionsRemoved, foundBlock).
 function Parser.extractActions(text)
 	if type(text) ~= "string" then
-		return nil
+		return nil, text, false
 	end
-	local json = string.match(text, "```bloxsmith:actions%s*\n(.-)```")
+	local json = string.match(text, "```bloxsmith:actions%s*\n([%s%S]-)```")
 	if not json or json == "" then
-		return nil
+		return nil, text, false
 	end
+	local cleaned = string.gsub(text, "```bloxsmith:actions%s*\n[%s%S]-```", "", 1)
+
 	local HttpService = game:GetService("HttpService")
+
+	-- 1) Try as-is first — the common case, and zero risk of corrupting code.
 	local ok, decoded = pcall(function()
 		return HttpService:JSONDecode(json)
 	end)
 	if ok and type(decoded) == "table" then
-		return decoded
+		return decoded, cleaned, true
 	end
-	return nil
+
+	-- 2) Strip trailing commas, a common small LLM slip.
+	local noTrailingCommas = (json:gsub(",(%s*[%]}])", "%1"))
+	local ok2, decoded2 = pcall(function()
+		return HttpService:JSONDecode(noTrailingCommas)
+	end)
+	if ok2 and type(decoded2) == "table" then
+		return decoded2, cleaned, true
+	end
+
+	-- 3) Quote-aware repair for JS-style single-quoted objects (see above) —
+	--    only used as a last resort, and safe for apostrophes in code.
+	local repaired = smartSingleQuoteRepair(noTrailingCommas)
+	local ok3, decoded3 = pcall(function()
+		return HttpService:JSONDecode(repaired)
+	end)
+	if ok3 and type(decoded3) == "table" then
+		return decoded3, cleaned, true
+	end
+
+	warn("[Bloxsmith Action Parser Error]: Failed to parse actions JSON block.")
+	warn("Error (raw):", tostring(decoded))
+	warn("Error (repaired):", tostring(decoded3))
+	print("[Bloxsmith Malformed Actions JSON]:\n" .. tostring(json))
+
+	return nil, cleaned, true
 end
 
 -- Convert a code block into a create_script action (best-effort defaults).
@@ -4093,6 +4748,7 @@ return Parser
 end
 
 _modules["Util.Signal"] = function()
+
 --[[ Signal.lua — tiny event implementation for decoupling services from UI. ]]
 local Signal = {}
 Signal.__index = Signal
@@ -4179,13 +4835,13 @@ local deps = {
 	plugin = plugin,
 	ai = AIService.new(plugin),
 	context = ContextService.new(),
-	apply = ApplyService.new(),
 	security = security,
 	performance = performance,
 	cleanup = cleanup,
 	errors = ErrorMonitor.new(),
 	health = HealthService.new(security, performance, cleanup),
 }
+deps.apply = ApplyService.new(deps.context)
 
 deps.errors:start()
 

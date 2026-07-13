@@ -1,3 +1,4 @@
+
 --[[
 	SecurityScanner.lua
 	Static analysis that flags common Roblox exploit vectors & bad practices.
@@ -62,16 +63,9 @@ function SecurityScanner:scan()
 					end
 				end
 			end
-		end
-	end
 
-	-- Client-side RemoteEvent handlers that touch leaderstats = trust-the-client smell.
-	for _, s in ipairs(scripts) do
-		if s:IsA("Script") then
-			local ok, src = pcall(function()
-				return s.Source
-			end)
-			if ok and src and string.find(src, "OnServerEvent") and not string.find(src, "typeof") and not string.find(src, "assert") then
+			-- Client-side RemoteEvent handlers that touch leaderstats = trust-the-client smell.
+			if s:IsA("Script") and string.find(src, "OnServerEvent") and not string.find(src, "typeof") and not string.find(src, "assert") then
 				table.insert(findings, {
 					severity = "Medium",
 					title = "unvalidated RemoteEvent",
