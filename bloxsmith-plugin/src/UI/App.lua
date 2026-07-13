@@ -388,7 +388,7 @@ function App:send(promptText, mode)
 		return
 	end
 	self.busy = true
-	self.sendBtn.Text = "…"
+	self:setSendButtonStop(true)
 
 	-- Dismiss the onboarding card on first message.
 	if self._welcomeCard then
