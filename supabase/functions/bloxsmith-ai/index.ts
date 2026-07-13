@@ -801,17 +801,25 @@ Deno.serve(async (req) => {
       else reply = await callLovable(messages);
     } catch (primaryErr) {
       console.error("Primary provider failed:", primaryErr);
-      // Fallback chain: NVIDIA Nemotron -> Lovable AI (ChatGPT).
-      // Nemotron only makes sense when the primary was an NVIDIA-hosted model.
+      // Fallback chain (only for NVIDIA-hosted primary):
+      //   NVIDIA Nemotron -> NVIDIA GPT-OSS-120B -> NVIDIA DeepSeek V4 Flash -> Lovable AI (ChatGPT).
       let fellBack = false;
       if (provider === "nvidia") {
-        try {
-          console.error("Falling back to NVIDIA Nemotron…");
-          usedProvider = "nvidia-nemotron";
-          reply = await callNvidiaNemotron(messages);
-          fellBack = true;
-        } catch (nemotronErr) {
-          console.error("NVIDIA Nemotron fallback failed, falling back to Lovable AI:", nemotronErr);
+        const nvidiaFallbacks: Array<{ name: string; call: () => Promise<string> }> = [
+          { name: "nvidia-nemotron", call: () => callNvidiaNemotron(messages) },
+          { name: "nvidia-gpt-oss", call: () => callNvidiaGptOss(messages) },
+          { name: "nvidia-deepseek", call: () => callNvidiaDeepseek(messages) },
+        ];
+        for (const fb of nvidiaFallbacks) {
+          try {
+            console.error(`Falling back to ${fb.name}…`);
+            usedProvider = fb.name;
+            reply = await fb.call();
+            fellBack = true;
+            break;
+          } catch (fbErr) {
+            console.error(`${fb.name} fallback failed:`, fbErr);
+          }
         }
       }
       if (!fellBack) {
@@ -821,6 +829,7 @@ Deno.serve(async (req) => {
         reply = await callLovable(messages);
       }
     }
+
 
 
     // Extract structured agent actions if present.
