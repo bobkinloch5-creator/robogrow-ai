@@ -405,6 +405,7 @@ function App:send(promptText, mode)
 
 	-- Show the live thinking indicator while the request is in flight.
 	local thinkingHandle = self:startThinking()
+	self._activeThinking = thinkingHandle
 
 	task.spawn(function()
 		local result = self.deps.ai:request({
@@ -412,14 +413,15 @@ function App:send(promptText, mode)
 			messages = self.history,
 			context = context,
 		})
-		-- If the user cancelled while the request was in flight, discard the
-		-- result entirely — the UI was already freed by the cancel handler.
+		-- If the user cancelled/stopped while the request was in flight, discard
+		-- the result entirely — the UI was already freed by the stop handler.
 		if thinkingHandle.cancelled then
 			return
 		end
 		thinkingHandle.stop()
+		self._activeThinking = nil
 		self.busy = false
-		self.sendBtn.Text = "Send"
+		self:setSendButtonStop(false)
 
 		if result.ok then
 			local reply = result.reply
@@ -440,6 +442,34 @@ function App:send(promptText, mode)
 		-- plugin reloads / Studio restarts.
 		self:saveActiveSession()
 	end)
+end
+
+-- Toggle the Send button between its normal state and an in-flight "Stop" state.
+function App:setSendButtonStop(isStopping)
+	if not self.sendBtn then
+		return
+	end
+	if isStopping then
+		self.sendBtn.Text = "⛔ Stop"
+	else
+		self.sendBtn.Text = "Send"
+	end
+end
+
+-- Stop the current in-flight build: discard its result and free the UI. Shared
+-- by the Send/Stop button and the in-bubble Cancel button.
+function App:stopActiveBuild()
+	local handle = self._activeThinking
+	if handle then
+		handle.cancelled = true
+		if handle.stop then
+			handle.stop()
+		end
+		self._activeThinking = nil
+	end
+	self.busy = false
+	self:setSendButtonStop(false)
+	self:toast("Build stopped.", "warning")
 end
 
 -- Human-readable one-line summary of a single agent action, for the plan checklist.
