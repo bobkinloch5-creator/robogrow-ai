@@ -1050,14 +1050,12 @@ Deno.serve(async (req) => {
       return jsonError("Unsupported mode.", 400);
     }
 
-    // Access gate: only allow-listed Roblox accounts may use the plugin.
-    const robloxUserId = Number(body.robloxUserId) || 0;
-    if (!(await isRobloxUserAllowed(robloxUserId))) {
-      const msg = robloxUserId > 0
-        ? `Access isn't enabled for your Roblox account (ID ${robloxUserId}). Ask the owner of Bloxsmith to add this Roblox ID to the allow-list.`
-        : "Bloxsmith couldn't detect your Roblox account. Make sure you're signed in to Roblox Studio, then try again.";
-      return jsonError(msg, 403);
-    }
+    // Access gate: OPEN to everyone (public). The allow-list table, the
+    // isRobloxUserAllowed() helper, and the admin page are kept intact so
+    // access can be re-restricted later by re-enabling the check here.
+    // (Public mode — no allow-list enforcement.)
+
+
 
     // Toolbox / Creator Store model search — bypasses the AI model entirely.
     if (mode === "toolbox_search") {
