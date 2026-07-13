@@ -36,6 +36,7 @@ const PRIMARY_AI_TIMEOUT_MS = 18_000;
 const FALLBACK_AI_TIMEOUT_MS = 14_000;
 const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
 const MIN_ATTEMPT_MS = 6_000; // don't start a provider with less than this left
+const HEDGE_DELAY_MS = 6_000; // if the current provider is still silent after this, race the next one
 
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
