@@ -442,6 +442,31 @@ function App:send(promptText, mode)
 	end)
 end
 
+-- Human-readable one-line summary of a single agent action, for the plan checklist.
+local function describeAction(a)
+	local kind = a.action or "change"
+	local name = a.name or a.target or a.class or ""
+	local map = {
+		create_script = "Create script",
+		replace_script = "Replace script",
+		create_folder = "Create folder",
+		create_instance = "Create " .. tostring(a.class or "instance"),
+		set_property = "Set " .. tostring(a.property or "property"),
+		rename_instance = "Rename",
+		delete_instance = "Delete",
+		move_instance = "Move",
+		insert_asset = "Insert asset",
+	}
+	local label = map[kind] or tostring(kind)
+	if name ~= "" then
+		label = label .. "  ·  " .. tostring(name)
+	end
+	if #label > 60 then
+		label = label:sub(1, 57) .. "…"
+	end
+	return label
+end
+
 function App:proposeAgentActions(actions)
 	if type(actions) ~= "table" or #actions == 0 then
 		return
@@ -452,9 +477,9 @@ function App:proposeAgentActions(actions)
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Parent = self.chatScroll,
 	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.Accent) })
-	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = holder })
+	Create("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = holder })
 	Create("TextLabel", {
-		Text = ("🤖 The agent proposes %d change(s). Apply?"):format(#actions),
+		Text = ("🤖 Build plan — %d step(s). Approve to apply:"):format(#actions),
 		Font = Theme.FontBold,
 		TextSize = 13,
 		TextColor3 = C.Text,
@@ -462,20 +487,88 @@ function App:proposeAgentActions(actions)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Size = UDim2.new(1, 0, 0, 0),
+		LayoutOrder = 0,
 		Parent = holder,
 	})
-	local approve = button("✓ Approve & Apply", { BackgroundColor3 = C.Success, TextColor3 = C.Bg })
+
+	-- Live checklist: one row per action, ticked off as the build applies.
+	local rows = {}
+	for i, a in ipairs(actions) do
+		rows[i] = Create("TextLabel", {
+			Text = ("☐  %d. %s"):format(i, describeAction(a)),
+			Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim,
+			BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+			AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = i, Parent = holder,
+		})
+	end
+
+	local approve = button("✓ Approve & Apply", { BackgroundColor3 = C.Success, TextColor3 = C.Bg, LayoutOrder = #actions + 1 })
 	approve.Parent = holder
 	approve.Activated:Connect(function()
-		local res = self.deps.apply:applyActions(actions, "Bloxsmith agent task")
-		if res.ok then
-			self:toast("Applied " .. #(res.created or {}) .. " change(s). Ctrl+Z to undo.", "success")
-		else
-			self:toast("Some actions failed — check output.", "warning")
-		end
-		approve.Text = "Applied"
+		approve.Text = "Applying…"
 		approve.Active = false
+		local res = self.deps.apply:applyActions(actions, "Bloxsmith agent task")
+		local results = res.results or {}
+		for i, row in ipairs(rows) do
+			local r = results[i]
+			if r and r.ok then
+				row.Text = ("✅  %d. %s"):format(i, describeAction(actions[i]))
+				row.TextColor3 = C.Success
+			elseif r then
+				row.Text = ("❌  %d. %s"):format(i, describeAction(actions[i]))
+				row.TextColor3 = C.Error
+			end
+		end
+		if res.ok then
+			self:toast(("Applied %d step(s). Ctrl+Z to undo."):format(#(res.created or {})), "success")
+			approve.Text = "✓ Applied"
+		else
+			self:toast(("Applied %d of %d — check output."):format(res.applied or 0, #actions), "warning")
+			approve.Text = "Applied with issues"
+		end
+		-- Auto-fix loop: if the build produced runtime errors, offer a one-tap fix.
+		self:offerAutoFix()
 	end)
+end
+
+-- If a runtime error appeared right after a build, surface a one-tap AI fix.
+function App:offerAutoFix()
+	local errs = self.deps.errors and self.deps.errors:get()
+	if type(errs) ~= "table" or #errs == 0 then
+		return
+	end
+	local latest = errs[1]
+	if not latest or (os.time() - (latest.time or 0)) > 20 then
+		return
+	end
+	local holder = Create("Frame", {
+		BackgroundColor3 = C.PanelAlt, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = self.chatScroll,
+	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.Error) })
+	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = holder })
+	Create("TextLabel", {
+		Text = "⚠️ An error appeared in Output. Want me to fix it?",
+		Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Warning, BackgroundTransparency = 1,
+		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), Parent = holder,
+	})
+	local fix = button("🔧 Fix this error with AI", { BackgroundColor3 = C.AccentDim })
+	fix.Parent = holder
+	fix.Activated:Connect(function()
+		fix.Active = false
+		fix.Text = "Fixing…"
+		self:send("This error appeared after the last build. Diagnose the cause and fix it:\n" .. tostring(latest.message), "fix_script")
+	end)
+end
+
+-- Quick-action helper: send the most recent captured error to the AI to fix.
+function App:fixLatestError()
+	local errs = self.deps.errors and self.deps.errors:get()
+	if type(errs) ~= "table" or #errs == 0 then
+		self:toast("No errors captured yet. Run your game to reproduce one.", "info")
+		return
+	end
+	self:send("Fix this Roblox error — explain the cause and apply a fix:\n" .. tostring(errs[1].message), "fix_script")
 end
 
 --========================================================================
