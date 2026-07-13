@@ -69,5 +69,3 @@ function CleanupService:scan()
 end
 
 return CleanupService
-end
-

@@ -52,5 +52,3 @@ function ErrorMonitor:get()
 end
 
 return ErrorMonitor
-end
-

@@ -80,5 +80,3 @@ function SecurityScanner:scan()
 end
 
 return SecurityScanner
-end
-

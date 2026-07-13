@@ -645,7 +645,6 @@ end
 
 return AIService
 end
-end
 
 _modules["Services.ApplyService"] = function()
 
@@ -1552,7 +1551,6 @@ end
 
 return ApplyService
 end
-end
 
 _modules["Services.CleanupService"] = function()
 
@@ -1626,7 +1624,6 @@ function CleanupService:scan()
 end
 
 return CleanupService
-end
 end
 
 _modules["Services.ContextService"] = function()
@@ -1806,7 +1803,6 @@ end
 
 return ContextService
 end
-end
 
 _modules["Services.ErrorMonitor"] = function()
 
@@ -1864,7 +1860,6 @@ end
 
 return ErrorMonitor
 end
-end
 
 _modules["Services.HealthService"] = function()
 
@@ -1907,7 +1902,6 @@ function HealthService:compute()
 end
 
 return HealthService
-end
 end
 
 _modules["Services.PerformanceAnalyzer"] = function()
@@ -2003,7 +1997,6 @@ end
 
 return PerformanceAnalyzer
 end
-end
 
 _modules["Services.SecurityScanner"] = function()
 
@@ -2088,7 +2081,6 @@ function SecurityScanner:scan()
 end
 
 return SecurityScanner
-end
 end
 
 _modules["UI.App"] = function()
@@ -4350,7 +4342,6 @@ end
 
 return App
 end
-end
 
 _modules["UI.Create"] = function()
 
@@ -4385,7 +4376,6 @@ local function Create(className, props, children)
 end
 
 return Create
-end
 end
 
 _modules["UI.Theme"] = function()
@@ -4452,7 +4442,6 @@ end
 
 return Theme
 end
-end
 
 _modules["Util.Log"] = function()
 
@@ -4483,7 +4472,6 @@ function Log.try(label, fn, ...)
 end
 
 return Log
-end
 end
 
 _modules["Util.Parser"] = function()
@@ -4757,7 +4745,6 @@ function Parser.toRichText(text, opts)
 end
 
 return Parser
-end
 end
 
 _modules["Util.Signal"] = function()

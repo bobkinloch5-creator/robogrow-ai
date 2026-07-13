@@ -262,5 +262,3 @@ function AIService:searchToolbox(query, limit)
 end
 
 return AIService
-end
-
