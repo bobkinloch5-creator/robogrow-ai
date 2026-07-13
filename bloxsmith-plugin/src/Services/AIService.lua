@@ -138,6 +138,7 @@ function AIService:request(opts)
 		messages = opts.messages,
 		context = opts.context,
 		preferences = opts.preferences or self:getPreferences(),
+		robloxUserId = getRobloxUserId(),
 	}
 
 	local ok, body = pcall(function()
