@@ -1550,6 +1550,28 @@ function App:buildToolboxView(parent)
 	searchBtn.Activated:Connect(function()
 		runSearch(searchBox.Text)
 	end)
+	bulkBtn.Activated:Connect(function()
+		if #lastResults == 0 then return end
+		bulkBtn.Text = "Inserting…"
+		bulkBtn.Active = false
+		task.spawn(function()
+			local ok, fail = 0, 0
+			for _, item in ipairs(lastResults) do
+				local res = self.deps.apply:insertAsset(item.id, item.name)
+				if res.ok then
+					ok += 1
+					self:addToolboxRecent(item.id, item.name)
+				else
+					fail += 1
+				end
+				task.wait(0.15)
+			end
+			refreshRecents()
+			self:toast(("Inserted %d model(s)%s. Ctrl+Z to undo."):format(ok, fail > 0 and (", " .. fail .. " failed") or ""), ok > 0 and "success" or "error")
+			bulkBtn.Active = true
+			updateBulk()
+		end)
+	end)
 	searchBox.FocusLost:Connect(function(enter)
 		if enter then runSearch(searchBox.Text) end
 	end)
