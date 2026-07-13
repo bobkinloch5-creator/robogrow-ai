@@ -687,7 +687,7 @@ function App:buildChatView(parent)
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.chatScroll })
 
 	-- Mode buttons row
-	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 4, Parent = view })
+	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 5, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
 	local modes = { { "Chat", "chat" }, { "Generate", "agent" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
 	self.modeButtons = {}
