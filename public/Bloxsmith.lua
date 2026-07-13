@@ -34,10 +34,21 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.6.0"
+Config.Version = "3.7.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.7.0",
+		date = "2026-07-13",
+		title = "Private Access & No Limits",
+		changes = {
+			"NEW: Bloxsmith is now private — it only works for the Roblox accounts the owner has approved, tied to your own Roblox login. No sign-in or codes needed.",
+			"NEW: Removed all rate limiting — approved users can build as much as they want with no cooldowns.",
+			"IMPROVED: If your account isn't approved yet, Bloxsmith now tells you your Roblox ID so you can share it with the owner to get access.",
+		},
+	},
+
 	{
 		version = "3.6.0",
 		date = "2026-07-13",
@@ -253,6 +264,18 @@ AIService.__index = AIService
 local MAX_RETRIES = 2 -- total attempts = MAX_RETRIES + 1
 local RETRYABLE_STATUS = { [429] = true, [500] = true, [502] = true, [503] = true, [504] = true }
 
+-- The logged-in Studio user's Roblox account id. Used by the backend allow-list
+-- so only accounts the owner authorized can use Bloxsmith. Returns 0 if unknown.
+local function getRobloxUserId()
+	local ok, id = pcall(function()
+		return game:GetService("StudioService"):GetUserId()
+	end)
+	if ok and type(id) == "number" then
+		return id
+	end
+	return 0
+end
+
 function AIService.new(plugin)
 	local self = setmetatable({}, AIService)
 	self.plugin = plugin
@@ -362,6 +385,7 @@ function AIService:request(opts)
 		messages = opts.messages,
 		context = opts.context,
 		preferences = opts.preferences or self:getPreferences(),
+		robloxUserId = getRobloxUserId(),
 	}
 
 	local ok, body = pcall(function()
@@ -394,7 +418,7 @@ end
 ]]
 function AIService:searchToolbox(query, limit)
 	local ok, body = pcall(function()
-		return HttpService:JSONEncode({ mode = "toolbox_search", query = query, limit = limit })
+		return HttpService:JSONEncode({ mode = "toolbox_search", query = query, limit = limit, robloxUserId = getRobloxUserId() })
 	end)
 	if not ok then
 		return { ok = false, error = "Failed to encode search." }
