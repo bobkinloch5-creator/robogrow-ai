@@ -1633,6 +1633,76 @@ function App:addToolboxRecent(id, name)
 	end)
 end
 
+-- Toolbox favorites — pinned {id, name} models for one-click re-insert.
+local TOOLBOX_FAVORITES_KEY = "Bloxsmith_ToolboxFavorites"
+
+function App:loadToolboxFavorites()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(TOOLBOX_FAVORITES_KEY)
+	end)
+	if ok and type(data) == "table" then
+		return data
+	end
+	return {}
+end
+
+function App:isToolboxFavorite(id)
+	id = tonumber(id)
+	if not id then
+		return false
+	end
+	for _, item in ipairs(self:loadToolboxFavorites()) do
+		if tonumber(item.id) == id then
+			return true
+		end
+	end
+	return false
+end
+
+function App:saveToolboxFavorites(list)
+	pcall(function()
+		self.deps.plugin:SetSetting(TOOLBOX_FAVORITES_KEY, list)
+	end)
+end
+
+function App:removeToolboxFavorite(id)
+	id = tonumber(id)
+	if not id then
+		return
+	end
+	local list = self:loadToolboxFavorites()
+	for i = #list, 1, -1 do
+		if tonumber(list[i].id) == id then
+			table.remove(list, i)
+		end
+	end
+	self:saveToolboxFavorites(list)
+end
+
+-- Toggle a model's favorite state; returns true if it is now a favorite.
+function App:toggleToolboxFavorite(id, name)
+	id = tonumber(id)
+	if not id then
+		return false
+	end
+	local list = self:loadToolboxFavorites()
+	for i = #list, 1, -1 do
+		if tonumber(list[i].id) == id then
+			table.remove(list, i)
+			self:saveToolboxFavorites(list)
+			return false
+		end
+	end
+	table.insert(list, 1, { id = id, name = name or ("Asset " .. tostring(id)) })
+	while #list > 20 do
+		table.remove(list)
+	end
+	self:saveToolboxFavorites(list)
+	return true
+end
+
+
+
 
 -- A labelled control that cycles through a list of options on click and
 -- persists the chosen value to a plugin setting.
