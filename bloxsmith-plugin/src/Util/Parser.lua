@@ -268,3 +268,5 @@ function Parser.toRichText(text, opts)
 end
 
 return Parser
+end
+

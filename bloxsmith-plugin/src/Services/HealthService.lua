@@ -38,3 +38,5 @@ function HealthService:compute()
 end
 
 return HealthService
+end
+

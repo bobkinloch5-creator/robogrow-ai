@@ -26,3 +26,5 @@ function Log.try(label, fn, ...)
 end
 
 return Log
+end
+

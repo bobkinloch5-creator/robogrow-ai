@@ -89,3 +89,5 @@ function PerformanceAnalyzer:analyze()
 end
 
 return PerformanceAnalyzer
+end
+

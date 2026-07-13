@@ -2263,3 +2263,5 @@ function App:maybeShowTour()
 end
 
 return App
+end
+
