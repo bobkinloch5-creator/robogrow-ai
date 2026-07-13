@@ -8,10 +8,21 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.5.0"
+Config.Version = "3.6.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.6.0",
+		date = "2026-07-13",
+		title = "Faster Responses & Bigger Edits",
+		changes = {
+			"NEW: Hedged AI requests — if the main model is slow, Bloxsmith now races a fast backup in parallel and returns whichever answers first, so builds come back noticeably quicker.",
+			"IMPROVED: A slow or stuck main model no longer blocks your whole request — you get an answer in seconds instead of waiting for it to time out.",
+			"IMPROVED: Bloxsmith can now see up to 40 selected objects at once (was 12), so multi-part edits work across much larger selections.",
+		},
+	},
+
 	{
 		version = "3.5.0",
 		date = "2026-07-13",
@@ -172,6 +183,7 @@ Config.PublishableKey =
 
 Config.RequestTimeout = 60
 Config.MaxContextInstances = 400 -- cap hierarchy walk for performance
+Config.MaxSelectionContext = 40 -- how many selected instances the AI can see at once
 
 -- Persisted setting keys
 Config.Settings = {

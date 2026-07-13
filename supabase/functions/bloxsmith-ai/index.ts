@@ -36,6 +36,7 @@ const PRIMARY_AI_TIMEOUT_MS = 18_000;
 const FALLBACK_AI_TIMEOUT_MS = 14_000;
 const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
 const MIN_ATTEMPT_MS = 6_000; // don't start a provider with less than this left
+const HEDGE_DELAY_MS = 6_000; // if the current provider is still silent after this, race the next one
 
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
@@ -822,6 +823,100 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
+// ---- Hedged (racing) generation -------------------------------------------
+// Instead of waiting for the primary to fully time out before trying a backup,
+// we start the primary and, if it hasn't answered within HEDGE_DELAY_MS, kick
+// off the next candidate IN PARALLEL. Whichever returns a valid answer first
+// wins; the losers are ignored. A failed candidate immediately advances the
+// chain. This slashes p99 latency (a slow/stuck primary no longer blocks the
+// whole request) while still guaranteeing a final Lovable AI attempt.
+type Candidate = { name: string; run: (timeoutMs: number) => Promise<string> };
+
+function buildCandidates(provider: string, messages: ChatMessage[]): Candidate[] {
+  if (provider === "bedrock") {
+    return [
+      { name: "bedrock", run: (_t) => callBedrock(messages) },
+      { name: "lovable", run: (t) => callLovable(messages, t) },
+    ];
+  }
+  if (provider === "lovable") {
+    return [{ name: "lovable", run: (t) => callLovable(messages, t) }];
+  }
+  // Default: NVIDIA GLM primary with fast NVIDIA fallbacks, then Lovable AI.
+  return [
+    { name: "nvidia", run: (_t) => callNvidia(messages) },
+    { name: "nvidia-nemotron", run: (t) => callNvidiaNemotron(messages, t) },
+    { name: "nvidia-gpt-oss", run: (t) => callNvidiaGptOss(messages, t) },
+    { name: "nvidia-deepseek", run: (t) => callNvidiaDeepseek(messages, t) },
+    { name: "lovable", run: (t) => callLovable(messages, t) },
+  ];
+}
+
+function hedgedGenerate(
+  candidates: Candidate[],
+  deadline: number,
+): Promise<{ reply: string; usedProvider: string }> {
+  const remaining = () => deadline - Date.now();
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let started = 0;
+    let active = 0;
+    let lastErr: unknown = { status: 502, msg: "All AI providers failed. Please try again." };
+    let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (result: { reply: string; usedProvider: string }) => {
+      if (settled) return;
+      settled = true;
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      resolve(result);
+    };
+
+    const startNext = () => {
+      if (settled) return;
+      if (started >= candidates.length) {
+        if (active === 0) {
+          settled = true;
+          reject(lastErr);
+        }
+        return;
+      }
+      const cand = candidates[started++];
+      const isLast = started >= candidates.length;
+      let slice = Math.min(FALLBACK_AI_TIMEOUT_MS, remaining() - 300);
+      if (slice < MIN_ATTEMPT_MS) {
+        if (!isLast) {
+          console.error(`Hedge: skipping ${cand.name} — low budget, advancing.`);
+          startNext();
+          return;
+        }
+        // Last resort: give the final candidate whatever time is left.
+        slice = Math.max(2_000, remaining() - 300);
+      }
+
+      active++;
+      console.error(`Hedge: starting ${cand.name} (timeout ${slice}ms, remaining ${remaining()}ms)…`);
+
+      // Schedule a hedge: if nobody has answered by HEDGE_DELAY_MS, race the next.
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      hedgeTimer = setTimeout(() => {
+        if (!settled) startNext();
+      }, HEDGE_DELAY_MS);
+
+      cand
+        .run(slice)
+        .then((reply) => finish({ reply, usedProvider: cand.name }))
+        .catch((err) => {
+          active--;
+          lastErr = err;
+          console.error(`Hedge: ${cand.name} failed:`, err);
+          startNext();
+        });
+    };
+
+    startNext();
+  });
+}
+
 function jsonError(msg: string, status: number): Response {
   return new Response(JSON.stringify({ error: msg }), {
     status,
@@ -923,56 +1018,16 @@ Deno.serve(async (req) => {
     ];
 
     const provider = (Deno.env.get("AI_PROVIDER") || "nvidia").toLowerCase();
-    let usedProvider = provider;
-    let reply: string;
 
-    // Global deadline so primary + fallbacks always return before Roblox's ~60s
-    // HTTP timeout. We reserve time for a final Lovable AI call, which is fast
-    // and reliable, so the user always gets an answer.
+    // Global deadline so the whole request (primary + any hedged backups) always
+    // returns before Roblox's ~60s HTTP timeout.
     const deadline = Date.now() + TOTAL_BUDGET_MS;
-    const LOVABLE_RESERVE_MS = 14_000;
-    const remaining = () => deadline - Date.now();
 
-    try {
-      if (provider === "nvidia") reply = await callNvidia(messages);
-      else if (provider === "bedrock") reply = await callBedrock(messages);
-      else reply = await callLovable(messages, Math.min(FALLBACK_AI_TIMEOUT_MS, remaining()));
-    } catch (primaryErr) {
-      console.error("Primary provider failed:", primaryErr);
-      // Fallback chain (only for NVIDIA-hosted primary):
-      //   NVIDIA Nemotron -> NVIDIA GPT-OSS-120B -> NVIDIA DeepSeek V4 Flash -> Lovable AI (ChatGPT).
-      let fellBack = false;
-      if (provider === "nvidia") {
-        const nvidiaFallbacks: Array<{ name: string; call: (t: number) => Promise<string> }> = [
-          { name: "nvidia-nemotron", call: (t) => callNvidiaNemotron(messages, t) },
-          { name: "nvidia-gpt-oss", call: (t) => callNvidiaGptOss(messages, t) },
-          { name: "nvidia-deepseek", call: (t) => callNvidiaDeepseek(messages, t) },
-        ];
-        for (const fb of nvidiaFallbacks) {
-          // Keep enough budget for the guaranteed final Lovable attempt.
-          const slice = Math.min(FALLBACK_AI_TIMEOUT_MS, remaining() - LOVABLE_RESERVE_MS);
-          if (slice < MIN_ATTEMPT_MS) {
-            console.error(`Skipping ${fb.name} — not enough time budget left.`);
-            continue;
-          }
-          try {
-            console.error(`Falling back to ${fb.name} (timeout ${slice}ms)…`);
-            usedProvider = fb.name;
-            reply = await fb.call(slice);
-            fellBack = true;
-            break;
-          } catch (fbErr) {
-            console.error(`${fb.name} fallback failed:`, fbErr);
-          }
-        }
-      }
-      if (!fellBack) {
-        if (provider === "lovable") throw primaryErr;
-        // Final fallback: Lovable AI (ChatGPT) — always gets a real slice of time.
-        usedProvider = "lovable";
-        reply = await callLovable(messages, Math.max(MIN_ATTEMPT_MS, Math.min(FALLBACK_AI_TIMEOUT_MS, remaining())));
-      }
-    }
+    // Hedged generation: start the primary and race in fast backups if it stalls.
+    // Whichever provider answers first wins; a final Lovable AI attempt is always
+    // included so the user reliably gets a response.
+    const { reply, usedProvider } = await hedgedGenerate(buildCandidates(provider, messages), deadline);
+
 
 
 

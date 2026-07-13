@@ -51,7 +51,7 @@ function ContextService:getSelection()
 	local out = {}
 	for _, inst in ipairs(sel) do
 		table.insert(out, describe(inst))
-		if #out >= 12 then
+		if #out >= (Config.MaxSelectionContext or 40) then
 			break
 		end
 	end
