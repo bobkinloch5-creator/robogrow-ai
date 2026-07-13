@@ -162,13 +162,75 @@ function jsonOk(payload: Record<string, unknown>): Response {
 // passcode. Called from the website /admin page (never from the plugin).
 async function handleAdmin(
   mode: string,
-  body: { adminKey?: string; robloxUserId?: number; username?: string; label?: string },
+  body: {
+    adminKey?: string;
+    robloxUserId?: number;
+    username?: string;
+    label?: string;
+    accessMode?: string;
+    dailyRequestLimit?: number;
+  },
 ): Promise<Response> {
   const adminKey = Deno.env.get("BLOXSMITH_ADMIN_KEY");
   if (!adminKey || typeof body.adminKey !== "string" || body.adminKey !== adminKey) {
     return jsonError("Invalid admin password.", 401);
   }
   const sb = getServiceClient();
+
+  // ---- Owner settings (access mode + daily limit) ----
+  if (mode === "admin_get_settings") {
+    const settings = await getSettings();
+    return jsonOk({ settings });
+  }
+
+  if (mode === "admin_set_settings") {
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (body.accessMode === "public" || body.accessMode === "allowlist") {
+      patch.access_mode = body.accessMode;
+    }
+    if (body.dailyRequestLimit !== undefined) {
+      const n = Math.round(Number(body.dailyRequestLimit));
+      if (!Number.isFinite(n) || n < 1 || n > 100000) {
+        return jsonError("Daily limit must be between 1 and 100000.", 400);
+      }
+      patch.daily_request_limit = n;
+    }
+    const { error } = await sb.from("app_settings").update(patch).eq("id", 1);
+    if (error) return jsonError("Failed to save settings.", 500);
+    const settings = await getSettings();
+    return jsonOk({ ok: true, settings });
+  }
+
+  // ---- Usage dashboard (today's per-user counts + totals) ----
+  if (mode === "admin_usage") {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await sb
+      .from("roblox_usage_daily")
+      .select("roblox_user_id, request_count, updated_at")
+      .eq("usage_date", today)
+      .order("request_count", { ascending: false })
+      .limit(500);
+    if (error) return jsonError("Failed to load usage.", 500);
+    const rows = data ?? [];
+    // Enrich with usernames from the allow-list when available.
+    const { data: named } = await sb
+      .from("allowed_roblox_users")
+      .select("roblox_user_id, username");
+    const nameMap = new Map<number, string>();
+    (named ?? []).forEach((u: { roblox_user_id: number; username: string | null }) => {
+      if (u.username) nameMap.set(Number(u.roblox_user_id), u.username);
+    });
+    const usage = rows.map((r: { roblox_user_id: number; request_count: number; updated_at: string }) => ({
+      roblox_user_id: r.roblox_user_id,
+      username: nameMap.get(Number(r.roblox_user_id)) ?? null,
+      request_count: r.request_count,
+      updated_at: r.updated_at,
+    }));
+    const totalRequests = usage.reduce((s, u) => s + (u.request_count || 0), 0);
+    return jsonOk({ usage, totalRequests, uniqueUsers: usage.length, date: today });
+  }
+
+
 
   if (mode === "admin_list") {
     const { data, error } = await sb
