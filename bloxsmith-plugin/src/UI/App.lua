@@ -487,7 +487,7 @@ function App:send(promptText, mode)
 	local thinkingHandle = self:startThinking()
 	self._activeThinking = thinkingHandle
 
-	local includeTree = (mode == "agent" or mode == "generate_system" or mode == "generate_ui")
+	local includeTree = (mode == "agent" or mode == "generate_system" or mode == "generate_ui" or mode == "brainstorm")
 
 	task.spawn(function()
 		local context = self.deps.context:build(includeTree)
@@ -893,10 +893,17 @@ function App:buildChatView(parent)
 	-- Mode buttons row
 	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 5, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
-	local modes = { { "Chat", "chat" }, { "Generate", "agent" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
+	local modes = {
+		{ "Chat", "chat" },
+		{ "Generate", "agent" },
+		{ "Script", "generate_script" },
+		{ "Fix", "fix_script" },
+		{ "Explain", "explain_script" },
+		{ "Optimize", "optimize_script" }
+	}
 	self.modeButtons = {}
 	for _, m in ipairs(modes) do
-		local b = button(m[1], { Size = UDim2.new(0, 78, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
+		local b = button(m[1], { Size = UDim2.new(1 / #modes, -4, 1, 0), BackgroundColor3 = C.Panel, TextSize = 10 })
 		b.Parent = modeRow
 		b.Activated:Connect(function()
 			self:setMode(m[2])
@@ -1453,6 +1460,7 @@ function App:buildToolsView(parent)
 		{ "🎮 Generate game system", "generate_system", "Build a complete system for: " },
 		{ "🖼 Generate UI", "generate_ui", "Create a polished UI for: " },
 		{ "🤖 Run build agent", "agent", "Complete this task, propose actions to apply: " },
+		{ "💡 Brainstorm ideas", "brainstorm", "Brainstorm gameplay loops, features, mechanics or design ideas for: " },
 		{ "📄 Generate docs", "docs", "Write documentation for the selected script(s). Notes: " },
 		{ "🛠 Fix selected script", "fix_script", "Fix the selected script. Notes: " },
 		{ "⚡ Optimize selected script", "optimize_script", "Optimize the selected script. Notes: " },

@@ -50,6 +50,7 @@ const ALLOWED_MODES = new Set([
   "chat", "support", "generate_script", "fix_script", "explain_script",
   "optimize_script", "generate_ui", "generate_system", "security_scan",
   "performance", "cleanup", "docs", "recommend", "agent", "toolbox_search",
+  "brainstorm",
 ]);
 
 // ---- Access control (Roblox allow-list) --------------------------------------
@@ -377,6 +378,8 @@ RULES:
     "Generate clear Markdown documentation for the provided script(s)/system: overview, API/functions, parameters, return values, events, and usage examples.",
   recommend:
     "Act as a Roblox game consultant. Based on the project context, give prioritized recommendations across four areas: Gameplay, Monetization, Retention, and UX. Keep each item concrete and specific to what you see.",
+  brainstorm:
+    "You are an imaginative Roblox game designer and consultant. Brainstorm engaging gameplay loops, unique mechanics, thematic elements, level designs, monetization strategies, and retention hooks for the given request. Present your ideas in a beautifully formatted, structured, and inspiring Markdown document. Do not output code unless specifically asked; focus on high-concept design, game feel, and player engagement.",
   agent:
     `You are operating as an unrestricted, multi-step build agent inside Roblox Studio.
 You can build ANYTHING Roblox allows: full GUIs/menus/HUDs, parts and models, maps, lighting and
