@@ -282,10 +282,12 @@ function App:startThinking()
 		"✨ Polishing the result",
 	}
 	local running = true
+	local startedAt = os.clock()
 	task.spawn(function()
 		local i, dots = 1, 1
 		while running and holder.Parent do
-			status.Text = phases[i] .. string.rep(".", dots)
+			local secs = math.floor(os.clock() - startedAt)
+			status.Text = phases[i] .. string.rep(".", dots) .. ("   ⏱ %ds"):format(secs)
 			dots += 1
 			if dots > 3 then
 				dots = 1
@@ -440,6 +442,31 @@ function App:send(promptText, mode)
 	end)
 end
 
+-- Human-readable one-line summary of a single agent action, for the plan checklist.
+local function describeAction(a)
+	local kind = a.action or "change"
+	local name = a.name or a.target or a.class or ""
+	local map = {
+		create_script = "Create script",
+		replace_script = "Replace script",
+		create_folder = "Create folder",
+		create_instance = "Create " .. tostring(a.class or "instance"),
+		set_property = "Set " .. tostring(a.property or "property"),
+		rename_instance = "Rename",
+		delete_instance = "Delete",
+		move_instance = "Move",
+		insert_asset = "Insert asset",
+	}
+	local label = map[kind] or tostring(kind)
+	if name ~= "" then
+		label = label .. "  ·  " .. tostring(name)
+	end
+	if #label > 60 then
+		label = label:sub(1, 57) .. "…"
+	end
+	return label
+end
+
 function App:proposeAgentActions(actions)
 	if type(actions) ~= "table" or #actions == 0 then
 		return
@@ -450,9 +477,9 @@ function App:proposeAgentActions(actions)
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Parent = self.chatScroll,
 	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.Accent) })
-	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = holder })
+	Create("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = holder })
 	Create("TextLabel", {
-		Text = ("🤖 The agent proposes %d change(s). Apply?"):format(#actions),
+		Text = ("🤖 Build plan — %d step(s). Approve to apply:"):format(#actions),
 		Font = Theme.FontBold,
 		TextSize = 13,
 		TextColor3 = C.Text,
@@ -460,20 +487,88 @@ function App:proposeAgentActions(actions)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Size = UDim2.new(1, 0, 0, 0),
+		LayoutOrder = 0,
 		Parent = holder,
 	})
-	local approve = button("✓ Approve & Apply", { BackgroundColor3 = C.Success, TextColor3 = C.Bg })
+
+	-- Live checklist: one row per action, ticked off as the build applies.
+	local rows = {}
+	for i, a in ipairs(actions) do
+		rows[i] = Create("TextLabel", {
+			Text = ("☐  %d. %s"):format(i, describeAction(a)),
+			Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim,
+			BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+			AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = i, Parent = holder,
+		})
+	end
+
+	local approve = button("✓ Approve & Apply", { BackgroundColor3 = C.Success, TextColor3 = C.Bg, LayoutOrder = #actions + 1 })
 	approve.Parent = holder
 	approve.Activated:Connect(function()
-		local res = self.deps.apply:applyActions(actions, "Bloxsmith agent task")
-		if res.ok then
-			self:toast("Applied " .. #(res.created or {}) .. " change(s). Ctrl+Z to undo.", "success")
-		else
-			self:toast("Some actions failed — check output.", "warning")
-		end
-		approve.Text = "Applied"
+		approve.Text = "Applying…"
 		approve.Active = false
+		local res = self.deps.apply:applyActions(actions, "Bloxsmith agent task")
+		local results = res.results or {}
+		for i, row in ipairs(rows) do
+			local r = results[i]
+			if r and r.ok then
+				row.Text = ("✅  %d. %s"):format(i, describeAction(actions[i]))
+				row.TextColor3 = C.Success
+			elseif r then
+				row.Text = ("❌  %d. %s"):format(i, describeAction(actions[i]))
+				row.TextColor3 = C.Error
+			end
+		end
+		if res.ok then
+			self:toast(("Applied %d step(s). Ctrl+Z to undo."):format(#(res.created or {})), "success")
+			approve.Text = "✓ Applied"
+		else
+			self:toast(("Applied %d of %d — check output."):format(res.applied or 0, #actions), "warning")
+			approve.Text = "Applied with issues"
+		end
+		-- Auto-fix loop: if the build produced runtime errors, offer a one-tap fix.
+		self:offerAutoFix()
 	end)
+end
+
+-- If a runtime error appeared right after a build, surface a one-tap AI fix.
+function App:offerAutoFix()
+	local errs = self.deps.errors and self.deps.errors:get()
+	if type(errs) ~= "table" or #errs == 0 then
+		return
+	end
+	local latest = errs[1]
+	if not latest or (os.time() - (latest.time or 0)) > 20 then
+		return
+	end
+	local holder = Create("Frame", {
+		BackgroundColor3 = C.PanelAlt, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+		Parent = self.chatScroll,
+	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.Error) })
+	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = holder })
+	Create("TextLabel", {
+		Text = "⚠️ An error appeared in Output. Want me to fix it?",
+		Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Warning, BackgroundTransparency = 1,
+		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), Parent = holder,
+	})
+	local fix = button("🔧 Fix this error with AI", { BackgroundColor3 = C.AccentDim })
+	fix.Parent = holder
+	fix.Activated:Connect(function()
+		fix.Active = false
+		fix.Text = "Fixing…"
+		self:send("This error appeared after the last build. Diagnose the cause and fix it:\n" .. tostring(latest.message), "fix_script")
+	end)
+end
+
+-- Quick-action helper: send the most recent captured error to the AI to fix.
+function App:fixLatestError()
+	local errs = self.deps.errors and self.deps.errors:get()
+	if type(errs) ~= "table" or #errs == 0 then
+		self:toast("No errors captured yet. Run your game to reproduce one.", "info")
+		return
+	end
+	self:send("Fix this Roblox error — explain the cause and apply a fix:\n" .. tostring(errs[1].message), "fix_script")
 end
 
 --========================================================================
@@ -547,22 +642,52 @@ function App:buildChatView(parent)
 		end)
 	end
 
+	-- Persistent prompt quick-actions — one-tap common builds + auto-fix.
+	local quickRow = Create("ScrollingFrame", {
+		BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26),
+		CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.X,
+		ScrollBarThickness = 3, ScrollBarImageColor3 = C.Accent,
+		ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0,
+		LayoutOrder = 3, Parent = view,
+	})
+	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = quickRow })
+	local quickActions = {
+		{ "🔧 Fix latest error", "__fix__" },
+		{ "🏛 Build a lobby", "Build a polished game lobby with a spawn area, decorated environment and a play button UI.", "generate_system" },
+		{ "🏆 Leaderboard", "Add a global leaderboard using OrderedDataStore that tracks player wins.", "generate_system" },
+		{ "🌗 Day-night cycle", "Add a smooth continuous day-night cycle that animates Lighting.ClockTime.", "generate_system" },
+		{ "🚪 Teleport pads", "Create two linked teleport pads that move the player between them on touch.", "generate_system" },
+		{ "💰 Coin pickups", "Add collectable coins that give the player points and respawn after a short delay.", "generate_system" },
+	}
+	for i, qa in ipairs(quickActions) do
+		local chip = button(qa[1], { Size = UDim2.new(0, 128, 1, 0), BackgroundColor3 = C.PanelAlt, TextSize = 11 })
+		chip.LayoutOrder = i
+		chip.Parent = quickRow
+		chip.Activated:Connect(function()
+			if qa[2] == "__fix__" then
+				self:fixLatestError()
+			else
+				self:send(qa[2], qa[3])
+			end
+		end)
+	end
+
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -184),
+		Size = UDim2.new(1, 0, 1, -218),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.Accent,
 		BorderSizePixel = 0,
-		LayoutOrder = 3,
+		LayoutOrder = 4,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.chatScroll })
 
 	-- Mode buttons row
-	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 4, Parent = view })
+	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 5, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
 	local modes = { { "Chat", "chat" }, { "Generate", "agent" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
 	self.modeButtons = {}
@@ -576,7 +701,7 @@ function App:buildChatView(parent)
 	end
 
 	-- Input row
-	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 5, Parent = view })
+	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 6, Parent = view })
 	self.input = Create("TextBox", {
 		PlaceholderText = "Ask Bloxsmith or describe what to build…",
 		Text = "",
@@ -1091,6 +1216,70 @@ function App:buildToolsView(parent)
 			box.Text = ""
 		end)
 	end
+
+	-- Prompt presets — save the current description and re-run it later.
+	local savePreset = button("💾 Save prompt as preset", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+	savePreset.Parent = view
+	local presetHolder = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = view })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = presetHolder })
+	local function refreshPresets()
+		for _, c in ipairs(presetHolder:GetChildren()) do
+			if not c:IsA("UIListLayout") then c:Destroy() end
+		end
+		local presets = self:loadPromptPresets()
+		if #presets == 0 then return end
+		Create("TextLabel", { Text = "⭐ Saved presets (tap to load, ✕ to remove)", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = presetHolder })
+		for i, p in ipairs(presets) do
+			local rowf = Create("Frame", { BackgroundColor3 = C.Panel, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = i, Parent = presetHolder }, { corner(UDim.new(0, 6)), stroke(C.Border) })
+			local load = Create("TextButton", { Text = "  " .. p, Font = Theme.Font, TextSize = 12, TextColor3 = C.Text, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -32, 1, 0), Parent = rowf })
+			load.Activated:Connect(function()
+				box.Text = p
+				self:toast("Preset loaded into the box.", "success")
+			end)
+			local del = button("✕", { Size = UDim2.new(0, 26, 0, 24), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+			del.Position = UDim2.new(1, -28, 0.5, -12)
+			del.Parent = rowf
+			del.Activated:Connect(function()
+				local list = self:loadPromptPresets()
+				table.remove(list, i)
+				self:savePromptPresets(list)
+				refreshPresets()
+			end)
+		end
+	end
+	savePreset.Activated:Connect(function()
+		local txt = (box.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+		if txt == "" then
+			self:toast("Type a description first.", "warning")
+			return
+		end
+		local list = self:loadPromptPresets()
+		table.insert(list, 1, txt)
+		while #list > 15 do
+			table.remove(list)
+		end
+		self:savePromptPresets(list)
+		refreshPresets()
+		self:toast("Preset saved.", "success")
+	end)
+	refreshPresets()
+end
+
+-- Prompt presets storage (persisted via plugin settings).
+local PROMPT_PRESETS_KEY = "Bloxsmith_PromptPresets"
+function App:loadPromptPresets()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(PROMPT_PRESETS_KEY)
+	end)
+	if ok and type(data) == "table" then
+		return data
+	end
+	return {}
+end
+function App:savePromptPresets(list)
+	pcall(function()
+		self.deps.plugin:SetSetting(PROMPT_PRESETS_KEY, list)
+	end)
 end
 
 --========================================================================
@@ -1160,40 +1349,54 @@ function App:buildToolboxView(parent)
 	idBtn.Position = UDim2.new(1, -66, 0, 0)
 	idBtn.Parent = idRow
 
-	-- Recently inserted strip — one-click re-insert of past models.
+	-- Favorites + recently inserted strips — one-click re-insert of saved models.
 	local recentsHolder = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 4, Parent = view })
 	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = recentsHolder })
 
+	-- Bulk insert row — drop every current search result at once.
+	local lastResults = {}
+	local bulkRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = 5, Parent = view })
+	local bulkBtn = button("＋ Insert all results", { Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = C.AccentDim, TextSize = 12 })
+	bulkBtn.Visible = false
+	bulkBtn.Parent = bulkRow
+	local function updateBulk()
+		if #lastResults > 0 then
+			bulkRow.Size = UDim2.new(1, 0, 0, 28)
+			bulkBtn.Visible = true
+			bulkBtn.Text = ("＋ Insert all %d results"):format(#lastResults)
+		else
+			bulkRow.Size = UDim2.new(1, 0, 0, 0)
+			bulkBtn.Visible = false
+		end
+	end
+
 	-- Results scroll
 	local results = Create("ScrollingFrame", {
-		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -152), CanvasSize = UDim2.new(0, 0, 0, 0),
+		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -190), CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, ScrollBarImageColor3 = C.Accent,
-		BorderSizePixel = 0, LayoutOrder = 5, Parent = view,
+		BorderSizePixel = 0, LayoutOrder = 6, Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	local grid = Create("UIGridLayout", {
-		CellSize = UDim2.new(0.5, -6, 0, 176), CellPadding = UDim2.new(0, 8, 0, 8),
+		CellSize = UDim2.new(0.5, -6, 0, 202), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
 
-	-- Render the recents strip from persisted storage.
-	local function refreshRecents()
-		for _, c in ipairs(recentsHolder:GetChildren()) do
-			if not c:IsA("UIListLayout") then c:Destroy() end
-		end
-		local recents = self:loadToolboxRecents()
-		if #recents == 0 then return end
+	-- Render a horizontal chip strip of saved models (favorites / recents).
+	local function makeStrip(title, items, order, removeFn)
+		local wrap = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = recentsHolder })
+		Create("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, Parent = wrap })
 		Create("TextLabel", {
-			Text = "🕘 Recently inserted", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim,
+			Text = title, Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim,
 			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-			Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = recentsHolder,
+			Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = wrap,
 		})
 		local strip = Create("ScrollingFrame", {
 			BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), CanvasSize = UDim2.new(0, 0, 0, 0),
 			AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollBarThickness = 3, ScrollBarImageColor3 = C.Accent,
-			ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0, LayoutOrder = 1, Parent = recentsHolder,
+			ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0, LayoutOrder = 1, Parent = wrap,
 		})
 		Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = strip })
-		for i, item in ipairs(recents) do
+		for i, item in ipairs(items) do
 			local chip = button("＋ " .. (item.name or ("Asset " .. tostring(item.id))), { Size = UDim2.new(0, 130, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
 			chip.LayoutOrder = i
 			chip.Parent = strip
@@ -1210,10 +1413,39 @@ function App:buildToolboxView(parent)
 					end
 				end)
 			end)
+			if removeFn then
+				local x = button("✕", { Size = UDim2.new(0, 22, 1, 0), BackgroundColor3 = C.PanelAlt, TextSize = 11 })
+				x.LayoutOrder = i
+				x.Parent = strip
+				x.Activated:Connect(function()
+					removeFn(item.id)
+				end)
+			end
+		end
+	end
+
+	-- Render favorites first, then recently inserted, from persisted storage.
+	local refreshRecents
+	refreshRecents = function()
+		for _, c in ipairs(recentsHolder:GetChildren()) do
+			if not c:IsA("UIListLayout") then c:Destroy() end
+		end
+		local favs = self:loadToolboxFavorites()
+		if #favs > 0 then
+			makeStrip("⭐ Favorites", favs, 0, function(id)
+				self:removeToolboxFavorite(id)
+				refreshRecents()
+			end)
+		end
+		local recents = self:loadToolboxRecents()
+		if #recents > 0 then
+			makeStrip("🕘 Recently inserted", recents, 1)
 		end
 	end
 	self._refreshToolboxRecents = refreshRecents
 	refreshRecents()
+
+
 
 	local function clearResults()
 		for _, c in ipairs(results:GetChildren()) do
@@ -1235,6 +1467,8 @@ function App:buildToolboxView(parent)
 
 	local function renderResults(items)
 		clearResults()
+		lastResults = items or {}
+		updateBulk()
 		if #items == 0 then
 			status("No models found. Try different keywords.")
 			return
@@ -1279,12 +1513,20 @@ function App:buildToolboxView(parent)
 				end)
 			end)
 
+			-- Favorite toggle — pin a model to the favorites strip for instant re-use.
+			local favBtn = button(self:isToolboxFavorite(item.id) and "⭐ Favorited" or "☆ Favorite", { Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = C.Panel, TextSize = 10, LayoutOrder = 3 })
+			favBtn.Parent = card
+			favBtn.Activated:Connect(function()
+				local nowFav = self:toggleToolboxFavorite(item.id, item.name)
+				favBtn.Text = nowFav and "⭐ Favorited" or "☆ Favorite"
+				refreshRecents()
+			end)
 
 			-- Asset ID row at the bottom (also copy-selectable via the search box).
 			Create("TextLabel", {
 				Text = "ID: " .. tostring(item.id or "?"), Font = Theme.FontMono, TextSize = 10,
 				TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
-				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 12), LayoutOrder = 3, Parent = card,
+				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 12), LayoutOrder = 4, Parent = card,
 			})
 		end
 	end
@@ -1307,6 +1549,28 @@ function App:buildToolboxView(parent)
 
 	searchBtn.Activated:Connect(function()
 		runSearch(searchBox.Text)
+	end)
+	bulkBtn.Activated:Connect(function()
+		if #lastResults == 0 then return end
+		bulkBtn.Text = "Inserting…"
+		bulkBtn.Active = false
+		task.spawn(function()
+			local ok, fail = 0, 0
+			for _, item in ipairs(lastResults) do
+				local res = self.deps.apply:insertAsset(item.id, item.name)
+				if res.ok then
+					ok += 1
+					self:addToolboxRecent(item.id, item.name)
+				else
+					fail += 1
+				end
+				task.wait(0.15)
+			end
+			refreshRecents()
+			self:toast(("Inserted %d model(s)%s. Ctrl+Z to undo."):format(ok, fail > 0 and (", " .. fail .. " failed") or ""), ok > 0 and "success" or "error")
+			bulkBtn.Active = true
+			updateBulk()
+		end)
 	end)
 	searchBox.FocusLost:Connect(function(enter)
 		if enter then runSearch(searchBox.Text) end
@@ -1368,6 +1632,76 @@ function App:addToolboxRecent(id, name)
 		self.deps.plugin:SetSetting(TOOLBOX_RECENTS_KEY, list)
 	end)
 end
+
+-- Toolbox favorites — pinned {id, name} models for one-click re-insert.
+local TOOLBOX_FAVORITES_KEY = "Bloxsmith_ToolboxFavorites"
+
+function App:loadToolboxFavorites()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(TOOLBOX_FAVORITES_KEY)
+	end)
+	if ok and type(data) == "table" then
+		return data
+	end
+	return {}
+end
+
+function App:isToolboxFavorite(id)
+	id = tonumber(id)
+	if not id then
+		return false
+	end
+	for _, item in ipairs(self:loadToolboxFavorites()) do
+		if tonumber(item.id) == id then
+			return true
+		end
+	end
+	return false
+end
+
+function App:saveToolboxFavorites(list)
+	pcall(function()
+		self.deps.plugin:SetSetting(TOOLBOX_FAVORITES_KEY, list)
+	end)
+end
+
+function App:removeToolboxFavorite(id)
+	id = tonumber(id)
+	if not id then
+		return
+	end
+	local list = self:loadToolboxFavorites()
+	for i = #list, 1, -1 do
+		if tonumber(list[i].id) == id then
+			table.remove(list, i)
+		end
+	end
+	self:saveToolboxFavorites(list)
+end
+
+-- Toggle a model's favorite state; returns true if it is now a favorite.
+function App:toggleToolboxFavorite(id, name)
+	id = tonumber(id)
+	if not id then
+		return false
+	end
+	local list = self:loadToolboxFavorites()
+	for i = #list, 1, -1 do
+		if tonumber(list[i].id) == id then
+			table.remove(list, i)
+			self:saveToolboxFavorites(list)
+			return false
+		end
+	end
+	table.insert(list, 1, { id = id, name = name or ("Asset " .. tostring(id)) })
+	while #list > 20 do
+		table.remove(list)
+	end
+	self:saveToolboxFavorites(list)
+	return true
+end
+
+
 
 
 -- A labelled control that cycles through a list of options on click and
@@ -1528,6 +1862,7 @@ function App:refreshSelectionStrip()
 end
 
 function App:mount(gui)
+	self.gui = gui
 	gui.BackgroundColor3 = C.Bg
 	Create("UICorner", { CornerRadius = UDim.new(0, 0), Parent = gui })
 
@@ -1583,6 +1918,90 @@ function App:mount(gui)
 	else
 		self:addBubble("assistant", "👋 **Welcome to Bloxsmith!** I can generate scripts, UIs and full game systems, build anything in Studio, fix & optimize code, and insert free models from the **Toolbox** tab. I remember our conversation across sessions. You'll see my 💭 thinking as I work, and you approve every change. Ask me anything!")
 	end
+
+	-- First-run guided tour.
+	self:maybeShowTour()
+end
+
+-- One-time onboarding tour shown on first launch (dismissible, persisted).
+function App:maybeShowTour()
+	local seen = false
+	pcall(function()
+		seen = self.deps.plugin:GetSetting("Bloxsmith_TourSeen") and true or false
+	end)
+	if seen or not self.gui then
+		return
+	end
+
+	local steps = {
+		{ "👋 Welcome to Bloxsmith", "Your AI copilot for Roblox Studio. Take 20 seconds to see what it can do." },
+		{ "💬 Chat & Generate", "Describe anything — 'build a shop', 'add a leaderboard' — and approve the changes. Tap the quick-action chips above the input for instant builds." },
+		{ "🧰 Toolbox", "Search thousands of free models and insert them straight into your game. Favorite (☆) and re-insert them with one click, or use Insert-all." },
+		{ "🛠 Tools & Auto-fix", "Generate systems and UIs, save prompt presets, and one-tap fix errors from the Errors tab or the 🔧 chip." },
+		{ "🎨 Make it yours", "Set the AI's personality, response length and custom instructions in Settings. Enjoy building!" },
+	}
+
+	local overlay = Create("Frame", {
+		BackgroundColor3 = C.Bg, BackgroundTransparency = 0.2, Size = UDim2.new(1, 0, 1, 0),
+		ZIndex = 100, Parent = self.gui,
+	})
+	local card = Create("Frame", {
+		BackgroundColor3 = C.Panel, Size = UDim2.new(0, 300, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+		Position = UDim2.new(0.5, -150, 0.35, 0), ZIndex = 101, Parent = overlay,
+	}, { corner(UDim.new(0, 10)), pad(14), stroke(C.Accent) })
+	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = card })
+
+	local title = Create("TextLabel", {
+		Text = "", Font = Theme.FontBold, TextSize = 16, TextColor3 = C.Accent, BackgroundTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), ZIndex = 101, LayoutOrder = 0, Parent = card,
+	})
+	local body = Create("TextLabel", {
+		Text = "", Font = Theme.Font, TextSize = 13, TextColor3 = C.TextDim, BackgroundTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, 0, 0, 0), ZIndex = 101, LayoutOrder = 1, Parent = card,
+	})
+	local progress = Create("TextLabel", {
+		Text = "", Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 14), ZIndex = 101, LayoutOrder = 2, Parent = card,
+	})
+
+	local btnRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 32), ZIndex = 101, LayoutOrder = 3, Parent = card })
+	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 6), Parent = btnRow })
+
+	local idx = 1
+	local function finish()
+		pcall(function()
+			self.deps.plugin:SetSetting("Bloxsmith_TourSeen", true)
+		end)
+		overlay:Destroy()
+	end
+
+	local skip = button("Skip", { Size = UDim2.new(0, 70, 1, 0), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+	skip.ZIndex = 101
+	skip.Parent = btnRow
+	skip.Activated:Connect(finish)
+
+	local next = button("Next", { Size = UDim2.new(0, 90, 1, 0), TextSize = 12 })
+	next.ZIndex = 101
+	next.Parent = btnRow
+
+	local function render()
+		local step = steps[idx]
+		title.Text = step[1]
+		body.Text = step[2]
+		progress.Text = ("Step %d of %d"):format(idx, #steps)
+		next.Text = (idx == #steps) and "Get started" or "Next"
+	end
+	next.Activated:Connect(function()
+		if idx >= #steps then
+			finish()
+		else
+			idx += 1
+			render()
+		end
+	end)
+	render()
 end
 
 return App

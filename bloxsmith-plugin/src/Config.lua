@@ -8,10 +8,25 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.3.0"
+Config.Version = "3.4.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.4.0",
+		date = "2026-07-13",
+		title = "Plans, Presets & Auto-fix",
+		changes = {
+			"NEW: Every build now shows a live plan checklist that ticks off ✅/❌ step-by-step as it applies.",
+			"NEW: Auto-fix loop — if a build throws an error, Bloxsmith offers a one-tap AI fix, plus a '🔧 Fix latest error' quick chip.",
+			"NEW: Prompt quick-actions above the chat input — one-tap Lobby, Leaderboard, Day-night cycle, Teleport pads and Coin pickups.",
+			"NEW: Toolbox favorites (☆/⭐) — pin models to a favorites strip for instant re-insert.",
+			"NEW: Toolbox 'Insert all results' to drop an entire search at once.",
+			"NEW: Save prompt presets in Tools and reload them with one tap.",
+			"NEW: First-run guided tour, and a live ⏱ elapsed timer while builds run.",
+		},
+	},
+
 	{
 		version = "3.3.0",
 		date = "2026-07-13",
