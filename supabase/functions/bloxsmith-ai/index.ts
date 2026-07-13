@@ -1294,9 +1294,7 @@ Deno.serve(async (req) => {
     const status = (err as { status?: number })?.status ?? 500;
     const rawMsg = (err as { msg?: string })?.msg ?? (err instanceof Error ? err.message : "Unexpected error");
     console.error(`[bloxsmith-ai] error (status ${status}):`, err);
-    const clientMsg = status >= 500
-      ? "The AI service hit an unexpected error. Please try again shortly."
-      : rawMsg;
-    return jsonError(clientMsg, status);
+    const clientMsg = rawMsg;
+    return jsonError(clientMsg, status, { errorDetail: err });
   }
 });
