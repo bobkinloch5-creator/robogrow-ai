@@ -39,6 +39,10 @@ const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
 const MIN_ATTEMPT_MS = 6_000; // don't start a provider with less than this left
 const HEDGE_DELAY_MS = 6_000; // if the current provider is still silent after this, race the next one
 
+// Per-Roblox-user daily rate limit. Access is public, but each Roblox account
+// may make at most this many build requests per calendar day (UTC).
+const DAILY_REQUEST_LIMIT = Number(Deno.env.get("DAILY_REQUEST_LIMIT")) || 100;
+
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
   "chat", "support", "generate_script", "fix_script", "explain_script",
