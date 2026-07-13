@@ -29,8 +29,13 @@ const MAX_MESSAGES = 40;
 const MAX_CONTEXT_CHARS = 12000;
 const MAX_BODY_BYTES = 200_000;
 const MAX_CUSTOM_INSTRUCTIONS = 1000;
-const PRIMARY_AI_TIMEOUT_MS = 22_000;
-const FALLBACK_AI_TIMEOUT_MS = 32_000;
+// Roblox HttpService aborts a request at ~60s, so the WHOLE call — primary plus
+// every fallback attempt — must finish comfortably under that. We keep a global
+// deadline and give each provider a short slice of it.
+const PRIMARY_AI_TIMEOUT_MS = 18_000;
+const FALLBACK_AI_TIMEOUT_MS = 14_000;
+const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
+const MIN_ATTEMPT_MS = 6_000; // don't start a provider with less than this left
 
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
@@ -470,7 +475,7 @@ async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]
 
 
 
-async function callLovable(messages: ChatMessage[]): Promise<string> {
+async function callLovable(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
   const res = await fetchWithTimeout(
@@ -480,7 +485,7 @@ async function callLovable(messages: ChatMessage[]): Promise<string> {
       headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
       body: JSON.stringify({ model: Deno.env.get("BLOXSMITH_MODEL") || DEFAULT_MODEL, messages, temperature: 0.4 }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 402) throw { status: 402, msg: "AI credits exhausted. Add credits to keep generating." };
@@ -575,10 +580,9 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
-// NVIDIA NIM — secondary fallback using Nemotron (a different model on the same
-// OpenAI-compatible endpoint). Used if the primary GLM call fails, before we
-// finally fall back to Lovable AI (ChatGPT).
-async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
+// NVIDIA NIM — secondary fallback using Nemotron. Tuned for SPEED as a fallback:
+// thinking OFF and a small token cap so it returns quickly within the budget.
+async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_FALLBACK_MODEL") || "nvidia/nemotron-3-ultra-550b-a55b";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
@@ -590,16 +594,15 @@ async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 1,
+        temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 16384,
-        // Nemotron thinking controls — ignored by models that don't support them.
-        chat_template_kwargs: { enable_thinking: true },
-        reasoning_budget: 16384,
+        max_tokens: 2048,
+        // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
+        chat_template_kwargs: { enable_thinking: false },
         stream: false,
       }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
@@ -611,8 +614,8 @@ async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
-// NVIDIA NIM — tertiary fallback using GPT-OSS-120B.
-async function callNvidiaGptOss(messages: ChatMessage[]): Promise<string> {
+// NVIDIA NIM — tertiary fallback using GPT-OSS-120B (fast).
+async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "openai/gpt-oss-120b";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
@@ -624,13 +627,13 @@ async function callNvidiaGptOss(messages: ChatMessage[]): Promise<string> {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 1,
+        temperature: 0.7,
         top_p: 1,
-        max_tokens: 4096,
+        max_tokens: 2048,
         stream: false,
       }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
@@ -642,8 +645,8 @@ async function callNvidiaGptOss(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
-// NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash.
-async function callNvidiaDeepseek(messages: ChatMessage[]): Promise<string> {
+// NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash (fast, thinking off).
+async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "deepseek-ai/deepseek-v4-flash";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
@@ -655,15 +658,15 @@ async function callNvidiaDeepseek(messages: ChatMessage[]): Promise<string> {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 1,
+        temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 16384,
-        // DeepSeek thinking controls — ignored by models that don't support them.
-        chat_template_kwargs: { thinking: true, reasoning_effort: "high" },
+        max_tokens: 2048,
+        // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
+        chat_template_kwargs: { thinking: false },
         stream: false,
       }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
@@ -795,26 +798,40 @@ Deno.serve(async (req) => {
     const provider = (Deno.env.get("AI_PROVIDER") || "nvidia").toLowerCase();
     let usedProvider = provider;
     let reply: string;
+
+    // Global deadline so primary + fallbacks always return before Roblox's ~60s
+    // HTTP timeout. We reserve time for a final Lovable AI call, which is fast
+    // and reliable, so the user always gets an answer.
+    const deadline = Date.now() + TOTAL_BUDGET_MS;
+    const LOVABLE_RESERVE_MS = 14_000;
+    const remaining = () => deadline - Date.now();
+
     try {
       if (provider === "nvidia") reply = await callNvidia(messages);
       else if (provider === "bedrock") reply = await callBedrock(messages);
-      else reply = await callLovable(messages);
+      else reply = await callLovable(messages, Math.min(FALLBACK_AI_TIMEOUT_MS, remaining()));
     } catch (primaryErr) {
       console.error("Primary provider failed:", primaryErr);
       // Fallback chain (only for NVIDIA-hosted primary):
       //   NVIDIA Nemotron -> NVIDIA GPT-OSS-120B -> NVIDIA DeepSeek V4 Flash -> Lovable AI (ChatGPT).
       let fellBack = false;
       if (provider === "nvidia") {
-        const nvidiaFallbacks: Array<{ name: string; call: () => Promise<string> }> = [
-          { name: "nvidia-nemotron", call: () => callNvidiaNemotron(messages) },
-          { name: "nvidia-gpt-oss", call: () => callNvidiaGptOss(messages) },
-          { name: "nvidia-deepseek", call: () => callNvidiaDeepseek(messages) },
+        const nvidiaFallbacks: Array<{ name: string; call: (t: number) => Promise<string> }> = [
+          { name: "nvidia-nemotron", call: (t) => callNvidiaNemotron(messages, t) },
+          { name: "nvidia-gpt-oss", call: (t) => callNvidiaGptOss(messages, t) },
+          { name: "nvidia-deepseek", call: (t) => callNvidiaDeepseek(messages, t) },
         ];
         for (const fb of nvidiaFallbacks) {
+          // Keep enough budget for the guaranteed final Lovable attempt.
+          const slice = Math.min(FALLBACK_AI_TIMEOUT_MS, remaining() - LOVABLE_RESERVE_MS);
+          if (slice < MIN_ATTEMPT_MS) {
+            console.error(`Skipping ${fb.name} — not enough time budget left.`);
+            continue;
+          }
           try {
-            console.error(`Falling back to ${fb.name}…`);
+            console.error(`Falling back to ${fb.name} (timeout ${slice}ms)…`);
             usedProvider = fb.name;
-            reply = await fb.call();
+            reply = await fb.call(slice);
             fellBack = true;
             break;
           } catch (fbErr) {
@@ -824,11 +841,12 @@ Deno.serve(async (req) => {
       }
       if (!fellBack) {
         if (provider === "lovable") throw primaryErr;
-        // Final fallback: Lovable AI (ChatGPT).
+        // Final fallback: Lovable AI (ChatGPT) — always gets a real slice of time.
         usedProvider = "lovable";
-        reply = await callLovable(messages);
+        reply = await callLovable(messages, Math.max(MIN_ATTEMPT_MS, Math.min(FALLBACK_AI_TIMEOUT_MS, remaining())));
       }
     }
+
 
 
 
