@@ -1467,6 +1467,8 @@ function App:buildToolboxView(parent)
 
 	local function renderResults(items)
 		clearResults()
+		lastResults = items or {}
+		updateBulk()
 		if #items == 0 then
 			status("No models found. Try different keywords.")
 			return
