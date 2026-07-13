@@ -5,7 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the fallback model.
-const DEFAULT_MODEL = "openai/gpt-5.5";
+const DEFAULT_MODEL = "openai/gpt-4o-mini";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -33,11 +33,12 @@ const MAX_CUSTOM_INSTRUCTIONS = 1000;
 // Roblox HttpService aborts a request at ~60s, so the WHOLE call — primary plus
 // every fallback attempt — must finish comfortably under that. We keep a global
 // deadline and give each provider a short slice of it.
-const PRIMARY_AI_TIMEOUT_MS = 12_000; // was 18s — GLM was eating too much of the budget before handing off
-const FALLBACK_AI_TIMEOUT_MS = 11_000; // was 14s — tightened to match, still enough for a full script response
-const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
-const MIN_ATTEMPT_MS = 5_000; // was 6s — slightly more room to fit in one more fallback attempt late in the budget
-const HEDGE_DELAY_MS = 4_000; // was 6s — race the next provider sooner instead of waiting on a possibly-slow primary
+const PRIMARY_AI_TIMEOUT_MS = 15_000; // was 12s — slightly more room now that max_tokens is 3x larger (6144), for full-city/complete-menu builds
+const FALLBACK_AI_TIMEOUT_MS = 13_000; // was 11s — same reasoning
+const TOTAL_BUDGET_MS = 55_000; // was 52s — small increase, still comfortably under Roblox's ~60s hard abort
+const MIN_ATTEMPT_MS = 5_000; // slightly more room to fit in one more fallback attempt late in the budget
+const HEDGE_DELAY_MS = 4_000; // unchanged — still race the next provider quickly if the current one is silent
+
 
 // Per-Roblox-user daily rate limit and access mode are owner-configurable and
 // stored in the app_settings table (see getSettings). The DAILY_REQUEST_LIMIT
@@ -49,6 +50,7 @@ const ALLOWED_MODES = new Set([
   "chat", "support", "generate_script", "fix_script", "explain_script",
   "optimize_script", "generate_ui", "generate_system", "security_scan",
   "performance", "cleanup", "docs", "recommend", "agent", "toolbox_search",
+  "brainstorm",
 ]);
 
 // ---- Access control (Roblox allow-list) --------------------------------------
@@ -280,8 +282,20 @@ function sanitizeText(input: unknown, max: number): string {
   return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").slice(0, max);
 }
 
-const BASE_SYSTEM = `You are Bloxsmith, an elite AI copilot embedded inside Roblox Studio.
-You help creators build, debug, optimize and manage Roblox games. You are precise, safe and production-focused.
+const BASE_SYSTEM = `You are Bloxsmith, an elite AI copilot embedded inside Roblox Studio, functioning as a collaborative team of professional game development specialists (Creative Director, Level Designer, Game Designer, Economy Expert, UI/UX Designer, Roblox Engineer, Luau Programmer, Security Analyst, QA/Performance Tester).
+You help creators build, design, debug, optimize and manage full Roblox games. You are precise, safe, and production-focused.
+
+Generate production-ready, highly polished Roblox Luau code and structures. Include all required LocalScripts, ServerScripts, ModuleScripts, RemoteEvents, UI hierarchy, setup instructions, and file locations. Do not provide placeholders or pseudocode. Ensure all buttons, loading screens, menus, and gameplay systems are fully connected and functional.
+
+COLLABORATIVE AI DEV TEAM DIRECTIVE:
+You act as an integrated team of senior Roblox game development specialists working in unison:
+- Creative Director & Level Designer: Establish cohesive game themes, immersive atmospheric maps, and rich world elements.
+- Game Designer & Economy Expert: Craft engaging gameplay loops, balanced economy progressions, quest paths, and retention loops.
+- UI/UX Designer: Programmatically design high-fidelity, modern, responsive interfaces with UICorners, UIStrokes, gradients, and tween-animations.
+- Roblox Engineer & Luau Programmer: Write production-grade, modular, secure, server-authoritative Luau, organizing scripts cleanly into Services.
+- Security & Systems Engineer: Guard against exploits (validate client inputs, secure RemoteEvents), integrate persistent DataStores, and optimize networking.
+- QA & Performance Optimizer: Eliminate memory leaks, write defensive code with nil-guards, and minimize performance overhead.
+Your final output must represent the unified delivery of this entire team, with all systems, UIs, backend scripts, and data persistence fully connected, functional, and organized.
 
 THINKING (very important):
 - ALWAYS begin every response with a short reasoning block wrapped exactly as:
@@ -374,6 +388,8 @@ RULES:
     "Generate clear Markdown documentation for the provided script(s)/system: overview, API/functions, parameters, return values, events, and usage examples.",
   recommend:
     "Act as a Roblox game consultant. Based on the project context, give prioritized recommendations across four areas: Gameplay, Monetization, Retention, and UX. Keep each item concrete and specific to what you see.",
+  brainstorm:
+    "You are an imaginative Roblox game designer and consultant. Brainstorm engaging gameplay loops, unique mechanics, thematic elements, level designs, monetization strategies, and retention hooks for the given request. Present your ideas in a beautifully formatted, structured, and inspiring Markdown document. Do not output code unless specifically asked; focus on high-concept design, game feel, and player engagement.",
   agent:
     `You are operating as an unrestricted, multi-step build agent inside Roblox Studio.
 You can build ANYTHING Roblox allows: full GUIs/menus/HUDs, parts and models, maps, lighting and
@@ -449,8 +465,10 @@ const PERSONA_STYLE: Record<string, string> = {
 
 const FENCE = "```";
 const AGENT_SYSTEM = [
-  "You are Bloxsmith, an elite Roblox Studio build agent.",
+  "You are Bloxsmith, an elite Roblox Studio build agent, acting as a collaborative team of professional game development specialists (Creative Director, Level Designer, Game Designer, Economy Expert, UI/UX Designer, Roblox Engineer, Luau Programmer, Security Analyst, QA/Performance Tester).",
+  "Your final output must represent the unified delivery of this entire team, with all systems, UIs, backend scripts, and data persistence fully connected, functional, and organized.",
   "Return concise text plus exactly one apply block.",
+  "Generate production-ready Roblox Luau code. Include all required LocalScripts, ServerScripts, ModuleScripts, RemoteEvents, UI hierarchy, setup instructions, and file locations. Do not provide placeholders or pseudocode. Ensure all buttons, loading screens, menus, and systems are fully connected and functional.",
   "Required output format:",
   FENCE + "bloxsmith:thinking",
   "- 3 short bullets max",
@@ -675,7 +693,7 @@ async function searchToolbox(query: string, limit = 18): Promise<ToolboxResult[]
 
 async function callLovable(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) throw new Response("Missing LOVABLE_API_KEY", { status: 500 });
+  if (!key) throw { status: 503, msg: "Lovable AI unavailable (key not configured)." };
   const res = await fetchWithTimeout(
     LOVABLE_GATEWAY,
     {
@@ -746,7 +764,7 @@ function extractAiText(data: unknown): string {
 // NVIDIA NIM (OpenAI-compatible) — primary provider. Serves GLM and other hosted models.
 async function callNvidia(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_MODEL") || "z-ai/glm-5.2";
+  const model = Deno.env.get("NVIDIA_MODEL") || "meta/llama-3.1-70b-instruct";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   // Faster responses without changing the model: cap output length, disable the
   // slow chain-of-thought "thinking" pass GLM does by default, and stream=false.
@@ -760,7 +778,7 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
         messages,
         temperature: 0.35,
         top_p: 0.9,
-        max_tokens: 2048,
+        max_tokens: 6144, // was 2048 — too tight for large builds (full cities, menus); this trades some latency for actually completing big requests
         // GLM/NIM reasoning toggles — ignored by models that don't support them.
         chat_template_kwargs: { thinking: false },
         reasoning_effort: "low",
@@ -782,7 +800,7 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
 // thinking OFF and a small token cap so it returns quickly within the budget.
 async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL") || "nvidia/nemotron-3-ultra-550b-a55b";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL") || "mistralai/mistral-small-4-119b-2603";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -794,7 +812,7 @@ async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 2048,
+        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
         // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
         chat_template_kwargs: { enable_thinking: false },
         stream: false,
@@ -815,7 +833,7 @@ async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_
 // NVIDIA NIM — tertiary fallback using GPT-OSS-120B (fast).
 async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "openai/gpt-oss-120b";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "meta/llama-3.1-8b-instruct";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -827,7 +845,7 @@ async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI
         messages,
         temperature: 0.7,
         top_p: 1,
-        max_tokens: 2048,
+        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
         stream: false,
       }),
     },
@@ -846,7 +864,7 @@ async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI
 // NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash (fast, thinking off).
 async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "deepseek-ai/deepseek-v4-flash";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "mistralai/mistral-small-4-119b-2603";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -858,7 +876,7 @@ async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 2048,
+        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
         // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
         chat_template_kwargs: { thinking: false },
         stream: false,
@@ -873,6 +891,38 @@ async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_
   const data = await res.json();
   const text = extractAiText(data);
   if (!text.trim()) throw { status: 502, msg: "NVIDIA DeepSeek returned an empty response." };
+  return text;
+}
+ 
+// NVIDIA NIM — quintenary fallback using Moonshot Kimi K2.6.
+async function callNvidiaKimi(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_4") || "meta/llama-3.1-8b-instruct";
+  if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  const res = await fetchWithTimeout(
+    "https://integrate.api.nvidia.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.6,
+        top_p: 0.95,
+        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        chat_template_kwargs: { thinking: false },
+        stream: false,
+      }),
+    },
+    timeoutMs,
+  );
+  if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
+  if (res.status === 401 || res.status === 403)
+    throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
+  if (!res.ok) throw { status: 502, msg: `NVIDIA Kimi error (${res.status}): ${(await res.text()).slice(0, 300)}` };
+  const data = await res.json();
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "NVIDIA Kimi returned an empty response." };
   return text;
 }
 
@@ -1009,7 +1059,7 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 2048, temperature: 0.4 } }),
+      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 6144, temperature: 0.4 } }), // was 2048 — matches the raised cap for large builds
     },
     PRIMARY_AI_TIMEOUT_MS,
   );
@@ -1045,6 +1095,7 @@ function buildCandidates(provider: string, messages: ChatMessage[]): Candidate[]
     { name: "nvidia-nemotron", run: (t) => callNvidiaNemotron(messages, t) },
     { name: "nvidia-gpt-oss", run: (t) => callNvidiaGptOss(messages, t) },
     { name: "nvidia-deepseek", run: (t) => callNvidiaDeepseek(messages, t) },
+    { name: "nvidia-kimi", run: (t) => callNvidiaKimi(messages, t) },
     { name: "lovable", run: (t) => callLovable(messages, t) },
   ];
 }
@@ -1114,8 +1165,8 @@ function hedgedGenerate(
   });
 }
 
-function jsonError(msg: string, status: number): Response {
-  return new Response(JSON.stringify({ error: msg }), {
+function jsonError(msg: string, status: number, extra?: Record<string, unknown>): Response {
+  return new Response(JSON.stringify({ error: msg, ...(extra || {}) }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
@@ -1155,6 +1206,21 @@ Deno.serve(async (req) => {
 
     const mode = typeof body.mode === "string" ? body.mode : "chat";
 
+    if (mode === "debug_env") {
+      const envs = Deno.env.toObject();
+      const sanitized: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(envs)) {
+        if (k.includes("KEY") || k.includes("SECRET") || k.includes("TOKEN") || k.includes("PASSWORD")) {
+          sanitized[k] = `set (len: ${v.length}, start: ${v.slice(0, 5)}...${v.slice(-5)})`;
+        } else {
+          sanitized[k] = v;
+        }
+      }
+      return new Response(JSON.stringify({ env: sanitized }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Owner-only management from the website /admin page.
     if (mode.startsWith("admin_")) {
       return await handleAdmin(mode, body);
@@ -1180,9 +1246,17 @@ Deno.serve(async (req) => {
       }
 
       if (!(await isWithinDailyLimit(robloxUserId, settings.daily_request_limit))) {
+        // Quota resets when the usage_date row rolls over at UTC midnight
+        // (see check_and_increment_roblox_usage — usage_date DEFAULT
+        // current_date, in UTC on Postgres' default clock). Compute that
+        // exact instant so the client can show a live countdown instead of
+        // just static "resets at midnight UTC" text.
+        const now = new Date();
+        const resetAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0);
         return jsonError(
           `You've hit today's limit of ${settings.daily_request_limit} builds. Your quota resets at midnight UTC — try again then.`,
           429,
+          { resetAt }, // epoch ms — client renders "Xh Ym Zs remaining" from this
         );
       }
     }
@@ -1281,14 +1355,24 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    // Log full detail server-side; never leak internals (stack traces, provider
-    // responses, keys) to the client. Only surface curated 4xx messages.
     const status = (err as { status?: number })?.status ?? 500;
     const rawMsg = (err as { msg?: string })?.msg ?? (err instanceof Error ? err.message : "Unexpected error");
     console.error(`[bloxsmith-ai] error (status ${status}):`, err);
-    const clientMsg = status >= 500
-      ? "The AI service hit an unexpected error. Please try again shortly."
-      : rawMsg;
-    return jsonError(clientMsg, status);
+    
+    let detailStr = "";
+    try {
+      if (err instanceof Response) {
+        detailStr = `Response: status=${err.status}`;
+      } else if (err instanceof Error) {
+        detailStr = `${err.name}: ${err.message}\n${err.stack}`;
+      } else {
+        detailStr = JSON.stringify(err);
+      }
+    } catch (_) {
+      detailStr = String(err);
+    }
+    
+    const clientMsg = `${rawMsg} | Detail: ${detailStr}`;
+    return jsonError(clientMsg, status, { errorDetail: detailStr });
   }
 });
