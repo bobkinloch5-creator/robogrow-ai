@@ -580,10 +580,9 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
-// NVIDIA NIM — secondary fallback using Nemotron (a different model on the same
-// OpenAI-compatible endpoint). Used if the primary GLM call fails, before we
-// finally fall back to Lovable AI (ChatGPT).
-async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
+// NVIDIA NIM — secondary fallback using Nemotron. Tuned for SPEED as a fallback:
+// thinking OFF and a small token cap so it returns quickly within the budget.
+async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_FALLBACK_MODEL") || "nvidia/nemotron-3-ultra-550b-a55b";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
@@ -595,16 +594,15 @@ async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 1,
+        temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 16384,
-        // Nemotron thinking controls — ignored by models that don't support them.
-        chat_template_kwargs: { enable_thinking: true },
-        reasoning_budget: 16384,
+        max_tokens: 2048,
+        // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
+        chat_template_kwargs: { enable_thinking: false },
         stream: false,
       }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
@@ -616,8 +614,8 @@ async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
-// NVIDIA NIM — tertiary fallback using GPT-OSS-120B.
-async function callNvidiaGptOss(messages: ChatMessage[]): Promise<string> {
+// NVIDIA NIM — tertiary fallback using GPT-OSS-120B (fast).
+async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "openai/gpt-oss-120b";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
@@ -629,13 +627,13 @@ async function callNvidiaGptOss(messages: ChatMessage[]): Promise<string> {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 1,
+        temperature: 0.7,
         top_p: 1,
-        max_tokens: 4096,
+        max_tokens: 2048,
         stream: false,
       }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
@@ -647,8 +645,8 @@ async function callNvidiaGptOss(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
-// NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash.
-async function callNvidiaDeepseek(messages: ChatMessage[]): Promise<string> {
+// NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash (fast, thinking off).
+async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
   const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "deepseek-ai/deepseek-v4-flash";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
@@ -660,15 +658,15 @@ async function callNvidiaDeepseek(messages: ChatMessage[]): Promise<string> {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 1,
+        temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 16384,
-        // DeepSeek thinking controls — ignored by models that don't support them.
-        chat_template_kwargs: { thinking: true, reasoning_effort: "high" },
+        max_tokens: 2048,
+        // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
+        chat_template_kwargs: { thinking: false },
         stream: false,
       }),
     },
-    FALLBACK_AI_TIMEOUT_MS,
+    timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
   if (res.status === 401 || res.status === 403)
