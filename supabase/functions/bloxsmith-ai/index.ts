@@ -1011,12 +1011,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonError("Method not allowed", 405);
 
-  // Rate limit before doing any work.
-  const clientId = getClientId(req);
-  if (isRateLimited(clientId)) {
-    return jsonError("Too many requests. Please wait a moment and try again.", 429);
-  }
-
   try {
     // Reject oversized bodies early (guards against memory abuse).
     const contentLength = Number(req.headers.get("content-length") ?? "0");
@@ -1028,7 +1022,14 @@ Deno.serve(async (req) => {
       return jsonError("Request too large.", 413);
     }
 
-    let body: RequestBody & { query?: string; limit?: number };
+    let body: RequestBody & {
+      query?: string;
+      limit?: number;
+      robloxUserId?: number;
+      adminKey?: string;
+      username?: string;
+      label?: string;
+    };
     try {
       body = JSON.parse(raw);
     } catch (_) {
@@ -1039,8 +1040,23 @@ Deno.serve(async (req) => {
     }
 
     const mode = typeof body.mode === "string" ? body.mode : "chat";
+
+    // Owner-only allow-list management from the website /admin page.
+    if (mode === "admin_list" || mode === "admin_add" || mode === "admin_remove") {
+      return await handleAdmin(mode, body);
+    }
+
     if (!ALLOWED_MODES.has(mode)) {
       return jsonError("Unsupported mode.", 400);
+    }
+
+    // Access gate: only allow-listed Roblox accounts may use the plugin.
+    const robloxUserId = Number(body.robloxUserId) || 0;
+    if (!(await isRobloxUserAllowed(robloxUserId))) {
+      const msg = robloxUserId > 0
+        ? `Access isn't enabled for your Roblox account (ID ${robloxUserId}). Ask the owner of Bloxsmith to add this Roblox ID to the allow-list.`
+        : "Bloxsmith couldn't detect your Roblox account. Make sure you're signed in to Roblox Studio, then try again.";
+      return jsonError(msg, 403);
     }
 
     // Toolbox / Creator Store model search — bypasses the AI model entirely.
@@ -1053,6 +1069,7 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // Validate & sanitize conversation input.
     const history = Array.isArray(body.messages) ? body.messages.slice(-MAX_MESSAGES) : [];
