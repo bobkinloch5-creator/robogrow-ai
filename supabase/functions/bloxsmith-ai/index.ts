@@ -29,8 +29,13 @@ const MAX_MESSAGES = 40;
 const MAX_CONTEXT_CHARS = 12000;
 const MAX_BODY_BYTES = 200_000;
 const MAX_CUSTOM_INSTRUCTIONS = 1000;
-const PRIMARY_AI_TIMEOUT_MS = 22_000;
-const FALLBACK_AI_TIMEOUT_MS = 32_000;
+// Roblox HttpService aborts a request at ~60s, so the WHOLE call — primary plus
+// every fallback attempt — must finish comfortably under that. We keep a global
+// deadline and give each provider a short slice of it.
+const PRIMARY_AI_TIMEOUT_MS = 18_000;
+const FALLBACK_AI_TIMEOUT_MS = 14_000;
+const TOTAL_BUDGET_MS = 52_000; // hard ceiling for the whole request
+const MIN_ATTEMPT_MS = 6_000; // don't start a provider with less than this left
 
 // Whitelisted request modes — anything else is rejected.
 const ALLOWED_MODES = new Set([
