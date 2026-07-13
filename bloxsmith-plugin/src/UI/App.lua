@@ -1270,6 +1270,8 @@ function App:buildToolboxView(parent)
 							or ("Inserted '%s' (Ctrl+Z to undo)"):format(item.name or "model")
 						self:toast(msg .. " — Ctrl+Z to undo", "success")
 						insertBtn.Text = "✓ Inserted"
+						self:addToolboxRecent(item.id, item.name)
+						refreshRecents()
 					else
 						self:toast(res.error or "Insert failed.", "error")
 						insertBtn.Text = "＋ Retry"
