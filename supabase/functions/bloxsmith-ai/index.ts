@@ -736,15 +736,28 @@ Deno.serve(async (req) => {
       else if (provider === "bedrock") reply = await callBedrock(messages);
       else reply = await callLovable(messages);
     } catch (primaryErr) {
-      // Fall back to Lovable AI if the primary provider fails (auth/network/etc).
-      if (provider !== "lovable") {
-        console.error("Primary provider failed, falling back to Lovable AI:", primaryErr);
+      console.error("Primary provider failed:", primaryErr);
+      // Fallback chain: NVIDIA Nemotron -> Lovable AI (ChatGPT).
+      // Nemotron only makes sense when the primary was an NVIDIA-hosted model.
+      let fellBack = false;
+      if (provider === "nvidia") {
+        try {
+          console.error("Falling back to NVIDIA Nemotron…");
+          usedProvider = "nvidia-nemotron";
+          reply = await callNvidiaNemotron(messages);
+          fellBack = true;
+        } catch (nemotronErr) {
+          console.error("NVIDIA Nemotron fallback failed, falling back to Lovable AI:", nemotronErr);
+        }
+      }
+      if (!fellBack) {
+        if (provider === "lovable") throw primaryErr;
+        // Final fallback: Lovable AI (ChatGPT).
         usedProvider = "lovable";
         reply = await callLovable(messages);
-      } else {
-        throw primaryErr;
       }
     }
+
 
     // Extract structured agent actions if present.
     let actions: unknown = null;
