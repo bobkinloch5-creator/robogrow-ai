@@ -26,7 +26,7 @@ const FAQ = () => {
                 Is Bloxsmith really free?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Yes — Bloxsmith is 100% free. There are no payments, subscriptions, credits, or hidden costs. Just sign up and start building as much as you want.
+                Yes — Bloxsmith is 100% free. There are no payments, subscriptions, credits, or hidden costs. Just download the plugin and start building.
               </AccordionContent>
             </AccordionItem>
 
@@ -54,7 +54,7 @@ const FAQ = () => {
                 How do I install the Roblox Studio plugin?
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Download the plugin from your dashboard, then install it in Roblox Studio via Plugins → Manage Plugins. Sign in with your Bloxsmith account to start building.
+                Download the plugin, install it as a Local Plugin in Studio, and start building. It automatically recognizes your Roblox Studio account — no sign-up, login, or codes are required.
               </AccordionContent>
             </AccordionItem>
 
