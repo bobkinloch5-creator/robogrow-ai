@@ -822,7 +822,101 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
-function jsonError(msg: string, status: number): Response {
+// ---- Hedged (racing) generation -------------------------------------------
+// Instead of waiting for the primary to fully time out before trying a backup,
+// we start the primary and, if it hasn't answered within HEDGE_DELAY_MS, kick
+// off the next candidate IN PARALLEL. Whichever returns a valid answer first
+// wins; the losers are ignored. A failed candidate immediately advances the
+// chain. This slashes p99 latency (a slow/stuck primary no longer blocks the
+// whole request) while still guaranteeing a final Lovable AI attempt.
+type Candidate = { name: string; run: (timeoutMs: number) => Promise<string> };
+
+function buildCandidates(provider: string, messages: ChatMessage[]): Candidate[] {
+  if (provider === "bedrock") {
+    return [
+      { name: "bedrock", run: (_t) => callBedrock(messages) },
+      { name: "lovable", run: (t) => callLovable(messages, t) },
+    ];
+  }
+  if (provider === "lovable") {
+    return [{ name: "lovable", run: (t) => callLovable(messages, t) }];
+  }
+  // Default: NVIDIA GLM primary with fast NVIDIA fallbacks, then Lovable AI.
+  return [
+    { name: "nvidia", run: (_t) => callNvidia(messages) },
+    { name: "nvidia-nemotron", run: (t) => callNvidiaNemotron(messages, t) },
+    { name: "nvidia-gpt-oss", run: (t) => callNvidiaGptOss(messages, t) },
+    { name: "nvidia-deepseek", run: (t) => callNvidiaDeepseek(messages, t) },
+    { name: "lovable", run: (t) => callLovable(messages, t) },
+  ];
+}
+
+function hedgedGenerate(
+  candidates: Candidate[],
+  deadline: number,
+): Promise<{ reply: string; usedProvider: string }> {
+  const remaining = () => deadline - Date.now();
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let started = 0;
+    let active = 0;
+    let lastErr: unknown = { status: 502, msg: "All AI providers failed. Please try again." };
+    let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (result: { reply: string; usedProvider: string }) => {
+      if (settled) return;
+      settled = true;
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      resolve(result);
+    };
+
+    const startNext = () => {
+      if (settled) return;
+      if (started >= candidates.length) {
+        if (active === 0) {
+          settled = true;
+          reject(lastErr);
+        }
+        return;
+      }
+      const cand = candidates[started++];
+      const isLast = started >= candidates.length;
+      let slice = Math.min(FALLBACK_AI_TIMEOUT_MS, remaining() - 300);
+      if (slice < MIN_ATTEMPT_MS) {
+        if (!isLast) {
+          console.error(`Hedge: skipping ${cand.name} — low budget, advancing.`);
+          startNext();
+          return;
+        }
+        // Last resort: give the final candidate whatever time is left.
+        slice = Math.max(2_000, remaining() - 300);
+      }
+
+      active++;
+      console.error(`Hedge: starting ${cand.name} (timeout ${slice}ms, remaining ${remaining()}ms)…`);
+
+      // Schedule a hedge: if nobody has answered by HEDGE_DELAY_MS, race the next.
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      hedgeTimer = setTimeout(() => {
+        if (!settled) startNext();
+      }, HEDGE_DELAY_MS);
+
+      cand
+        .run(slice)
+        .then((reply) => finish({ reply, usedProvider: cand.name }))
+        .catch((err) => {
+          active--;
+          lastErr = err;
+          console.error(`Hedge: ${cand.name} failed:`, err);
+          startNext();
+        });
+    };
+
+    startNext();
+  });
+}
+
+
   return new Response(JSON.stringify({ error: msg }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
