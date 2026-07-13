@@ -916,7 +916,7 @@ function hedgedGenerate(
   });
 }
 
-
+function jsonError(msg: string, status: number): Response {
   return new Response(JSON.stringify({ error: msg }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
