@@ -611,6 +611,70 @@ async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
+// NVIDIA NIM — tertiary fallback using GPT-OSS-120B.
+async function callNvidiaGptOss(messages: ChatMessage[]): Promise<string> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "openai/gpt-oss-120b";
+  if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  const res = await fetchWithTimeout(
+    "https://integrate.api.nvidia.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 4096,
+        stream: false,
+      }),
+    },
+    FALLBACK_AI_TIMEOUT_MS,
+  );
+  if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
+  if (res.status === 401 || res.status === 403)
+    throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
+  if (!res.ok) throw { status: 502, msg: `NVIDIA GPT-OSS error (${res.status}): ${(await res.text()).slice(0, 300)}` };
+  const data = await res.json();
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "NVIDIA GPT-OSS returned an empty response." };
+  return text;
+}
+
+// NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash.
+async function callNvidiaDeepseek(messages: ChatMessage[]): Promise<string> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "deepseek-ai/deepseek-v4-flash";
+  if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  const res = await fetchWithTimeout(
+    "https://integrate.api.nvidia.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 1,
+        top_p: 0.95,
+        max_tokens: 16384,
+        // DeepSeek thinking controls — ignored by models that don't support them.
+        chat_template_kwargs: { thinking: true, reasoning_effort: "high" },
+        stream: false,
+      }),
+    },
+    FALLBACK_AI_TIMEOUT_MS,
+  );
+  if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
+  if (res.status === 401 || res.status === 403)
+    throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
+  if (!res.ok) throw { status: 502, msg: `NVIDIA DeepSeek error (${res.status}): ${(await res.text()).slice(0, 300)}` };
+  const data = await res.json();
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "NVIDIA DeepSeek returned an empty response." };
+  return text;
+}
+
 // Provider abstraction — Bedrock path is ready for when a valid key is supplied.
 async function callBedrock(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("BEDROCK_API_KEY");
