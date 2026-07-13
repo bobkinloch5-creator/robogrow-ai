@@ -506,7 +506,16 @@ function AIService:_attempt(body)
 		if decodeOk and decoded and decoded.detail then
 			warn("[Bloxsmith Backend Detail]: " .. tostring(decoded.detail))
 		end
-		return { ok = false, retryable = RETRYABLE_STATUS[response.StatusCode] == true, error = msg }
+		-- A 429 against the DAILY quota can't succeed on retry until reset,
+		-- so don't burn retries on it — but DO pass the resetAt timestamp
+		-- through so the UI can show a live countdown to when it clears.
+		local isRateLimit = response.StatusCode == 429
+		return {
+			ok = false,
+			retryable = isRateLimit and false or (RETRYABLE_STATUS[response.StatusCode] == true),
+			error = msg,
+			resetAt = decodeOk and decoded and decoded.resetAt or nil,
+		}
 	end
 
 	if not decodeOk or not decoded then
@@ -519,7 +528,7 @@ function AIService:_attempt(body)
 		if decoded.detail then
 			warn("[Bloxsmith Backend Detail]: " .. tostring(decoded.detail))
 		end
-		return { ok = false, retryable = false, error = decoded.error }
+		return { ok = false, retryable = false, error = decoded.error, resetAt = decoded.resetAt }
 	end
 
 	if type(decoded.reply) ~= "string" or decoded.reply == "" then
@@ -2576,19 +2585,90 @@ function App:send(promptText, mode)
 			end
 		else
 			local bubble = self:addBubble("assistant", "⚠️ " .. (result.error or "Request failed."))
-			local retryBtn = button("🔁 Retry Request", { LayoutOrder = 100, BackgroundColor3 = C.Panel, Size = UDim2.new(0, 120, 0, 26) })
-			retryBtn.Parent = bubble
-			retryBtn.Activated:Connect(function()
-				retryBtn:Destroy()
-				local lastPromptText = ""
-				if #self.history > 0 and self.history[#self.history].role == "user" then
-					local last = table.remove(self.history)
-					lastPromptText = last.content
+
+			if type(result.resetAt) == "number" and result.resetAt > 0 then
+				-- Rate-limited with a known reset time: show a live countdown
+				-- instead of a Retry button that can't succeed until reset.
+				local countdownLabel = Create("TextLabel", {
+					Text = "⏳ Calculating…",
+					Font = Theme.FontBold,
+					TextSize = 12,
+					TextColor3 = C.Warning,
+					BackgroundTransparency = 1,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Size = UDim2.new(1, 0, 0, 18),
+					LayoutOrder = 100,
+					Parent = bubble,
+				})
+
+				local resetAtSeconds = result.resetAt / 1000 -- backend sends epoch ms
+				local tickConn
+				local function formatRemaining(secs)
+					if secs <= 0 then return nil end
+					local h = math.floor(secs / 3600)
+					local m = math.floor((secs % 3600) / 60)
+					local s = math.floor(secs % 60)
+					if h > 0 then
+						return ("⏳ Resets in %dh %dm %ds"):format(h, m, s)
+					elseif m > 0 then
+						return ("⏳ Resets in %dm %ds"):format(m, s)
+					else
+						return ("⏳ Resets in %ds"):format(s)
+					end
 				end
-				if lastPromptText ~= "" then
-					self:send(lastPromptText, mode)
+
+				local function updateCountdown()
+					if not countdownLabel or not countdownLabel.Parent then
+						if tickConn then pcall(task.cancel, tickConn) end
+						return
+					end
+					local remaining = resetAtSeconds - os.time()
+					local text = formatRemaining(remaining)
+					if not text then
+						countdownLabel.Text = "✅ Quota reset — you can try again now."
+						countdownLabel.TextColor3 = C.Success
+						if tickConn then pcall(task.cancel, tickConn) end
+						-- Swap in a real Retry button now that the wait is over.
+						local retryBtn = button("🔁 Retry Request", { LayoutOrder = 101, BackgroundColor3 = C.Panel, Size = UDim2.new(0, 120, 0, 26) })
+						retryBtn.Parent = bubble
+						retryBtn.Activated:Connect(function()
+							retryBtn:Destroy()
+							local lastPromptText = ""
+							if #self.history > 0 and self.history[#self.history].role == "user" then
+								local last = table.remove(self.history)
+								lastPromptText = last.content
+							end
+							if lastPromptText ~= "" then
+								self:send(lastPromptText, mode)
+							end
+						end)
+						return
+					end
+					countdownLabel.Text = text
 				end
-			end)
+
+				updateCountdown()
+				tickConn = task.spawn(function()
+					while countdownLabel and countdownLabel.Parent do
+						task.wait(1)
+						updateCountdown()
+					end
+				end)
+			else
+				local retryBtn = button("🔁 Retry Request", { LayoutOrder = 100, BackgroundColor3 = C.Panel, Size = UDim2.new(0, 120, 0, 26) })
+				retryBtn.Parent = bubble
+				retryBtn.Activated:Connect(function()
+					retryBtn:Destroy()
+					local lastPromptText = ""
+					if #self.history > 0 and self.history[#self.history].role == "user" then
+						local last = table.remove(self.history)
+						lastPromptText = last.content
+					end
+					if lastPromptText ~= "" then
+						self:send(lastPromptText, mode)
+					end
+				end)
+			end
 			self:toast(result.error or "Request failed.", "error")
 		end
 		-- Persist the running conversation so Bloxsmith remembers it across
