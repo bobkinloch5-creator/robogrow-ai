@@ -1862,6 +1862,7 @@ function App:refreshSelectionStrip()
 end
 
 function App:mount(gui)
+	self.gui = gui
 	gui.BackgroundColor3 = C.Bg
 	Create("UICorner", { CornerRadius = UDim.new(0, 0), Parent = gui })
 
