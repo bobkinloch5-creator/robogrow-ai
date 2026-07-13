@@ -171,7 +171,7 @@ end
 ]]
 function AIService:searchToolbox(query, limit)
 	local ok, body = pcall(function()
-		return HttpService:JSONEncode({ mode = "toolbox_search", query = query, limit = limit })
+		return HttpService:JSONEncode({ mode = "toolbox_search", query = query, limit = limit, robloxUserId = getRobloxUserId() })
 	end)
 	if not ok then
 		return { ok = false, error = "Failed to encode search." }
