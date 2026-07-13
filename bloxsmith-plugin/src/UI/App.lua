@@ -642,16 +642,46 @@ function App:buildChatView(parent)
 		end)
 	end
 
+	-- Persistent prompt quick-actions — one-tap common builds + auto-fix.
+	local quickRow = Create("ScrollingFrame", {
+		BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26),
+		CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.X,
+		ScrollBarThickness = 3, ScrollBarImageColor3 = C.Accent,
+		ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0,
+		LayoutOrder = 3, Parent = view,
+	})
+	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = quickRow })
+	local quickActions = {
+		{ "🔧 Fix latest error", "__fix__" },
+		{ "🏛 Build a lobby", "Build a polished game lobby with a spawn area, decorated environment and a play button UI.", "generate_system" },
+		{ "🏆 Leaderboard", "Add a global leaderboard using OrderedDataStore that tracks player wins.", "generate_system" },
+		{ "🌗 Day-night cycle", "Add a smooth continuous day-night cycle that animates Lighting.ClockTime.", "generate_system" },
+		{ "🚪 Teleport pads", "Create two linked teleport pads that move the player between them on touch.", "generate_system" },
+		{ "💰 Coin pickups", "Add collectable coins that give the player points and respawn after a short delay.", "generate_system" },
+	}
+	for i, qa in ipairs(quickActions) do
+		local chip = button(qa[1], { Size = UDim2.new(0, 128, 1, 0), BackgroundColor3 = C.PanelAlt, TextSize = 11 })
+		chip.LayoutOrder = i
+		chip.Parent = quickRow
+		chip.Activated:Connect(function()
+			if qa[2] == "__fix__" then
+				self:fixLatestError()
+			else
+				self:send(qa[2], qa[3])
+			end
+		end)
+	end
+
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -184),
+		Size = UDim2.new(1, 0, 1, -218),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.Accent,
 		BorderSizePixel = 0,
-		LayoutOrder = 3,
+		LayoutOrder = 4,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.chatScroll })
