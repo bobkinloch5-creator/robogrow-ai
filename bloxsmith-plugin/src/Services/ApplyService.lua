@@ -901,3 +901,5 @@ function ApplyService:editSelection(op, arg)
 end
 
 return ApplyService
+end
+

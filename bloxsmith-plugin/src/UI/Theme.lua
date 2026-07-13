@@ -60,3 +60,5 @@ function Theme.scoreColor(score)
 end
 
 return Theme
+end
+
