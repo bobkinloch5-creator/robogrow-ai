@@ -1579,6 +1579,17 @@ local DEFAULT_NAMES = {
 	TextButton = true, TextLabel = true, RemoteEvent = true, Value = true,
 }
 
+-- Only scan the same services ContextService shows the AI. Walking the whole
+-- DataModel with game:GetDescendants() previously swept in CoreGui, plugin
+-- widgets (including Bloxsmith's own UI), InsertService caches and other
+-- editor/engine internals — producing false-positive findings that had
+-- nothing to do with the user's actual game, and wasting time on a full-tree
+-- walk of instances no one can act on anyway.
+local INSPECTED_SERVICES = {
+	"Workspace", "ServerScriptService", "ServerStorage", "ReplicatedStorage",
+	"StarterGui", "StarterPlayer", "StarterPack", "Lighting",
+}
+
 function CleanupService.new()
 	return setmetatable({}, CleanupService)
 end
@@ -1588,26 +1599,33 @@ function CleanupService:scan()
 	local defaults, emptyFolders = 0, 0
 	local nameBuckets = {}
 
-	for _, d in ipairs(game:GetDescendants()) do
-		-- Default-named objects.
-		if DEFAULT_NAMES[d.Name] then
-			defaults += 1
-		end
-		-- Empty folders.
-		if d:IsA("Folder") and #d:GetChildren() == 0 then
-			emptyFolders += 1
-			table.insert(findings, {
-				severity = "Low",
-				title = "Empty folder",
-				advice = "Remove or populate this folder.",
-				path = d:GetFullName(),
-			})
-		end
-		-- Duplicate sibling names.
-		local parent = d.Parent
-		if parent then
-			local key = parent:GetFullName() .. "|" .. d.Name
-			nameBuckets[key] = (nameBuckets[key] or 0) + 1
+	for _, svcName in ipairs(INSPECTED_SERVICES) do
+		local ok, svc = pcall(function()
+			return game:GetService(svcName)
+		end)
+		if ok and svc then
+			for _, d in ipairs(svc:GetDescendants()) do
+				-- Default-named objects.
+				if DEFAULT_NAMES[d.Name] then
+					defaults += 1
+				end
+				-- Empty folders.
+				if d:IsA("Folder") and #d:GetChildren() == 0 then
+					emptyFolders += 1
+					table.insert(findings, {
+						severity = "Low",
+						title = "Empty folder",
+						advice = "Remove or populate this folder.",
+						path = d:GetFullName(),
+					})
+				end
+				-- Duplicate sibling names.
+				local parent = d.Parent
+				if parent then
+					local key = parent:GetFullName() .. "|" .. d.Name
+					nameBuckets[key] = (nameBuckets[key] or 0) + 1
+				end
+			end
 		end
 	end
 
@@ -1619,8 +1637,11 @@ function CleanupService:scan()
 		})
 	end
 
+	-- Raised from 5 to 12: numbered props, particle-effect parts, and small
+	-- groups of NPCs/enemies are common and intentional in real games. A
+	-- lower bar was flagging normal game content as a naming problem.
 	for key, count in pairs(nameBuckets) do
-		if count >= 5 then
+		if count >= 12 then
 			local name = string.split(key, "|")[2]
 			table.insert(findings, {
 				severity = "Low",
@@ -2063,18 +2084,36 @@ function SecurityScanner:scan()
 		end)
 		if ok and src then
 			for _, rule in ipairs(RULES) do
-				if string.find(src, rule[1]) then
-					-- Refine: a while-true with a wait inside is fine.
-					if not (rule[3] == "possible unyielding loop" and string.find(src, "task%.wait")) then
-						table.insert(findings, {
-							severity = rule[2],
-							title = rule[3],
-							advice = rule[4],
-							path = s:GetFullName(),
-						})
-					end
+			local matchStart = string.find(src, rule[1])
+			if matchStart then
+				local isSafe = false
+				if rule[3] == "possible unyielding loop" then
+					-- The old check was `string.find(src, "task%.wait")` against
+					-- the WHOLE script — so a real, unwaited infinite loop would
+					-- pass as "safe" just because some UNRELATED function
+					-- elsewhere in the same file (e.g. a cooldown) happened to
+					-- call task.wait(). A full block-depth parser is fragile
+					-- against nested if/for/function blocks, so instead we
+					-- check a generous local window after the loop opens
+					-- (2000 chars — comfortably covers a real loop body without
+					-- needing a full Lua parser) for any wait/yield call.
+					local windowEnd = math.min(#src, matchStart + 2000)
+					local body = src:sub(matchStart, windowEnd)
+					isSafe = (string.find(body, "task%.wait") ~= nil)
+						or (string.find(body, "task%.yield") ~= nil)
+						or (string.find(body, "%f[%a]wait%f[%A]") ~= nil)
+						or (string.find(body, "coroutine%.yield") ~= nil)
+				end
+				if not isSafe then
+					table.insert(findings, {
+						severity = rule[2],
+						title = rule[3],
+						advice = rule[4],
+						path = s:GetFullName(),
+					})
 				end
 			end
+		end
 
 			-- Client-side RemoteEvent handlers that touch leaderstats = trust-the-client smell.
 			if s:IsA("Script") and string.find(src, "OnServerEvent") and not string.find(src, "typeof") and not string.find(src, "assert") then

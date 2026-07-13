@@ -51,18 +51,36 @@ function SecurityScanner:scan()
 		end)
 		if ok and src then
 			for _, rule in ipairs(RULES) do
-				if string.find(src, rule[1]) then
-					-- Refine: a while-true with a wait inside is fine.
-					if not (rule[3] == "possible unyielding loop" and string.find(src, "task%.wait")) then
-						table.insert(findings, {
-							severity = rule[2],
-							title = rule[3],
-							advice = rule[4],
-							path = s:GetFullName(),
-						})
-					end
+			local matchStart = string.find(src, rule[1])
+			if matchStart then
+				local isSafe = false
+				if rule[3] == "possible unyielding loop" then
+					-- The old check was `string.find(src, "task%.wait")` against
+					-- the WHOLE script — so a real, unwaited infinite loop would
+					-- pass as "safe" just because some UNRELATED function
+					-- elsewhere in the same file (e.g. a cooldown) happened to
+					-- call task.wait(). A full block-depth parser is fragile
+					-- against nested if/for/function blocks, so instead we
+					-- check a generous local window after the loop opens
+					-- (2000 chars — comfortably covers a real loop body without
+					-- needing a full Lua parser) for any wait/yield call.
+					local windowEnd = math.min(#src, matchStart + 2000)
+					local body = src:sub(matchStart, windowEnd)
+					isSafe = (string.find(body, "task%.wait") ~= nil)
+						or (string.find(body, "task%.yield") ~= nil)
+						or (string.find(body, "%f[%a]wait%f[%A]") ~= nil)
+						or (string.find(body, "coroutine%.yield") ~= nil)
+				end
+				if not isSafe then
+					table.insert(findings, {
+						severity = rule[2],
+						title = rule[3],
+						advice = rule[4],
+						path = s:GetFullName(),
+					})
 				end
 			end
+		end
 
 			-- Client-side RemoteEvent handlers that touch leaderstats = trust-the-client smell.
 			if s:IsA("Script") and string.find(src, "OnServerEvent") and not string.find(src, "typeof") and not string.find(src, "assert") then
