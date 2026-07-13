@@ -378,7 +378,6 @@ Config.MaxCustomInstructions = 5000
 
 return Config
 end
-end
 
 _modules["Services.AIService"] = function()
 
