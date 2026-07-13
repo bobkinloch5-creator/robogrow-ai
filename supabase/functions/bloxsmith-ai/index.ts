@@ -1154,8 +1154,8 @@ Deno.serve(async (req) => {
 
     const mode = typeof body.mode === "string" ? body.mode : "chat";
 
-    // Owner-only allow-list management from the website /admin page.
-    if (mode === "admin_list" || mode === "admin_add" || mode === "admin_remove") {
+    // Owner-only management from the website /admin page.
+    if (mode.startsWith("admin_")) {
       return await handleAdmin(mode, body);
     }
 
@@ -1163,19 +1163,30 @@ Deno.serve(async (req) => {
       return jsonError("Unsupported mode.", 400);
     }
 
-    // Access gate: OPEN to everyone (public). The allow-list table, the
-    // isRobloxUserAllowed() helper, and the admin page are kept intact so
-    // access can be re-restricted later by re-enabling that check here.
-    // Instead of an allow-list, we enforce a per-Roblox-user DAILY rate limit.
+    // Access control is owner-configurable from /admin:
+    //  • access_mode "public"    → anyone can use the plugin
+    //  • access_mode "allowlist" → only Roblox accounts on the allow-list
+    // In BOTH modes a per-Roblox-user DAILY rate limit is enforced.
     const robloxUserId = Number(body.robloxUserId) || 0;
     if (mode !== "support" && mode !== "chat") {
-      if (!(await isWithinDailyLimit(robloxUserId))) {
+      const settings = await getSettings();
+
+      if (settings.access_mode === "allowlist" && !(await isRobloxUserAllowed(robloxUserId))) {
+        const msg = robloxUserId > 0
+          ? `Access isn't enabled for your Roblox account (ID ${robloxUserId}). Ask the owner of Bloxsmith to add this Roblox ID to the allow-list.`
+          : "Bloxsmith couldn't detect your Roblox account. Make sure you're signed in to Roblox Studio, then try again.";
+        return jsonError(msg, 403);
+      }
+
+      if (!(await isWithinDailyLimit(robloxUserId, settings.daily_request_limit))) {
         return jsonError(
-          `You've hit today's limit of ${DAILY_REQUEST_LIMIT} builds. Your quota resets at midnight UTC — try again then.`,
+          `You've hit today's limit of ${settings.daily_request_limit} builds. Your quota resets at midnight UTC — try again then.`,
           429,
         );
       }
     }
+
+
 
 
 
