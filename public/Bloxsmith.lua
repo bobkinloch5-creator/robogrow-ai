@@ -1668,7 +1668,11 @@ local function describe(inst)
 			return inst.Source
 		end)
 		if ok then
-			info.source = string.sub(src, 1, 6000)
+			if #src > 6000 then
+				info.source = string.sub(src, 1, 6000) .. "\n--[[ ...TRUNCATED: script is " .. #src .. " chars, only the first 6000 shown to the AI... ]]"
+			else
+				info.source = src
+			end
 		end
 	elseif inst:IsA("BasePart") then
 		info.size = tostring(inst.Size)
@@ -1713,14 +1717,15 @@ function ContextService:getProjectTree()
 	local budget = Config.MaxContextInstances
 	local counts = { scripts = 0, parts = 0, guis = 0, remotes = 0, total = 0 }
 
-	local function walk(inst, depth)
-		if budget <= 0 or depth > 4 then
-			return nil
+	local function walk(inst, depth, localBudget)
+		if localBudget <= 0 or depth > 4 then
+			return nil, localBudget
 		end
 		local node = { name = inst.Name, class = inst.ClassName }
 		local kids = inst:GetChildren()
 		local childNodes = {}
 		for _, child in ipairs(kids) do
+			localBudget -= 1
 			budget -= 1
 			counts.total += 1
 			if child:IsA("LuaSourceContainer") then
@@ -1732,10 +1737,11 @@ function ContextService:getProjectTree()
 			elseif child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
 				counts.remotes += 1
 			end
-			if budget <= 0 then
+			if localBudget <= 0 then
 				break
 			end
-			local sub = walk(child, depth + 1)
+			local sub
+			sub, localBudget = walk(child, depth + 1, localBudget)
 			if sub then
 				table.insert(childNodes, sub)
 			end
@@ -1743,16 +1749,27 @@ function ContextService:getProjectTree()
 		if #childNodes > 0 then
 			node.children = childNodes
 		end
-		return node
+		return node, localBudget
 	end
 
 	local tree = {}
+	-- Split the budget evenly across services up front so one big service
+	-- (Workspace, on almost any real game) can't silently eat the entire
+	-- walk and make every later service falsely look empty to the AI. Any
+	-- unused share from an early, smaller service rolls forward to the rest.
+	local perServiceBudget = math.max(1, math.floor(budget / #INSPECTED_SERVICES))
 	for _, svcName in ipairs(INSPECTED_SERVICES) do
 		local ok, svc = pcall(function()
 			return game:GetService(svcName)
 		end)
 		if ok and svc then
-			table.insert(tree, walk(svc, 0))
+			local thisBudget = math.min(perServiceBudget, math.max(budget, 0))
+			local node, leftover = walk(svc, 0, thisBudget)
+			-- Roll back whatever this service didn't use into the shared pool.
+			if leftover and leftover > 0 then
+				budget += leftover
+			end
+			table.insert(tree, node)
 		end
 	end
 	local result = { tree = tree, counts = counts }
