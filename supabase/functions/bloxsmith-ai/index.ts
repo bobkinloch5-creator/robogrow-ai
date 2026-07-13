@@ -83,16 +83,40 @@ async function isRobloxUserAllowed(robloxUserId: number): Promise<boolean> {
   }
 }
 
+// App settings (owner-configurable from /admin). Falls back to safe defaults.
+type AppSettings = { access_mode: "public" | "allowlist"; daily_request_limit: number };
+async function getSettings(): Promise<AppSettings> {
+  const fallback: AppSettings = {
+    access_mode: "public",
+    daily_request_limit: Number(Deno.env.get("DAILY_REQUEST_LIMIT")) || 100,
+  };
+  try {
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("app_settings")
+      .select("access_mode, daily_request_limit")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error || !data) return fallback;
+    return {
+      access_mode: data.access_mode === "allowlist" ? "allowlist" : "public",
+      daily_request_limit: Number(data.daily_request_limit) || fallback.daily_request_limit,
+    };
+  } catch (_) {
+    return fallback;
+  }
+}
+
 // Records one request against this Roblox user's daily quota and returns whether
 // they are still within the limit. Fails OPEN (returns true) on any error so a
 // backend hiccup never blocks legitimate users.
-async function isWithinDailyLimit(robloxUserId: number): Promise<boolean> {
+async function isWithinDailyLimit(robloxUserId: number, dailyLimit: number): Promise<boolean> {
   if (!robloxUserId || robloxUserId <= 0) return true; // can't identify — don't block
   try {
     const sb = getServiceClient();
     const { data, error } = await sb.rpc("check_and_increment_roblox_usage", {
       _roblox_user_id: robloxUserId,
-      _daily_limit: DAILY_REQUEST_LIMIT,
+      _daily_limit: dailyLimit,
     });
     if (error) {
       console.error("Daily-limit check failed:", error);
@@ -104,6 +128,7 @@ async function isWithinDailyLimit(robloxUserId: number): Promise<boolean> {
     return true;
   }
 }
+
 
 // Resolve a Roblox username to its numeric user id via the public Roblox API.
 async function resolveRobloxUsername(username: string): Promise<{ id: number; name: string } | null> {
