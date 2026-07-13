@@ -1381,25 +1381,22 @@ function App:buildToolboxView(parent)
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
 
-	-- Render the recents strip from persisted storage.
-	local function refreshRecents()
-		for _, c in ipairs(recentsHolder:GetChildren()) do
-			if not c:IsA("UIListLayout") then c:Destroy() end
-		end
-		local recents = self:loadToolboxRecents()
-		if #recents == 0 then return end
+	-- Render a horizontal chip strip of saved models (favorites / recents).
+	local function makeStrip(title, items, order, removeFn)
+		local wrap = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = recentsHolder })
+		Create("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, Parent = wrap })
 		Create("TextLabel", {
-			Text = "🕘 Recently inserted", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim,
+			Text = title, Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim,
 			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-			Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = recentsHolder,
+			Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = wrap,
 		})
 		local strip = Create("ScrollingFrame", {
 			BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), CanvasSize = UDim2.new(0, 0, 0, 0),
 			AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollBarThickness = 3, ScrollBarImageColor3 = C.Accent,
-			ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0, LayoutOrder = 1, Parent = recentsHolder,
+			ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0, LayoutOrder = 1, Parent = wrap,
 		})
 		Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = strip })
-		for i, item in ipairs(recents) do
+		for i, item in ipairs(items) do
 			local chip = button("＋ " .. (item.name or ("Asset " .. tostring(item.id))), { Size = UDim2.new(0, 130, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
 			chip.LayoutOrder = i
 			chip.Parent = strip
@@ -1416,10 +1413,39 @@ function App:buildToolboxView(parent)
 					end
 				end)
 			end)
+			if removeFn then
+				local x = button("✕", { Size = UDim2.new(0, 22, 1, 0), BackgroundColor3 = C.PanelAlt, TextSize = 11 })
+				x.LayoutOrder = i
+				x.Parent = strip
+				x.Activated:Connect(function()
+					removeFn(item.id)
+				end)
+			end
+		end
+	end
+
+	-- Render favorites first, then recently inserted, from persisted storage.
+	local refreshRecents
+	refreshRecents = function()
+		for _, c in ipairs(recentsHolder:GetChildren()) do
+			if not c:IsA("UIListLayout") then c:Destroy() end
+		end
+		local favs = self:loadToolboxFavorites()
+		if #favs > 0 then
+			makeStrip("⭐ Favorites", favs, 0, function(id)
+				self:removeToolboxFavorite(id)
+				refreshRecents()
+			end)
+		end
+		local recents = self:loadToolboxRecents()
+		if #recents > 0 then
+			makeStrip("🕘 Recently inserted", recents, 1)
 		end
 	end
 	self._refreshToolboxRecents = refreshRecents
 	refreshRecents()
+
+
 
 	local function clearResults()
 		for _, c in ipairs(results:GetChildren()) do
