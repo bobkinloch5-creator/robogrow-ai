@@ -263,6 +263,14 @@ function App:startThinking()
 		BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = holder,
 	})
+
+	-- Cancel button — lets the user abandon a long build. The network call can't
+	-- be aborted mid-flight, so cancelling flags the handle so its result is
+	-- discarded and the UI is freed immediately.
+	local handle = { cancelled = false }
+	local cancelBtn = button("✕ Cancel", { Size = UDim2.new(0, 78, 0, 22), BackgroundColor3 = C.Panel, TextSize = 11 })
+	cancelBtn.Parent = holder
+
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
 
 	local phases = {
@@ -287,14 +295,22 @@ function App:startThinking()
 		end
 	end)
 
-	return {
-		stop = function()
-			running = false
-			if holder and holder.Parent then
-				holder:Destroy()
-			end
-		end,
-	}
+	handle.stop = function()
+		running = false
+		if holder and holder.Parent then
+			holder:Destroy()
+		end
+	end
+
+	cancelBtn.Activated:Connect(function()
+		handle.cancelled = true
+		handle.stop()
+		self.busy = false
+		self.sendBtn.Text = "Send"
+		self:toast("Build cancelled.", "warning")
+	end)
+
+	return handle
 end
 
 
@@ -394,6 +410,11 @@ function App:send(promptText, mode)
 			messages = self.history,
 			context = context,
 		})
+		-- If the user cancelled while the request was in flight, discard the
+		-- result entirely — the UI was already freed by the cancel handler.
+		if thinkingHandle.cancelled then
+			return
+		end
 		thinkingHandle.stop()
 		self.busy = false
 		self.sendBtn.Text = "Send"
@@ -496,22 +517,52 @@ function App:buildChatView(parent)
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(6) })
 
+	-- Selection-aware quick edits — instant, undoable tweaks to whatever is
+	-- selected in Studio (no AI round-trip needed).
+	local selRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 2, Parent = view })
+	Create("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 4),
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Parent = selRow,
+	})
+	local selEdits = {
+		{ "➕ Bigger", "scale", 1.25 },
+		{ "➖ Smaller", "scale", 0.8 },
+		{ "⧉ Duplicate", "duplicate" },
+		{ "⚓ Anchor", "anchor", true },
+		{ "🗑 Delete", "delete" },
+	}
+	for _, e in ipairs(selEdits) do
+		local chip = button(e[1], { Size = UDim2.new(0, 78, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
+		chip.Parent = selRow
+		chip.Activated:Connect(function()
+			local res = self.deps.apply:editSelection(e[2], e[3])
+			if res.ok then
+				self:toast(("Edited %d object(s). Ctrl+Z to undo."):format(res.count or 1), "success")
+				self:refreshSelectionStrip()
+			else
+				self:toast(res.error or "Selection edit failed.", "warning")
+			end
+		end)
+	end
+
 	-- Chat scroll
 	self.chatScroll = Create("ScrollingFrame", {
 		BackgroundColor3 = C.BgAlt,
-		Size = UDim2.new(1, 0, 1, -150),
+		Size = UDim2.new(1, 0, 1, -184),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
 		ScrollBarImageColor3 = C.Accent,
 		BorderSizePixel = 0,
-		LayoutOrder = 2,
+		LayoutOrder = 3,
 		Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	Create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.chatScroll })
 
 	-- Mode buttons row
-	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 3, Parent = view })
+	local modeRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26), LayoutOrder = 4, Parent = view })
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = modeRow })
 	local modes = { { "Chat", "chat" }, { "Generate", "agent" }, { "Fix", "fix_script" }, { "Explain", "explain_script" }, { "Optimize", "optimize_script" } }
 	self.modeButtons = {}
@@ -525,7 +576,7 @@ function App:buildChatView(parent)
 	end
 
 	-- Input row
-	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 4, Parent = view })
+	local inputRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), LayoutOrder = 5, Parent = view })
 	self.input = Create("TextBox", {
 		PlaceholderText = "Ask Bloxsmith or describe what to build…",
 		Text = "",
@@ -1069,8 +1120,36 @@ function App:buildToolboxView(parent)
 	searchBtn.Position = UDim2.new(1, -66, 0, 0)
 	searchBtn.Parent = searchRow
 
+	-- Category filter chips — narrow searches to a kind of asset.
+	local currentCategory = ""
+	local categoryRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 24), LayoutOrder = 2, Parent = view })
+	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = categoryRow })
+	local categories = {
+		{ "All", "" },
+		{ "Models", "model" },
+		{ "Vehicles", "vehicle" },
+		{ "Buildings", "building" },
+		{ "Nature", "tree nature" },
+		{ "Weapons", "weapon" },
+	}
+	local catButtons = {}
+	local function setCategory(value, btn)
+		currentCategory = value
+		for _, cb in ipairs(catButtons) do
+			cb.BackgroundColor3 = (cb == btn) and C.Accent or C.Panel
+		end
+	end
+	for _, c in ipairs(categories) do
+		local cb = button(c[1], { Size = UDim2.new(0, 66, 1, 0), BackgroundColor3 = (c[2] == "") and C.Accent or C.Panel, TextSize = 11 })
+		cb.Parent = categoryRow
+		table.insert(catButtons, cb)
+		cb.Activated:Connect(function()
+			setCategory(c[2], cb)
+		end)
+	end
+
 	-- Insert-by-ID row (reliable fallback)
-	local idRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 2, Parent = view })
+	local idRow = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 3, Parent = view })
 	local idBox = Create("TextBox", {
 		PlaceholderText = "…or paste a model Asset ID", Text = "", Font = Theme.FontMono, TextSize = 12,
 		TextColor3 = C.Text, PlaceholderColor3 = C.TextFaint, BackgroundColor3 = C.Panel,
@@ -1081,16 +1160,60 @@ function App:buildToolboxView(parent)
 	idBtn.Position = UDim2.new(1, -66, 0, 0)
 	idBtn.Parent = idRow
 
+	-- Recently inserted strip — one-click re-insert of past models.
+	local recentsHolder = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 4, Parent = view })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = recentsHolder })
+
 	-- Results scroll
 	local results = Create("ScrollingFrame", {
-		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -84), CanvasSize = UDim2.new(0, 0, 0, 0),
+		BackgroundColor3 = C.BgAlt, Size = UDim2.new(1, 0, 1, -152), CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6, ScrollBarImageColor3 = C.Accent,
-		BorderSizePixel = 0, LayoutOrder = 3, Parent = view,
+		BorderSizePixel = 0, LayoutOrder = 5, Parent = view,
 	}, { corner(UDim.new(0, 6)), pad(8) })
 	local grid = Create("UIGridLayout", {
 		CellSize = UDim2.new(0.5, -6, 0, 176), CellPadding = UDim2.new(0, 8, 0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder, Parent = results,
 	})
+
+	-- Render the recents strip from persisted storage.
+	local function refreshRecents()
+		for _, c in ipairs(recentsHolder:GetChildren()) do
+			if not c:IsA("UIListLayout") then c:Destroy() end
+		end
+		local recents = self:loadToolboxRecents()
+		if #recents == 0 then return end
+		Create("TextLabel", {
+			Text = "🕘 Recently inserted", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim,
+			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+			Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = recentsHolder,
+		})
+		local strip = Create("ScrollingFrame", {
+			BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), CanvasSize = UDim2.new(0, 0, 0, 0),
+			AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollBarThickness = 3, ScrollBarImageColor3 = C.Accent,
+			ScrollingDirection = Enum.ScrollingDirection.X, BorderSizePixel = 0, LayoutOrder = 1, Parent = recentsHolder,
+		})
+		Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = strip })
+		for i, item in ipairs(recents) do
+			local chip = button("＋ " .. (item.name or ("Asset " .. tostring(item.id))), { Size = UDim2.new(0, 130, 1, 0), BackgroundColor3 = C.Panel, TextSize = 11 })
+			chip.LayoutOrder = i
+			chip.Parent = strip
+			chip.Activated:Connect(function()
+				chip.Text = "Inserting…"
+				task.spawn(function()
+					local res = self.deps.apply:insertAsset(item.id, item.name)
+					if res.ok then
+						self:toast(("Re-inserted '%s' — Ctrl+Z to undo."):format(item.name or "model"), "success")
+						chip.Text = "✓ Inserted"
+					else
+						self:toast(res.error or "Insert failed.", "error")
+						chip.Text = "＋ Retry"
+					end
+				end)
+			end)
+		end
+	end
+	self._refreshToolboxRecents = refreshRecents
+	refreshRecents()
 
 	local function clearResults()
 		for _, c in ipairs(results:GetChildren()) do
@@ -1147,6 +1270,8 @@ function App:buildToolboxView(parent)
 							or ("Inserted '%s' (Ctrl+Z to undo)"):format(item.name or "model")
 						self:toast(msg .. " — Ctrl+Z to undo", "success")
 						insertBtn.Text = "✓ Inserted"
+						self:addToolboxRecent(item.id, item.name)
+						refreshRecents()
 					else
 						self:toast(res.error or "Insert failed.", "error")
 						insertBtn.Text = "＋ Retry"
@@ -1165,10 +1290,13 @@ function App:buildToolboxView(parent)
 	end
 
 	local function runSearch(query)
-		if not query or query == "" then return end
+		query = query and query:gsub("^%s+", ""):gsub("%s+$", "") or ""
+		-- Blend in the active category so filters narrow the results.
+		local full = (currentCategory ~= "") and (currentCategory .. " " .. query) or query
+		if full == "" then return end
 		status("🔎 Searching the Toolbox…")
 		task.spawn(function()
-			local res = self.deps.ai:searchToolbox(query)
+			local res = self.deps.ai:searchToolbox(full)
 			if res.ok then
 				renderResults(res.results or {})
 			else
@@ -1198,13 +1326,49 @@ function App:buildToolboxView(parent)
 					or ("Inserted asset " .. id)
 				self:toast(msg .. " — Ctrl+Z to undo", "success")
 				idBox.Text = ""
-
+				self:addToolboxRecent(id, "Asset " .. tostring(id))
+				refreshRecents()
 			else
 				self:toast(res.error or "Insert failed.", "error")
 			end
 		end)
 	end)
 end
+
+-- Toolbox recents — persisted list of {id, name} for one-click re-insert.
+local TOOLBOX_RECENTS_KEY = "Bloxsmith_ToolboxRecents"
+
+function App:loadToolboxRecents()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(TOOLBOX_RECENTS_KEY)
+	end)
+	if ok and type(data) == "table" then
+		return data
+	end
+	return {}
+end
+
+function App:addToolboxRecent(id, name)
+	id = tonumber(id)
+	if not id then
+		return
+	end
+	local list = self:loadToolboxRecents()
+	-- De-dupe: drop any existing entry with the same id, then prepend.
+	for i = #list, 1, -1 do
+		if tonumber(list[i].id) == id then
+			table.remove(list, i)
+		end
+	end
+	table.insert(list, 1, { id = id, name = name or ("Asset " .. tostring(id)) })
+	while #list > 12 do
+		table.remove(list)
+	end
+	pcall(function()
+		self.deps.plugin:SetSetting(TOOLBOX_RECENTS_KEY, list)
+	end)
+end
+
 
 -- A labelled control that cycles through a list of options on click and
 -- persists the chosen value to a plugin setting.

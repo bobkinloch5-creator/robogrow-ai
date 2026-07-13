@@ -8,10 +8,22 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.2.2"
+Config.Version = "3.3.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.3.0",
+		date = "2026-07-13",
+		title = "Selection Edits, Recents & Cancel",
+		changes = {
+			"NEW: Selection-aware quick edits in Chat — Bigger, Smaller, Duplicate, Anchor and Delete act instantly on whatever's selected in Studio (one Ctrl+Z undoes each).",
+			"NEW: Toolbox now remembers recently inserted models so you can re-drop them with one click.",
+			"NEW: Toolbox category filters (Models, Vehicles, Buildings, Nature, Weapons) to narrow searches fast.",
+			"NEW: Cancel button on in-flight builds — abandon a long request and get the UI back immediately.",
+		},
+	},
+
 	{
 		version = "3.2.2",
 		date = "2026-07-12",

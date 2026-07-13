@@ -690,4 +690,84 @@ function ApplyService:resetPlace(keepBaseplate)
 	return { ok = true, removed = removed }
 end
 
+-- Direct, instant edits on the current Studio selection, grouped into a single
+-- undo waypoint. Powers the selection-aware quick-action chips in the chat view
+-- ("bigger", "smaller", "duplicate", "anchor", "recolor", "delete") so common
+-- tweaks don't need a full AI round-trip.
+function ApplyService:editSelection(op, arg)
+	local sel = Selection:Get()
+	if #sel == 0 then
+		return { ok = false, error = "Select something in Studio first." }
+	end
+
+	local recordId = ChangeHistoryService:TryBeginRecording("Bloxsmith " .. tostring(op) .. " selection")
+	local count = 0
+	local newSelection = {}
+
+	local function eachPart(inst, fn)
+		if inst:IsA("BasePart") then
+			fn(inst)
+		end
+		for _, d in ipairs(inst:GetDescendants()) do
+			if d:IsA("BasePart") then
+				fn(d)
+			end
+		end
+	end
+
+	for _, inst in ipairs(sel) do
+		pcall(function()
+			if op == "scale" then
+				local factor = tonumber(arg) or 1
+				if inst:IsA("Model") then
+					local okScale = pcall(function()
+						inst:ScaleTo((inst:GetScale() or 1) * factor)
+					end)
+					if okScale then
+						count += 1
+					end
+				elseif inst:IsA("BasePart") then
+					inst.Size = inst.Size * factor
+					count += 1
+				end
+			elseif op == "anchor" then
+				eachPart(inst, function(p)
+					p.Anchored = arg and true or false
+				end)
+				count += 1
+			elseif op == "color" then
+				local c = parseColor(arg)
+				if c then
+					eachPart(inst, function(p)
+						p.Color = c
+					end)
+					count += 1
+				end
+			elseif op == "duplicate" then
+				local clone = inst:Clone()
+				clone.Parent = inst.Parent
+				table.insert(newSelection, clone)
+				count += 1
+			elseif op == "delete" then
+				inst.Parent = nil
+				count += 1
+			end
+		end)
+	end
+
+	if recordId then
+		ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
+	end
+	if #newSelection > 0 then
+		pcall(function()
+			Selection:Set(newSelection)
+		end)
+	end
+
+	if count == 0 then
+		return { ok = false, error = "Nothing in the selection could be edited that way." }
+	end
+	return { ok = true, count = count }
+end
+
 return ApplyService
