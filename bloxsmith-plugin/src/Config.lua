@@ -172,6 +172,7 @@ Config.PublishableKey =
 
 Config.RequestTimeout = 60
 Config.MaxContextInstances = 400 -- cap hierarchy walk for performance
+Config.MaxSelectionContext = 40 -- how many selected instances the AI can see at once
 
 -- Persisted setting keys
 Config.Settings = {
