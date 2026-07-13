@@ -1513,12 +1513,20 @@ function App:buildToolboxView(parent)
 				end)
 			end)
 
+			-- Favorite toggle — pin a model to the favorites strip for instant re-use.
+			local favBtn = button(self:isToolboxFavorite(item.id) and "⭐ Favorited" or "☆ Favorite", { Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = C.Panel, TextSize = 10, LayoutOrder = 3 })
+			favBtn.Parent = card
+			favBtn.Activated:Connect(function()
+				local nowFav = self:toggleToolboxFavorite(item.id, item.name)
+				favBtn.Text = nowFav and "⭐ Favorited" or "☆ Favorite"
+				refreshRecents()
+			end)
 
 			-- Asset ID row at the bottom (also copy-selectable via the search box).
 			Create("TextLabel", {
 				Text = "ID: " .. tostring(item.id or "?"), Font = Theme.FontMono, TextSize = 10,
 				TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextTruncate = Enum.TextTruncate.AtEnd,
-				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 12), LayoutOrder = 3, Parent = card,
+				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 12), LayoutOrder = 4, Parent = card,
 			})
 		end
 	end
