@@ -1216,6 +1216,70 @@ function App:buildToolsView(parent)
 			box.Text = ""
 		end)
 	end
+
+	-- Prompt presets — save the current description and re-run it later.
+	local savePreset = button("💾 Save prompt as preset", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+	savePreset.Parent = view
+	local presetHolder = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = view })
+	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = presetHolder })
+	local function refreshPresets()
+		for _, c in ipairs(presetHolder:GetChildren()) do
+			if not c:IsA("UIListLayout") then c:Destroy() end
+		end
+		local presets = self:loadPromptPresets()
+		if #presets == 0 then return end
+		Create("TextLabel", { Text = "⭐ Saved presets (tap to load, ✕ to remove)", Font = Theme.FontBold, TextSize = 11, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 14), LayoutOrder = 0, Parent = presetHolder })
+		for i, p in ipairs(presets) do
+			local rowf = Create("Frame", { BackgroundColor3 = C.Panel, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = i, Parent = presetHolder }, { corner(UDim.new(0, 6)), stroke(C.Border) })
+			local load = Create("TextButton", { Text = "  " .. p, Font = Theme.Font, TextSize = 12, TextColor3 = C.Text, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Size = UDim2.new(1, -32, 1, 0), Parent = rowf })
+			load.Activated:Connect(function()
+				box.Text = p
+				self:toast("Preset loaded into the box.", "success")
+			end)
+			local del = button("✕", { Size = UDim2.new(0, 26, 0, 24), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+			del.Position = UDim2.new(1, -28, 0.5, -12)
+			del.Parent = rowf
+			del.Activated:Connect(function()
+				local list = self:loadPromptPresets()
+				table.remove(list, i)
+				self:savePromptPresets(list)
+				refreshPresets()
+			end)
+		end
+	end
+	savePreset.Activated:Connect(function()
+		local txt = (box.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+		if txt == "" then
+			self:toast("Type a description first.", "warning")
+			return
+		end
+		local list = self:loadPromptPresets()
+		table.insert(list, 1, txt)
+		while #list > 15 do
+			table.remove(list)
+		end
+		self:savePromptPresets(list)
+		refreshPresets()
+		self:toast("Preset saved.", "success")
+	end)
+	refreshPresets()
+end
+
+-- Prompt presets storage (persisted via plugin settings).
+local PROMPT_PRESETS_KEY = "Bloxsmith_PromptPresets"
+function App:loadPromptPresets()
+	local ok, data = pcall(function()
+		return self.deps.plugin:GetSetting(PROMPT_PRESETS_KEY)
+	end)
+	if ok and type(data) == "table" then
+		return data
+	end
+	return {}
+end
+function App:savePromptPresets(list)
+	pcall(function()
+		self.deps.plugin:SetSetting(PROMPT_PRESETS_KEY, list)
+	end)
 end
 
 --========================================================================
