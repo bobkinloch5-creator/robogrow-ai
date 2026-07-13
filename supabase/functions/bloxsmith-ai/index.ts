@@ -488,7 +488,7 @@ async function callLovable(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIME
     timeoutMs,
   );
   if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
-  if (res.status === 402) throw { status: 402, msg: "AI credits exhausted. Add credits to keep generating." };
+  if (res.status === 402) throw { status: 503, msg: "Backup AI is temporarily unavailable." };
   if (!res.ok) throw { status: 502, msg: `AI provider error (${res.status}): ${(await res.text()).slice(0, 300)}` };
   const data = await res.json();
   const text = extractAiText(data);
@@ -678,6 +678,126 @@ async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_
   return text;
 }
 
+function isMainMenuRequest(text: string): boolean {
+  const t = text.toLowerCase();
+  return (
+    (t.includes("main menu") || t.includes("start menu") || t.includes("menu screen") || t.includes("title screen")) &&
+    (t.includes("menu") || t.includes("ui") || t.includes("screen"))
+  );
+}
+
+function buildMainMenuActionsResponse(): { reply: string; actions: unknown[] } {
+  const actions: unknown[] = [
+    { action: "create_instance", path: "StarterGui", class: "ScreenGui", name: "BloxsmithMainMenu", properties: { IgnoreGuiInset: true, ResetOnSpawn: false, DisplayOrder: 50, ZIndexBehavior: "Sibling" } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu", class: "Frame", name: "Background", properties: { Size: [1, 0, 1, 0], BackgroundColor3: "#07111F", BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/Background", class: "UIGradient", name: "DeepOceanGradient", properties: { Rotation: 35, Color: [{ time: 0, color: "#050B16" }, { time: 0.52, color: "#0A1B35" }, { time: 1, color: "#073A4E" }] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/Background", class: "Frame", name: "TopRule", properties: { AnchorPoint: [0.5, 0], Position: [0.5, 0, 0, 34], Size: [0.82, 0, 0, 2], BackgroundColor3: "#19D3FF", BackgroundTransparency: 0.38, BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/Background", class: "Frame", name: "SoftGlowLeft", properties: { AnchorPoint: [0.5, 0.5], Position: [0.18, 0, 0.42, 0], Size: [0, 280, 0, 280], BackgroundColor3: "#0B7CFF", BackgroundTransparency: 0.72, BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/Background/SoftGlowLeft", class: "UICorner", name: "RoundGlow", properties: { CornerRadius: [1, 0] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/Background", class: "Frame", name: "SoftGlowRight", properties: { AnchorPoint: [0.5, 0.5], Position: [0.82, 0, 0.64, 0], Size: [0, 340, 0, 340], BackgroundColor3: "#13E8FF", BackgroundTransparency: 0.78, BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/Background/SoftGlowRight", class: "UICorner", name: "RoundGlow", properties: { CornerRadius: [1, 0] } },
+
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu", class: "Frame", name: "MainPanel", properties: { AnchorPoint: [0.5, 0.5], Position: [0.5, 0, 0.5, 0], Size: [0, 640, 0, 430], BackgroundColor3: "#0B1426", BackgroundTransparency: 0.05, BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "UICorner", name: "PanelCorner", properties: { CornerRadius: [0, 22] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "UIStroke", name: "PanelStroke", properties: { Color: "#1AD7FF", Thickness: 2, Transparency: 0.22 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "UIGradient", name: "PanelGradient", properties: { Rotation: 90, Color: [{ time: 0, color: "#102344" }, { time: 1, color: "#07101F" }] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "UIPadding", name: "PanelPadding", properties: { PaddingTop: [0, 30], PaddingBottom: [0, 26], PaddingLeft: [0, 34], PaddingRight: [0, 34] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "UIListLayout", name: "PanelLayout", properties: { SortOrder: "LayoutOrder", Padding: [0, 14], HorizontalAlignment: "Center" } },
+
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "TextLabel", name: "Eyebrow", properties: { LayoutOrder: 1, Size: [1, 0, 0, 22], BackgroundTransparency: 1, Text: "BLOXSMITH PRESENTS", Font: "GothamBold", TextSize: 15, TextColor3: "#19D3FF", TextXAlignment: "Center", TextTransparency: 0.05 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "TextLabel", name: "Title", properties: { LayoutOrder: 2, Size: [1, 0, 0, 70], BackgroundTransparency: 1, Text: "YOUR GAME", Font: "GothamBlack", TextSize: 48, TextColor3: "#F4FBFF", TextXAlignment: "Center" } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/Title", class: "UIStroke", name: "TitleStroke", properties: { Color: "#0A6BFF", Thickness: 1, Transparency: 0.3 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "TextLabel", name: "Subtitle", properties: { LayoutOrder: 3, Size: [1, 0, 0, 28], BackgroundTransparency: 1, Text: "Adventure awaits — jump in when you're ready.", Font: "GothamMedium", TextSize: 16, TextColor3: "#BBD2E8", TextXAlignment: "Center" } },
+
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "Frame", name: "ButtonStack", properties: { LayoutOrder: 4, Size: [0, 360, 0, 218], BackgroundTransparency: 1 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "UIListLayout", name: "ButtonLayout", properties: { SortOrder: "LayoutOrder", Padding: [0, 10], HorizontalAlignment: "Center" } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "TextButton", name: "PlayButton", properties: { LayoutOrder: 1, Size: [1, 0, 0, 48], BackgroundColor3: "#0B7CFF", AutoButtonColor: false, Text: "▶  PLAY", Font: "GothamBold", TextSize: 20, TextColor3: "#FFFFFF", BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/PlayButton", class: "UICorner", name: "Corner", properties: { CornerRadius: [0, 12] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/PlayButton", class: "UIStroke", name: "Stroke", properties: { Color: "#79E8FF", Thickness: 1, Transparency: 0.2 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/PlayButton", class: "UIGradient", name: "ButtonGradient", properties: { Rotation: 90, Color: [{ time: 0, color: "#24D7FF" }, { time: 1, color: "#0B64FF" }] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "TextButton", name: "ContinueButton", properties: { LayoutOrder: 2, Size: [1, 0, 0, 44], BackgroundColor3: "#111F38", AutoButtonColor: false, Text: "↻  CONTINUE", Font: "GothamBold", TextSize: 16, TextColor3: "#E9F6FF", BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/ContinueButton", class: "UICorner", name: "Corner", properties: { CornerRadius: [0, 10] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/ContinueButton", class: "UIStroke", name: "Stroke", properties: { Color: "#2A5D91", Thickness: 1, Transparency: 0.15 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "TextButton", name: "SettingsButton", properties: { LayoutOrder: 3, Size: [1, 0, 0, 44], BackgroundColor3: "#111F38", AutoButtonColor: false, Text: "⚙  SETTINGS", Font: "GothamBold", TextSize: 16, TextColor3: "#E9F6FF", BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/SettingsButton", class: "UICorner", name: "Corner", properties: { CornerRadius: [0, 10] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/SettingsButton", class: "UIStroke", name: "Stroke", properties: { Color: "#2A5D91", Thickness: 1, Transparency: 0.15 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack", class: "TextButton", name: "CreditsButton", properties: { LayoutOrder: 4, Size: [1, 0, 0, 44], BackgroundColor3: "#111F38", AutoButtonColor: false, Text: "★  CREDITS", Font: "GothamBold", TextSize: 16, TextColor3: "#E9F6FF", BorderSizePixel: 0 } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/CreditsButton", class: "UICorner", name: "Corner", properties: { CornerRadius: [0, 10] } },
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel/ButtonStack/CreditsButton", class: "UIStroke", name: "Stroke", properties: { Color: "#2A5D91", Thickness: 1, Transparency: 0.15 } },
+
+    { action: "create_instance", path: "StarterGui/BloxsmithMainMenu/MainPanel", class: "TextLabel", name: "Footer", properties: { LayoutOrder: 5, Size: [1, 0, 0, 22], BackgroundTransparency: 1, Text: "Polished, responsive, animated menu — built by Bloxsmith", Font: "Gotham", TextSize: 13, TextColor3: "#6F89A7", TextXAlignment: "Center" } },
+    { action: "create_script", path: "StarterGui/BloxsmithMainMenu", name: "MenuController", class: "LocalScript", source: `local TweenService = game:GetService("TweenService")
+
+local gui = script.Parent
+local panel = gui:WaitForChild("MainPanel")
+local stack = panel:WaitForChild("ButtonStack")
+local bg = gui:WaitForChild("Background")
+
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.Position = UDim2.fromScale(0.5, 0.54)
+panel.Size = UDim2.fromOffset(600, 400)
+panel.BackgroundTransparency = 1
+
+TweenService:Create(panel, TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(640, 430),
+	BackgroundTransparency = 0.05,
+}):Play()
+
+local function tween(obj, time, props)
+	TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props):Play()
+end
+
+for _, button in ipairs(stack:GetChildren()) do
+	if button:IsA("TextButton") then
+		local baseSize = button.Size
+		local baseColor = button.BackgroundColor3
+		button.MouseEnter:Connect(function()
+			tween(button, 0.16, { Size = UDim2.new(baseSize.X.Scale, baseSize.X.Offset + 12, baseSize.Y.Scale, baseSize.Y.Offset), BackgroundColor3 = baseColor:Lerp(Color3.fromRGB(25, 211, 255), 0.22) })
+		end)
+		button.MouseLeave:Connect(function()
+			tween(button, 0.16, { Size = baseSize, BackgroundColor3 = baseColor })
+		end)
+		button.MouseButton1Down:Connect(function()
+			tween(button, 0.08, { Size = UDim2.new(baseSize.X.Scale, baseSize.X.Offset - 8, baseSize.Y.Scale, baseSize.Y.Offset - 2) })
+		end)
+		button.MouseButton1Up:Connect(function()
+			tween(button, 0.12, { Size = baseSize })
+		end)
+	end
+end
+
+stack.PlayButton.Activated:Connect(function()
+	tween(panel, 0.35, { Position = UDim2.fromScale(0.5, 0.46), BackgroundTransparency = 1 })
+	tween(bg, 0.35, { BackgroundTransparency = 1 })
+	task.wait(0.36)
+	gui.Enabled = false
+end)
+
+stack.SettingsButton.Activated:Connect(function()
+	panel.Subtitle.Text = "Settings panel placeholder — connect your own options here."
+end)
+
+stack.CreditsButton.Activated:Connect(function()
+	panel.Subtitle.Text = "Created with Bloxsmith — customize the title and buttons anytime."
+end)` },
+  ];
+
+  const reply = [
+    FENCE + "bloxsmith:thinking",
+    "- Build a real ScreenGui in StarterGui so the menu appears in edit mode",
+    "- Add a premium blue/cyan dark layout with polished buttons and hierarchy",
+    "- Include a LocalScript for hover, press, entrance and play transitions",
+    FENCE,
+    "I made a polished modern main menu you can apply instantly. It creates a full-screen title screen with animated buttons, glow layers, responsive layout, and a Play transition.",
+    FENCE + "bloxsmith:actions",
+    JSON.stringify(actions),
+    FENCE,
+  ].join("\n\n");
+
+  return { reply, actions };
+}
+
 // Provider abstraction — Bedrock path is ready for when a valid key is supplied.
 async function callBedrock(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("BEDROCK_API_KEY");
@@ -770,6 +890,13 @@ Deno.serve(async (req) => {
     }
 
     const latestText = latestUserText(convo).toLowerCase();
+    if ((mode === "agent" || mode === "generate_ui" || mode === "chat") && isMainMenuRequest(latestText)) {
+      const built = buildMainMenuActionsResponse();
+      return new Response(JSON.stringify({ reply: built.reply, actions: built.actions, provider: "bloxsmith-fast-builder", mode }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (mode === "agent" && latestText.includes("grass") && (latestText.includes("map") || latestText.includes("around"))) {
       const built = buildGrassActionsResponse();
       return new Response(JSON.stringify({ reply: built.reply, actions: built.actions, provider: "bloxsmith-fast-builder", mode }), {
