@@ -17,6 +17,18 @@ AIService.__index = AIService
 local MAX_RETRIES = 2 -- total attempts = MAX_RETRIES + 1
 local RETRYABLE_STATUS = { [429] = true, [500] = true, [502] = true, [503] = true, [504] = true }
 
+-- The logged-in Studio user's Roblox account id. Used by the backend allow-list
+-- so only accounts the owner authorized can use Bloxsmith. Returns 0 if unknown.
+local function getRobloxUserId()
+	local ok, id = pcall(function()
+		return game:GetService("StudioService"):GetUserId()
+	end)
+	if ok and type(id) == "number" then
+		return id
+	end
+	return 0
+end
+
 function AIService.new(plugin)
 	local self = setmetatable({}, AIService)
 	self.plugin = plugin
