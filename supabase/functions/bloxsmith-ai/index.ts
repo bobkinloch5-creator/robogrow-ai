@@ -5,7 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the fallback model.
-const DEFAULT_MODEL = "openai/gpt-5.5";
+const DEFAULT_MODEL = "openai/gpt-4o-mini";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -283,6 +283,8 @@ function sanitizeText(input: unknown, max: number): string {
 const BASE_SYSTEM = `You are Bloxsmith, an elite AI copilot embedded inside Roblox Studio.
 You help creators build, debug, optimize and manage Roblox games. You are precise, safe and production-focused.
 
+Generate production-ready Roblox Luau code. Include all required LocalScripts, ServerScripts, ModuleScripts, RemoteEvents, UI hierarchy, setup instructions, and file locations. Do not provide placeholders or pseudocode. Ensure all buttons, loading screens, menus, and systems are fully connected and functional.
+
 THINKING (very important):
 - ALWAYS begin every response with a short reasoning block wrapped exactly as:
   \`\`\`bloxsmith:thinking
@@ -451,6 +453,7 @@ const FENCE = "```";
 const AGENT_SYSTEM = [
   "You are Bloxsmith, an elite Roblox Studio build agent.",
   "Return concise text plus exactly one apply block.",
+  "Generate production-ready Roblox Luau code. Include all required LocalScripts, ServerScripts, ModuleScripts, RemoteEvents, UI hierarchy, setup instructions, and file locations. Do not provide placeholders or pseudocode. Ensure all buttons, loading screens, menus, and systems are fully connected and functional.",
   "Required output format:",
   FENCE + "bloxsmith:thinking",
   "- 3 short bullets max",
@@ -746,7 +749,7 @@ function extractAiText(data: unknown): string {
 // NVIDIA NIM (OpenAI-compatible) — primary provider. Serves GLM and other hosted models.
 async function callNvidia(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_MODEL") || "z-ai/glm-5.2";
+  const model = Deno.env.get("NVIDIA_MODEL") || "google/gemma-4-31b-it";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   // Faster responses without changing the model: cap output length, disable the
   // slow chain-of-thought "thinking" pass GLM does by default, and stream=false.
@@ -782,7 +785,7 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
 // thinking OFF and a small token cap so it returns quickly within the budget.
 async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL") || "nvidia/nemotron-3-ultra-550b-a55b";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL") || "mistralai/mistral-small-4-119b-2603";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -815,7 +818,7 @@ async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_
 // NVIDIA NIM — tertiary fallback using GPT-OSS-120B (fast).
 async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "openai/gpt-oss-120b";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_2") || "nvidia/nemotron-3-super-120b-a12b";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -846,7 +849,7 @@ async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI
 // NVIDIA NIM — quaternary fallback using DeepSeek V4 Flash (fast, thinking off).
 async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
   const key = Deno.env.get("NVIDIA_API_KEY");
-  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "deepseek-ai/deepseek-v4-flash";
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_3") || "qwen/qwen3.5-122b-a10b";
   if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
   const res = await fetchWithTimeout(
     "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -873,6 +876,38 @@ async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_
   const data = await res.json();
   const text = extractAiText(data);
   if (!text.trim()) throw { status: 502, msg: "NVIDIA DeepSeek returned an empty response." };
+  return text;
+}
+ 
+// NVIDIA NIM — quintenary fallback using Moonshot Kimi K2.6.
+async function callNvidiaKimi(messages: ChatMessage[], timeoutMs = FALLBACK_AI_TIMEOUT_MS): Promise<string> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL_4") || "moonshotai/kimi-k2.6";
+  if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  const res = await fetchWithTimeout(
+    "https://integrate.api.nvidia.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.6,
+        top_p: 0.95,
+        max_tokens: 2048,
+        chat_template_kwargs: { thinking: false },
+        stream: false,
+      }),
+    },
+    timeoutMs,
+  );
+  if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
+  if (res.status === 401 || res.status === 403)
+    throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
+  if (!res.ok) throw { status: 502, msg: `NVIDIA Kimi error (${res.status}): ${(await res.text()).slice(0, 300)}` };
+  const data = await res.json();
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "NVIDIA Kimi returned an empty response." };
   return text;
 }
 
@@ -1045,6 +1080,7 @@ function buildCandidates(provider: string, messages: ChatMessage[]): Candidate[]
     { name: "nvidia-nemotron", run: (t) => callNvidiaNemotron(messages, t) },
     { name: "nvidia-gpt-oss", run: (t) => callNvidiaGptOss(messages, t) },
     { name: "nvidia-deepseek", run: (t) => callNvidiaDeepseek(messages, t) },
+    { name: "nvidia-kimi", run: (t) => callNvidiaKimi(messages, t) },
     { name: "lovable", run: (t) => callLovable(messages, t) },
   ];
 }
