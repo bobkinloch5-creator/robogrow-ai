@@ -263,6 +263,14 @@ function App:startThinking()
 		BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = holder,
 	})
+
+	-- Cancel button — lets the user abandon a long build. The network call can't
+	-- be aborted mid-flight, so cancelling flags the handle so its result is
+	-- discarded and the UI is freed immediately.
+	local handle = { cancelled = false }
+	local cancelBtn = button("✕ Cancel", { Size = UDim2.new(0, 78, 0, 22), BackgroundColor3 = C.Panel, TextSize = 11 })
+	cancelBtn.Parent = holder
+
 	self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
 
 	local phases = {
@@ -287,14 +295,22 @@ function App:startThinking()
 		end
 	end)
 
-	return {
-		stop = function()
-			running = false
-			if holder and holder.Parent then
-				holder:Destroy()
-			end
-		end,
-	}
+	handle.stop = function()
+		running = false
+		if holder and holder.Parent then
+			holder:Destroy()
+		end
+	end
+
+	cancelBtn.Activated:Connect(function()
+		handle.cancelled = true
+		handle.stop()
+		self.busy = false
+		self.sendBtn.Text = "Send"
+		self:toast("Build cancelled.", "warning")
+	end)
+
+	return handle
 end
 
 
