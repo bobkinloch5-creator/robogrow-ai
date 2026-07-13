@@ -432,8 +432,19 @@ function ApplyService:applyOne(action)
 
 	if kind == "create_folder" then
 		local parent = self:resolvePath(action.path or "Workspace", true)
+		local name = action.name or "Folder"
+		-- The agent is instructed to create folders before every use of a
+		-- path, so it commonly re-emits create_folder for the same path
+		-- across multiple steps of one plan. Reuse an existing Folder with
+		-- this name instead of always spawning a new one, otherwise you end
+		-- up with sibling duplicates (e.g. two "DashSystem" folders) and
+		-- later steps can land in the wrong copy.
+		local existing = parent and parent:FindFirstChild(name)
+		if existing and existing:IsA("Folder") then
+			return true, "Folder already exists: " .. existing:GetFullName(), existing
+		end
 		local folder = Instance.new("Folder")
-		folder.Name = action.name or "Folder"
+		folder.Name = name
 		folder.Parent = parent
 		return true, "Created folder " .. folder:GetFullName(), folder
 
