@@ -531,6 +531,51 @@ function ApplyService:applyOne(action)
 			end
 		end
 
+		-- Safety net: GuiObjects (TextButton, TextLabel, Frame, ImageButton,
+		-- ScrollingFrame, etc.) and ScreenGuis never render unless they end up
+		-- as a descendant of a LayerCollector (ScreenGui/BillboardGui/SurfaceGui)
+		-- that itself lives under StarterGui/PlayerGui. The default parent path
+		-- above falls back to Workspace when no path is given — harmless for
+		-- parts/models, but a button dropped in Workspace is permanently
+		-- invisible with no error, which reads as "the plugin isn't creating
+		-- buttons." Auto-redirect into a ScreenGui under StarterGui instead so
+		-- GUI elements always actually show up.
+		if inst:IsA("ScreenGui") then
+			local underGui = false
+			do
+				local p = parent
+				while p do
+					if p:IsA("LayerCollector") or p.Name == "StarterGui" or p.Name == "PlayerGui" then
+						underGui = true
+						break
+					end
+					p = p.Parent
+				end
+			end
+			if not underGui then
+				parent = game:GetService("StarterGui")
+			end
+		elseif inst:IsA("GuiObject") then
+			local hasLayerCollector = false
+			do
+				local p = parent
+				while p do
+					if p:IsA("LayerCollector") then
+						hasLayerCollector = true
+						break
+					end
+					p = p.Parent
+				end
+			end
+			if not hasLayerCollector then
+				local gui = Instance.new("ScreenGui")
+				gui.Name = "BloxsmithGui"
+				gui.ResetOnSpawn = false
+				gui.Parent = game:GetService("StarterGui")
+				parent = gui
+			end
+		end
+
 		-- Safety net: a ParticleEmitter/Fire/Smoke can exist, be Enabled, and
 		-- still emit nothing VISIBLE if the AI's generated properties left
 		-- Rate/Lifetime/Speed at 0 or empty (e.g. an incomplete NumberSequence
