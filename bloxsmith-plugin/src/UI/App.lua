@@ -723,6 +723,11 @@ function App:buildChatView(parent)
 	self.sendBtn.Position = UDim2.new(1, -62, 0, 0)
 	self.sendBtn.Parent = inputRow
 	self.sendBtn.Activated:Connect(function()
+		-- While a build is in flight the Send button acts as a Stop button.
+		if self.busy then
+			self:stopActiveBuild()
+			return
+		end
 		local text = self.input.Text
 		self.input.Text = ""
 		self:send(text, self.mode)
