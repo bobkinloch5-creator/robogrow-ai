@@ -1,6 +1,7 @@
 // Bloxsmith AI backend — secure proxy between the Roblox Studio plugin and AI providers.
 // The plugin never holds an AI key; it only knows this function's public URL.
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // Primary AI stays NVIDIA-hosted GLM (unchanged). This is only the fallback model.
@@ -45,36 +46,118 @@ const ALLOWED_MODES = new Set([
   "performance", "cleanup", "docs", "recommend", "agent", "toolbox_search",
 ]);
 
-// ---- Best-effort in-memory rate limiter --------------------------------------
-// Per-instance sliding window keyed by client IP. Not a distributed limiter, but
-// it throttles bursty abuse from a single source without extra infrastructure.
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX_REQUESTS = 20;
-const rateBuckets = new Map<string, number[]>();
+// ---- Access control (Roblox allow-list) --------------------------------------
+// No rate limiting. Instead, only the Roblox accounts the owner adds to the
+// allow-list may use the plugin. The plugin sends the logged-in Studio user's
+// Roblox ID; the owner manages the list from the website /admin page.
+function getServiceClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+}
 
-function isRateLimited(clientId: string): boolean {
-  const now = Date.now();
-  const hits = (rateBuckets.get(clientId) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (hits.length >= RATE_MAX_REQUESTS) {
-    rateBuckets.set(clientId, hits);
-    return true;
-  }
-  hits.push(now);
-  rateBuckets.set(clientId, hits);
-  // Opportunistic cleanup so the map cannot grow unbounded.
-  if (rateBuckets.size > 5000) {
-    for (const [k, v] of rateBuckets) {
-      if (v.every((t) => now - t >= RATE_WINDOW_MS)) rateBuckets.delete(k);
+// Returns true only if this Roblox account is on the allow-list. Fails closed.
+async function isRobloxUserAllowed(robloxUserId: number): Promise<boolean> {
+  if (!robloxUserId || robloxUserId <= 0) return false;
+  try {
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("allowed_roblox_users")
+      .select("roblox_user_id")
+      .eq("roblox_user_id", robloxUserId)
+      .maybeSingle();
+    if (error) {
+      console.error("Allow-list lookup failed:", error);
+      return false;
     }
+    return !!data;
+  } catch (err) {
+    console.error("Allow-list lookup threw:", err);
+    return false;
   }
-  return false;
 }
 
-function getClientId(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? "unknown";
+// Resolve a Roblox username to its numeric user id via the public Roblox API.
+async function resolveRobloxUsername(username: string): Promise<{ id: number; name: string } | null> {
+  try {
+    const res = await fetchWithTimeout(
+      "https://users.roblox.com/v1/usernames/users",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usernames: [username], excludeBannedUsers: false }),
+      },
+      8_000,
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const u = data?.data?.[0];
+    if (u && u.id) return { id: Number(u.id), name: String(u.name ?? username) };
+    return null;
+  } catch (_) {
+    return null;
+  }
 }
+
+function jsonOk(payload: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(payload), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// Owner-only management of the allow-list, guarded by the BLOXSMITH_ADMIN_KEY
+// passcode. Called from the website /admin page (never from the plugin).
+async function handleAdmin(
+  mode: string,
+  body: { adminKey?: string; robloxUserId?: number; username?: string; label?: string },
+): Promise<Response> {
+  const adminKey = Deno.env.get("BLOXSMITH_ADMIN_KEY");
+  if (!adminKey || typeof body.adminKey !== "string" || body.adminKey !== adminKey) {
+    return jsonError("Invalid admin password.", 401);
+  }
+  const sb = getServiceClient();
+
+  if (mode === "admin_list") {
+    const { data, error } = await sb
+      .from("allowed_roblox_users")
+      .select("roblox_user_id, username, label, created_at")
+      .order("created_at", { ascending: false });
+    if (error) return jsonError("Failed to load the allow-list.", 500);
+    return jsonOk({ users: data ?? [] });
+  }
+
+  if (mode === "admin_add") {
+    let id = Number(body.robloxUserId) || 0;
+    let username = sanitizeText(body.username, 60).trim();
+    if (!id && username) {
+      const resolved = await resolveRobloxUsername(username);
+      if (!resolved) return jsonError(`Couldn't find a Roblox user named "${username}".`, 400);
+      id = resolved.id;
+      username = resolved.name;
+    }
+    if (!id) return jsonError("Provide a Roblox username or ID.", 400);
+    const label = sanitizeText(body.label, 100).trim() || null;
+    const { error } = await sb
+      .from("allowed_roblox_users")
+      .upsert({ roblox_user_id: id, username: username || null, label }, { onConflict: "roblox_user_id" });
+    if (error) return jsonError("Failed to add the user.", 500);
+    return jsonOk({ ok: true, roblox_user_id: id, username });
+  }
+
+  if (mode === "admin_remove") {
+    const id = Number(body.robloxUserId) || 0;
+    if (!id) return jsonError("Missing Roblox ID.", 400);
+    const { error } = await sb.from("allowed_roblox_users").delete().eq("roblox_user_id", id);
+    if (error) return jsonError("Failed to remove the user.", 500);
+    return jsonOk({ ok: true });
+  }
+
+  return jsonError("Unknown admin action.", 400);
+}
+
+
 
 // Collapse control characters and clamp length so user text can't break the prompt.
 function sanitizeText(input: unknown, max: number): string {
@@ -928,12 +1011,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonError("Method not allowed", 405);
 
-  // Rate limit before doing any work.
-  const clientId = getClientId(req);
-  if (isRateLimited(clientId)) {
-    return jsonError("Too many requests. Please wait a moment and try again.", 429);
-  }
-
   try {
     // Reject oversized bodies early (guards against memory abuse).
     const contentLength = Number(req.headers.get("content-length") ?? "0");
@@ -945,7 +1022,14 @@ Deno.serve(async (req) => {
       return jsonError("Request too large.", 413);
     }
 
-    let body: RequestBody & { query?: string; limit?: number };
+    let body: RequestBody & {
+      query?: string;
+      limit?: number;
+      robloxUserId?: number;
+      adminKey?: string;
+      username?: string;
+      label?: string;
+    };
     try {
       body = JSON.parse(raw);
     } catch (_) {
@@ -956,8 +1040,23 @@ Deno.serve(async (req) => {
     }
 
     const mode = typeof body.mode === "string" ? body.mode : "chat";
+
+    // Owner-only allow-list management from the website /admin page.
+    if (mode === "admin_list" || mode === "admin_add" || mode === "admin_remove") {
+      return await handleAdmin(mode, body);
+    }
+
     if (!ALLOWED_MODES.has(mode)) {
       return jsonError("Unsupported mode.", 400);
+    }
+
+    // Access gate: only allow-listed Roblox accounts may use the plugin.
+    const robloxUserId = Number(body.robloxUserId) || 0;
+    if (!(await isRobloxUserAllowed(robloxUserId))) {
+      const msg = robloxUserId > 0
+        ? `Access isn't enabled for your Roblox account (ID ${robloxUserId}). Ask the owner of Bloxsmith to add this Roblox ID to the allow-list.`
+        : "Bloxsmith couldn't detect your Roblox account. Make sure you're signed in to Roblox Studio, then try again.";
+      return jsonError(msg, 403);
     }
 
     // Toolbox / Creator Store model search — bypasses the AI model entirely.
@@ -970,6 +1069,7 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // Validate & sanitize conversation input.
     const history = Array.isArray(body.messages) ? body.messages.slice(-MAX_MESSAGES) : [];

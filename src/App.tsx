@@ -10,6 +10,7 @@ import Privacy from "./pages/Privacy";
 
 import FAQ from "./pages/FAQ";
 import Docs from "./pages/Docs";
+import Admin from "./pages/Admin";
 import SupportChat from "./components/SupportChat";
 
 
@@ -28,6 +29,7 @@ const App = () => (
           
           <Route path="/faq" element={<FAQ />} />
           <Route path="/docs" element={<Docs />} />
+          <Route path="/admin" element={<Admin />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
