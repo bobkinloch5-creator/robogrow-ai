@@ -575,6 +575,42 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
   return text;
 }
 
+// NVIDIA NIM — secondary fallback using Nemotron (a different model on the same
+// OpenAI-compatible endpoint). Used if the primary GLM call fails, before we
+// finally fall back to Lovable AI (ChatGPT).
+async function callNvidiaNemotron(messages: ChatMessage[]): Promise<string> {
+  const key = Deno.env.get("NVIDIA_API_KEY");
+  const model = Deno.env.get("NVIDIA_FALLBACK_MODEL") || "nvidia/nemotron-3-ultra-550b-a55b";
+  if (!key) throw { status: 500, msg: "NVIDIA_API_KEY not set" };
+  const res = await fetchWithTimeout(
+    "https://integrate.api.nvidia.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 1,
+        top_p: 0.95,
+        max_tokens: 16384,
+        // Nemotron thinking controls — ignored by models that don't support them.
+        chat_template_kwargs: { enable_thinking: true },
+        reasoning_budget: 16384,
+        stream: false,
+      }),
+    },
+    FALLBACK_AI_TIMEOUT_MS,
+  );
+  if (res.status === 429) throw { status: 429, msg: "Rate limit reached. Please wait a moment and try again." };
+  if (res.status === 401 || res.status === 403)
+    throw { status: 502, msg: `NVIDIA authentication failed (${res.status}). Check the API key.` };
+  if (!res.ok) throw { status: 502, msg: `NVIDIA Nemotron error (${res.status}): ${(await res.text()).slice(0, 300)}` };
+  const data = await res.json();
+  const text = extractAiText(data);
+  if (!text.trim()) throw { status: 502, msg: "NVIDIA Nemotron returned an empty response." };
+  return text;
+}
+
 // Provider abstraction — Bedrock path is ready for when a valid key is supplied.
 async function callBedrock(messages: ChatMessage[]): Promise<string> {
   const key = Deno.env.get("BEDROCK_API_KEY");
@@ -700,15 +736,28 @@ Deno.serve(async (req) => {
       else if (provider === "bedrock") reply = await callBedrock(messages);
       else reply = await callLovable(messages);
     } catch (primaryErr) {
-      // Fall back to Lovable AI if the primary provider fails (auth/network/etc).
-      if (provider !== "lovable") {
-        console.error("Primary provider failed, falling back to Lovable AI:", primaryErr);
+      console.error("Primary provider failed:", primaryErr);
+      // Fallback chain: NVIDIA Nemotron -> Lovable AI (ChatGPT).
+      // Nemotron only makes sense when the primary was an NVIDIA-hosted model.
+      let fellBack = false;
+      if (provider === "nvidia") {
+        try {
+          console.error("Falling back to NVIDIA Nemotron…");
+          usedProvider = "nvidia-nemotron";
+          reply = await callNvidiaNemotron(messages);
+          fellBack = true;
+        } catch (nemotronErr) {
+          console.error("NVIDIA Nemotron fallback failed, falling back to Lovable AI:", nemotronErr);
+        }
+      }
+      if (!fellBack) {
+        if (provider === "lovable") throw primaryErr;
+        // Final fallback: Lovable AI (ChatGPT).
         usedProvider = "lovable";
         reply = await callLovable(messages);
-      } else {
-        throw primaryErr;
       }
     }
+
 
     // Extract structured agent actions if present.
     let actions: unknown = null;
