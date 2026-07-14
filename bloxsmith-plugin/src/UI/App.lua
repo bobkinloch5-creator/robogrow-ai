@@ -926,58 +926,10 @@ function App:buildChatView(parent)
 		ClearTextOnFocus = false,
 		MultiLine = true,
 		TextWrapped = true,
-		Size = UDim2.new(1, -104, 1, 0),
+		Size = UDim2.new(1, -72, 1, 0),
 		Position = UDim2.new(0, 0, 0, 0),
 		Parent = inputRow,
 	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
-
-	self.wandBtn = button("🪄", { Size = UDim2.new(0, 32, 1, 0), BackgroundColor3 = C.PanelAlt })
-	self.wandBtn.Position = UDim2.new(1, -100, 0, 0)
-	self.wandBtn.Parent = inputRow
-	self.wandBtn.Activated:Connect(function()
-		if self.busy then return end
-		local text = self.input.Text
-		local cleanText = text:gsub("^%s+", ""):gsub("%s+$", "")
-		if cleanText == "" then
-			self:toast("Type a prompt to optimize first.", "warning")
-			return
-		end
-
-		self.busy = true
-		self.wandBtn.Text = "⏳"
-		self.sendBtn.Active = false
-		self.sendBtn.BackgroundColor3 = C.PanelAlt
-		local grad = self.sendBtn:FindFirstChildOfClass("UIGradient")
-		if grad then
-			grad.Enabled = false
-		end
-		self.input.Editable = false
-
-		task.spawn(function()
-			local result = self.deps.ai:request({
-				mode = "optimize_prompt",
-				messages = { { role = "user", content = cleanText } },
-				context = "",
-			})
-
-			self.busy = false
-			self.wandBtn.Text = "🪄"
-			self.sendBtn.Active = true
-			self.sendBtn.BackgroundColor3 = C.Accent
-			local gradAfter = self.sendBtn:FindFirstChildOfClass("UIGradient")
-			if gradAfter then
-				gradAfter.Enabled = true
-			end
-			self.input.Editable = true
-
-			if result.ok then
-				self.input.Text = result.reply or ""
-				self:toast("Prompt optimized!", "success")
-			else
-				self:toast(result.error or "Optimization failed.", "error")
-			end
-		end)
-	end)
 
 	self.sendBtn = button("Send", { Size = UDim2.new(0, 64, 1, 0) })
 	self.sendBtn.Position = UDim2.new(1, -64, 0, 0)
