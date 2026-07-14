@@ -926,10 +926,113 @@ function App:buildChatView(parent)
 		ClearTextOnFocus = false,
 		MultiLine = true,
 		TextWrapped = true,
-		Size = UDim2.new(1, -72, 1, 0),
+		Size = UDim2.new(1, -104, 1, 0),
 		Position = UDim2.new(0, 0, 0, 0),
 		Parent = inputRow,
 	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
+
+	self.wandBtn = button("🪄", { Size = UDim2.new(0, 32, 1, 0), BackgroundColor3 = C.PanelAlt })
+	self.wandBtn.Position = UDim2.new(1, -100, 0, 0)
+	self.wandBtn.Parent = inputRow
+	self.wandBtn.Activated:Connect(function()
+		if self.busy then return end
+		local text = self.input.Text
+		local cleanText = text:gsub("^%s+", ""):gsub("%s+$", "")
+		if cleanText == "" then
+			self:toast("Type a prompt to optimize first.", "warning")
+			return
+		end
+
+		self.busy = true
+		self.wandBtn.Text = "⏳"
+		self.sendBtn.Active = false
+		self.sendBtn.BackgroundColor3 = C.PanelAlt
+		local grad = self.sendBtn:FindFirstChildOfClass("UIGradient")
+		if grad then
+			grad.Enabled = false
+		end
+		self.input.Editable = false
+
+		-- Bump a generation token so a delayed emote-revert from a previous
+		-- click can never stomp on a newer click's button state.
+		self._wandFlashGen = (self._wandFlashGen or 0) + 1
+		local wandGen = self._wandFlashGen
+
+		-- Flashes emoteText on the wand button for a moment, then settles back
+		-- to the default 🪄 — but only if a newer click hasn't started since.
+		local function flashWand(emoteText)
+			self.wandBtn.Text = emoteText
+			task.delay(0.9, function()
+				if self._wandFlashGen == wandGen then
+					self.wandBtn.Text = "🪄"
+				end
+			end)
+		end
+
+		task.spawn(function()
+			-- "optimize_prompt" was never a mode the backend understood, so this
+			-- request either errored or exhausted its retries in the background —
+			-- which is why the wand got stuck on the hourglass and never produced
+			-- anything. Route it through "chat" (a mode the backend does support)
+			-- with an instruction that asks the model to rewrite the prompt, and
+			-- pcall the whole thing so a failure can never leave the button stuck.
+			local callOk, result = pcall(function()
+				return self.deps.ai:request({
+					mode = "chat",
+					messages = {
+						{
+							role = "user",
+							content = "Rewrite the following Roblox Studio AI prompt to be clearer, more specific, "
+								.. "and more likely to produce the intended result. Respond with ONLY the improved "
+								.. "prompt text — no explanations, no quotes, no preamble.\n\nOriginal prompt:\n"
+								.. cleanText,
+						},
+					},
+					context = "",
+				})
+			end)
+
+			self.busy = false
+			self.sendBtn.Active = true
+			self.sendBtn.BackgroundColor3 = C.Accent
+			local gradAfter = self.sendBtn:FindFirstChildOfClass("UIGradient")
+			if gradAfter then
+				gradAfter.Enabled = true
+			end
+			self.input.Editable = true
+
+			if not callOk then
+				Log.error("Prompt optimization crashed:", result)
+				flashWand("😕")
+				self:toast("Optimization failed. Please try again.", "error")
+				return
+			end
+
+			if result.ok then
+				local reply = result.reply or ""
+				local _, afterThinking = Parser.extractThinking(reply)
+				if type(afterThinking) == "string" then
+					reply = afterThinking
+				end
+				local _, cleanedReply, foundBlock = Parser.extractActions(reply)
+				if foundBlock then
+					reply = cleanedReply
+				end
+				reply = reply:gsub("^%s+", ""):gsub("%s+$", "")
+				if reply == "" then
+					flashWand("😕")
+					self:toast("Optimization returned nothing — please try again.", "error")
+					return
+				end
+				self.input.Text = reply
+				flashWand("✨")
+				self:toast("Prompt optimized!", "success")
+			else
+				flashWand("😕")
+				self:toast(result.error or "Optimization failed.", "error")
+			end
+		end)
+	end)
 
 	self.sendBtn = button("Send", { Size = UDim2.new(0, 64, 1, 0) })
 	self.sendBtn.Position = UDim2.new(1, -64, 0, 0)

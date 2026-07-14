@@ -9,24 +9,17 @@
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.9.4"
+Config.Version = "3.9.3"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
 	{
-		version = "3.9.4",
-		date = "2026-07-13",
-		title = "Removed the Wand Button",
-		changes = {
-			"REMOVED: The 🪄 prompt-optimizer wand next to the chat input has been removed — it relied on a backend mode that was never reliable. The input box now takes up the full width next to Send.",
-		},
-	},
-
-	{
 		version = "3.9.3",
 		date = "2026-07-13",
-		title = "Fixed a Plugin Load Error",
+		title = "Fixed the Wand Button & a Plugin Load Error",
 		changes = {
+			"FIXED: The 🪄 wand (prompt optimizer) called a backend mode that was never implemented, so it got stuck spinning forever with no result. It now runs through the same chat pipeline as regular messages, so it actually returns an improved prompt.",
+			"FIXED: The wand button can no longer get permanently stuck on the hourglass — the request is now wrapped so any failure resets the button and shows an error instead of hanging.",
 			"FIXED: A bundler bug had duplicated the closing `end` at the end of most modules, which made the plugin fail to load entirely with a script error. Corrected.",
 		},
 	},
