@@ -37,7 +37,7 @@ const Docs = () => {
             <a href={pluginDownloadUrl} download="Bloxsmith.lua" className="shrink-0">
               <Button size="lg" className="bg-gradient-primary shadow-glow text-lg px-8 h-14">
                 <Download className="mr-2 h-5 w-5" />
-                Download Plugin (.lua)
+                Download Plugin (.lua) · v{PLUGIN_VERSION}
               </Button>
             </a>
           </div>
