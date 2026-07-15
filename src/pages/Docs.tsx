@@ -26,6 +26,7 @@ const Docs = () => {
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm mb-3">
                 <Puzzle className="h-3.5 w-3.5 text-primary" />
                 Single-file plugin — no Rojo required
+                <span className="ml-1 rounded-full bg-primary/15 text-primary px-2 py-0.5 font-mono text-[10px]">v{PLUGIN_VERSION}</span>
               </div>
               <h2 className="text-2xl font-bold mb-1">Download Bloxsmith for Roblox Studio</h2>
               <p className="text-muted-foreground max-w-xl">
