@@ -5156,33 +5156,33 @@ _modules["UI.Theme"] = function()
 local Theme = {}
 
 Theme.Color = {
-	-- Friendly, cartoony COLOURED surfaces — soft periwinkle (not white, not black)
-	Bg = Color3.fromRGB(218, 227, 255),
-	BgAlt = Color3.fromRGB(203, 216, 252),
-	Panel = Color3.fromRGB(238, 243, 255),
-	PanelAlt = Color3.fromRGB(221, 231, 252),
-	Border = Color3.fromRGB(176, 195, 240),
-	Sidebar = Color3.fromRGB(207, 219, 252),
+	-- Deep midnight navy surfaces with electric blue accents
+	Bg = Color3.fromRGB(10, 15, 30),
+	BgAlt = Color3.fromRGB(14, 20, 40),
+	Panel = Color3.fromRGB(20, 28, 52),
+	PanelAlt = Color3.fromRGB(26, 36, 64),
+	Border = Color3.fromRGB(42, 58, 100),
+	Sidebar = Color3.fromRGB(15, 22, 44),
 
-	Text = Color3.fromRGB(38, 47, 74),
-	TextDim = Color3.fromRGB(98, 112, 146),
-	TextFaint = Color3.fromRGB(144, 158, 190),
+	Text = Color3.fromRGB(226, 234, 255),
+	TextDim = Color3.fromRGB(150, 168, 210),
+	TextFaint = Color3.fromRGB(100, 118, 160),
 
-	-- Cheerful sky-blue → cyan accent
-	Accent = Color3.fromRGB(80, 140, 255),
-	Accent2 = Color3.fromRGB(110, 205, 255),
-	AccentDim = Color3.fromRGB(190, 214, 255),
+	-- Electric blue → cyan accent
+	Accent = Color3.fromRGB(70, 140, 255),
+	Accent2 = Color3.fromRGB(90, 210, 255),
+	AccentDim = Color3.fromRGB(38, 70, 130),
 
 	-- White label for use on strong coloured buttons
 	OnColor = Color3.fromRGB(255, 255, 255),
 
-	UserBubble = Color3.fromRGB(197, 220, 255),
-	AiBubble = Color3.fromRGB(238, 243, 255),
+	UserBubble = Color3.fromRGB(30, 54, 108),
+	AiBubble = Color3.fromRGB(22, 30, 56),
 
-	Success = Color3.fromRGB(46, 204, 113),
+	Success = Color3.fromRGB(64, 214, 140),
 	Warning = Color3.fromRGB(247, 169, 40),
 	Error = Color3.fromRGB(240, 90, 110),
-	Info = Color3.fromRGB(99, 132, 246),
+	Info = Color3.fromRGB(99, 160, 246),
 }
 
 Theme.Font = Enum.Font.GothamMedium
