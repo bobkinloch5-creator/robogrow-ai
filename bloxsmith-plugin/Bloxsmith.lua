@@ -35,12 +35,12 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.18.1"
+Config.Version = "3.20.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
 	{
-		version = "3.18.1",
+		version = "3.20.0",
 		date = "2026-07-15",
 		title = "Friendly Coloured Theme",
 		changes = {
