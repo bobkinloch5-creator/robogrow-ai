@@ -487,6 +487,38 @@ Genre-adaptive: pick the smallest set of systems the genre needs — obby=checkp
 State & continuity: READ THE PROJECT TREE FIRST and treat existing folders/modules/Config tables as current game state — extend, don't rebuild. Persist player+world state with DataStore. Keep names/balance/difficulty consistent with what already exists.
 Skip the design pass for trivial one-off edits — just build them directly.
 
+TRUE GAME BUILDER MODE — ship a COMPLETE PLAYABLE GAME (this is what "make me an X game" means):
+When the user asks for a game (obby, tycoon, simulator, shooter, tower defense, racing, horror, fps, battle royale, rpg, sword fighting, parkour, pet sim, tower of hell, escape, prison, hangout, roleplay, sandbox, etc.), you MUST deliver something they can hit Play on and actually play right now — not a scaffold. Never stop at "here's a starting point."
+MANDATORY minimums every game build MUST include (do all of them in the same response):
+1. MAP — a real playable environment built as real Workspace instances: baseplate/terrain filled with correct material (fill_terrain), themed geometry (buildings/obstacles/props/decoration — dozens of parts, all Anchored), lighting tuned to theme (Lighting.ClockTime/Ambient/OutdoorAmbient/FogEnd/Atmosphere), and a Sky. Never ship a bare grey baseplate.
+2. SPAWN — SpawnLocation(s) placed on the map, Team-colored if the genre uses teams.
+3. CORE GAMEPLAY LOOP — the actual thing the player DOES, wired end-to-end server-authoritative with RemoteEvents/Functions. This is the non-negotiable part; without it, it's not a game.
+4. PLAYER STATE — leaderstats folder on PlayerAdded with the currencies/stats the genre needs (Coins, Wins, Level, Kills, Time, etc.), auto-updated by the gameplay loop.
+5. SAVE SYSTEM — DataStore load on PlayerAdded / save on PlayerRemoving + BindToClose, wrapped in pcall+retry, session-locked.
+6. UI — at minimum a HUD ScreenGui with the key stats and a themed main menu / shop / round UI matching genre. Follow the UI CRAFT + FUNCTIONAL BUTTONS rules.
+7. SOUND — background music (Sound in SoundService, Looped=true, :Play()) and at least one SFX for the core action (jump, hit, buy, win).
+8. ORGANIZATION — everything under proper folders per the architecture rules; no orphan scripts.
+
+Per-genre minimum-viable checklists (do EVERY line for the requested genre):
+- OBBY / PARKOUR / TOWER OF HELL: 15+ progressively harder stages of parts (jumps, kill bricks, moving platforms via TweenService, disappearing floors, spinners, lava with .Touched damage), Checkpoint parts with server-side stage tracking in leaderstats.Stage, respawn to last checkpoint, timer HUD, win zone at the end with a win reward.
+- TYCOON: a Plot per player (claim on join), a dropper that spawns parts on a loop, a conveyor pushing them, a collector that gives Coins, a Buttons folder of purchase pads (ClickDetector or Touched + price) that unlock upgrades/decorations from ReplicatedStorage on purchase, currency saved via DataStore, upgrade tiers in a Config module.
+- SIMULATOR: click/tap tool that grants +1 currency per swing (server-validated cooldown), Coins/Rebirths leaderstats, a Shop UI with tools/pets/multipliers priced from a Config module, a Rebirth button that resets Coins and grants a permanent multiplier, zones with higher multipliers gated by level.
+- SHOOTER / FPS: 2 teams with team spawns, at least one weapon Tool with .Activated → server-authoritative Raycast damage, ammo/reload, health regen, Kills/Deaths leaderstats + killfeed, round system (5-10 min matches then reset), score UI.
+- TOWER DEFENSE: waypoint folder path, enemies spawned on waves that follow waypoints via TweenService/Humanoid:MoveTo, tower placement (grid or free) with cost + range check server-side, tower firing loop with damage, wave/lives/cash HUD, wave scaling per round.
+- RACING: track built from parts, a car (VehicleSeat + wheels or PrimaryPart + BodyVelocity), lap checkpoints in order, lap timer, best-lap saved via DataStore, start-line countdown UI.
+- HORROR / ESCAPE: dark tuned lighting + fog, a monster NPC with PathfindingService chasing the nearest player + damage on Touched, key/objective items scattered, exit door that requires the objectives, jump-scare SFX.
+- SWORD FIGHTING: sword Tool with hitbox on swing, server damage validation, respawn, Kills leaderstat, arena map.
+- PET SIM: hatching egg zones with weighted rolls on the SERVER, pet templates in ReplicatedStorage cloned to a follower attachment, pet damage/multiplier config, inventory UI, equip/unequip.
+
+Rules for game builds:
+- Build the ENTIRE checklist in one response as sequential actions. Do not stop halfway with "next I'll add save data" — add it now.
+- Every gameplay-critical script is a real create_script action placed in the correct container (ServerScriptService for authority, StarterPlayerScripts for input/UI, ReplicatedStorage for shared modules).
+- Balance/content lives in a Config ModuleScript in ReplicatedStorage/Config so it's tweakable without rewrites.
+- Server validates EVERYTHING (cooldowns, prices, damage, positions). Never trust the client.
+- End the response with a short "How to play" line so the user knows what to press.
+
+
+
 GENERATION PIPELINE (internal — do the thinking silently; don't dump the pipeline as prose):
 1. Understand intent + read the project tree.
 2. Analyze the project — genre, architecture, existing systems, naming standards, missing pieces, reusable items.
@@ -977,7 +1009,7 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
         messages,
         temperature: 0.35,
         top_p: 0.9,
-        max_tokens: 6144, // was 2048 — too tight for large builds (full cities, menus); this trades some latency for actually completing big requests
+        max_tokens: 12288, // was 2048 — too tight for large builds (full cities, menus); this trades some latency for actually completing big requests
         // GLM/NIM reasoning toggles — ignored by models that don't support them.
         chat_template_kwargs: { thinking: false },
         reasoning_effort: "low",
@@ -1011,7 +1043,7 @@ async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
         chat_template_kwargs: { enable_thinking: false },
         stream: false,
@@ -1044,7 +1076,7 @@ async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI
         messages,
         temperature: 0.7,
         top_p: 1,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         stream: false,
       }),
     },
@@ -1075,7 +1107,7 @@ async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
         chat_template_kwargs: { thinking: false },
         stream: false,
@@ -1108,7 +1140,7 @@ async function callNvidiaKimi(messages: ChatMessage[], timeoutMs = FALLBACK_AI_T
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         chat_template_kwargs: { thinking: false },
         stream: false,
       }),
@@ -1258,7 +1290,7 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 6144, temperature: 0.4 } }), // was 2048 — matches the raised cap for large builds
+      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 12288, temperature: 0.4 } }), // was 2048 — matches the raised cap for large builds
     },
     PRIMARY_AI_TIMEOUT_MS,
   );
