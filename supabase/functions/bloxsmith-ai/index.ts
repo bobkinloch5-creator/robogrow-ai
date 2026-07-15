@@ -1009,7 +1009,7 @@ async function callNvidia(messages: ChatMessage[]): Promise<string> {
         messages,
         temperature: 0.35,
         top_p: 0.9,
-        max_tokens: 6144, // was 2048 — too tight for large builds (full cities, menus); this trades some latency for actually completing big requests
+        max_tokens: 12288, // was 2048 — too tight for large builds (full cities, menus); this trades some latency for actually completing big requests
         // GLM/NIM reasoning toggles — ignored by models that don't support them.
         chat_template_kwargs: { thinking: false },
         reasoning_effort: "low",
@@ -1043,7 +1043,7 @@ async function callNvidiaNemotron(messages: ChatMessage[], timeoutMs = FALLBACK_
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
         chat_template_kwargs: { enable_thinking: false },
         stream: false,
@@ -1076,7 +1076,7 @@ async function callNvidiaGptOss(messages: ChatMessage[], timeoutMs = FALLBACK_AI
         messages,
         temperature: 0.7,
         top_p: 1,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         stream: false,
       }),
     },
@@ -1107,7 +1107,7 @@ async function callNvidiaDeepseek(messages: ChatMessage[], timeoutMs = FALLBACK_
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         // Keep thinking OFF for a fast fallback — ignored by models that don't support it.
         chat_template_kwargs: { thinking: false },
         stream: false,
@@ -1140,7 +1140,7 @@ async function callNvidiaKimi(messages: ChatMessage[], timeoutMs = FALLBACK_AI_T
         messages,
         temperature: 0.6,
         top_p: 0.95,
-        max_tokens: 6144, // was 2048 — matches the primary model's raised cap for large builds
+        max_tokens: 12288, // was 2048 — matches the primary model's raised cap for large builds
         chat_template_kwargs: { thinking: false },
         stream: false,
       }),
@@ -1290,7 +1290,7 @@ async function callBedrock(messages: ChatMessage[]): Promise<string> {
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 6144, temperature: 0.4 } }), // was 2048 — matches the raised cap for large builds
+      body: JSON.stringify({ system, messages: convo, inferenceConfig: { maxTokens: 12288, temperature: 0.4 } }), // was 2048 — matches the raised cap for large builds
     },
     PRIMARY_AI_TIMEOUT_MS,
   );
