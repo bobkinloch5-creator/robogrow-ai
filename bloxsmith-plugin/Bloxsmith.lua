@@ -5610,10 +5610,10 @@ local widgetInfo = DockWidgetPluginGuiInfo.new(
 	Enum.InitialDockState.Right,
 	false, -- start closed
 	false,
-	340, -- default width
-	460, -- default height
-	300, -- min width
-	360 -- min height
+	280, -- default width
+	380, -- default height
+	240, -- min width
+	300 -- min height
 )
 local widget = plugin:CreateDockWidgetPluginGui("BloxsmithMain", widgetInfo)
 widget.Title = "Bloxsmith — AI Copilot"
