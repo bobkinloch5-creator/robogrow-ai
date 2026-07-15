@@ -1559,7 +1559,17 @@ Deno.serve(async (req) => {
 
     const mode = typeof body.mode === "string" ? body.mode : "chat";
 
+    // ---- Streaming: short-poll for an in-progress job (plugin v3.22+) -------
+    // Handled before mode validation because poll requests don't carry `mode`.
+    const pollId = typeof (body as { poll?: unknown }).poll === "string"
+      ? String((body as { poll?: string }).poll)
+      : "";
+    if (pollId) {
+      return await handleJobPoll(pollId, Number(body.robloxUserId) || 0);
+    }
+
     if (mode === "debug_env") {
+
       const envs = Deno.env.toObject();
       const sanitized: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(envs)) {
