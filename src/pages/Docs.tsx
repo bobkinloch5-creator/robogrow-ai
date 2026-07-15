@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Puzzle } from "lucide-react";
 
-const pluginDownloadUrl = "/Bloxsmith.lua?v=3.18.1";
+const PLUGIN_VERSION = "3.18.1";
+const pluginDownloadUrl = `/Bloxsmith.lua?v=${PLUGIN_VERSION}`;
 
 const Docs = () => {
   return (
