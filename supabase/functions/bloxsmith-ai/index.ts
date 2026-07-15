@@ -1624,11 +1624,32 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- Streaming: start a background job (plugin v3.22+) ------------------
+    // Toolbox search bypasses the AI, so we don't stream it.
+    const wantsStream = (body as { stream?: unknown }).stream === true;
+    if (wantsStream && mode !== "toolbox_search") {
+      const jobId = "job_" + crypto.randomUUID().replace(/-/g, "").slice(0, 20);
+      try {
+        const sb = getServiceClient();
+        const { error } = await sb.from("ai_jobs").insert({
+          job_id: jobId,
+          roblox_user_id: Number(body.robloxUserId) || 0,
+          status: "pending",
+          partial: "",
+        });
+        if (error) throw error;
+      } catch (err) {
+        console.error("Failed to create job row, falling back to sync response:", err);
+        // Fall through to the normal (non-streaming) path.
+      }
 
-
-
-
-
+      // Kick off generation in the background and return immediately.
+      startJobInBackground(jobId, body);
+      return new Response(
+        JSON.stringify({ jobId, status: "pending", partial: "" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Toolbox / Creator Store model search — bypasses the AI model entirely.
     if (mode === "toolbox_search") {
