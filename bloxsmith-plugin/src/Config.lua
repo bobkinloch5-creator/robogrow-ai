@@ -332,11 +332,11 @@ Config.Changelog = {
 
 -- Secure backend (Lovable Cloud edge function). Overridable via plugin settings.
 Config.DefaultBackendUrl =
-	"https://kxvblxlyawnozipeehnl.supabase.co/functions/v1/bloxsmith-ai"
+	"https://mgdyhoilpgpmyyqulcbr.supabase.co/functions/v1/bloxsmith-ai"
 
 -- Publishable (anon) key — safe to embed; grants no privileged access.
 Config.PublishableKey =
-	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4dmJseGx5YXdub3ppcGVlaG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzOTkzOTAsImV4cCI6MjA2Nzk3NTM5MH0.JxGkpgvBECagn3eMnG1cN1Io2f20bfUmUq5e-vJqJzY"
+	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nZHlob2lscGdwbXl5cXVsY2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzU3MzUsImV4cCI6MjA3Nzg1MTczNX0.LpDaw0P-Pr-ika8I0opI5nfhyav9EjYahsOo1O7YDqM"
 
 Config.RequestTimeout = 60
 Config.MaxContextInstances = 400 -- cap hierarchy walk for performance

@@ -8,6 +8,8 @@ import Navbar from "@/components/Navbar";
 import { Sparkles, Zap, TrendingUp, MessageSquare } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 
+const pluginDownloadUrl = "/Bloxsmith.lua?v=3.18.1";
+
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,7 +123,7 @@ const Dashboard = () => {
             Connect the Bloxsmith plugin in Roblox Studio to start creating games with AI
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <a href="https://kxvblxlyawnozipeehnl.supabase.co/functions/v1/download-plugin" download="Bloxsmith.lua">
+            <a href={pluginDownloadUrl} download="Bloxsmith.lua">
               <Button className="bg-background text-primary hover:bg-background/90 w-full">
                 Download Plugin (.lua)
               </Button>
