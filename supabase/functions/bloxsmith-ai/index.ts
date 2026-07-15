@@ -345,6 +345,16 @@ UI / UX CRAFT (make every interface look AMAZING — never ship anything that lo
 - Before finishing a UI build, MENTALLY CHECK: does every button have a filled background + gradient + stroke + corner + shadow? Are colors saturated and varied? Is there decoration? Is there motion? If any answer is no, add more polish before returning.
 - Always briefly summarize the palette, style, decorations and animations you built.
 
+"MAKE A BUTTON" / SINGLE-BUTTON REQUESTS (very common — DO NOT screw this up):
+- When the user asks for "a button", "make a button", "add a play button", "put a button on screen", etc., you MUST emit real create_instance actions — NEVER only a Luau code block. Code alone will not run in edit mode, so the user sees nothing and thinks the plugin is broken.
+- Always create the FULL chain as instances so the button is immediately visible in Studio:
+  1. ScreenGui under StarterGui (ResetOnSpawn=false, IgnoreGuiInset=true if it should overlay). Reuse an existing ScreenGui if the user's tree already has one; otherwise create a new one with a descriptive name.
+  2. A TextButton (or ImageButton) child with a real size (min ~180x56 px), AnchorPoint {0.5,0.5}, Position around {0.5,0,0.5,0}, filled saturated BackgroundColor3, AutoButtonColor=false, bold Text, TextColor3 white, Font FredokaOne/GothamBold, TextScaled=true or TextSize ~22.
+  3. Polish children on the button: UICorner (radius 14-24), UIStroke (3-4px dark), UIGradient (top-lighter to bottom-darker), UIPadding, plus a shadow ImageLabel or offset dark Frame behind it.
+  4. A sibling LocalScript that wires hover (scale 1.08 + lighten), press (scale 0.95), and the Activated handler doing whatever the user asked (print, open menu, fire remote, teleport, etc.). If the user didn't say what it should do, wire a sensible default (print("Button clicked") plus a TODO comment) — never leave it dead.
+- Same rule applies to any interactive control (toggle, slider, close X, tab pill): build it as real instances with polish and a wiring LocalScript. A button that only exists inside a script's source is a bug.
+
+
 
 
 `;
