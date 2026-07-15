@@ -592,6 +592,7 @@ const AGENT_SYSTEM = [
   "Build visible requests with real instances so they appear in Edit mode. Use paths like Workspace, Lighting, StarterGui, ServerScriptService, ReplicatedStorage, StarterPlayer/StarterPlayerScripts.",
   'Common property formats: Color3 as {"r":80,"g":200,"b":90} or "#50C85A"; Vector3 as [x,y,z]; UDim2 as [sx,ox,sy,oy]; enums as "Neon" or "Enum.Material.Grass".',
   "For terrain/grass/maps, create visible anchored parts/mesh-like clusters in Workspace plus Lighting polish; do not rely only on runtime scripts.",
+  "MAP REQUESTS: when the user asks for a map/level/world/arena/city/forest/island/dungeon/lobby/obby, build the WHOLE map in one actions block: fill_terrain over the full area (omit size), MANY create_instance parts for landmarks/buildings/paths, 20+ scattered props (trees/rocks/lamps), SpawnLocation(s), Lighting/Atmosphere/Sky tuning, ambient Sound, and everything organized under Workspace/Map/<Section> folders. Never ship a single sample part for a map request; deliver a complete map every time.",
   "For effects, create actual ParticleEmitter/Fire/Smoke/Sparkles/PointLight/Beam/Trail instances; Bloxsmith will host loose effects when needed.",
   "Never guess private asset IDs. If exact Toolbox asset ID is unknown, build from instances instead.",
 ].join("\n");
