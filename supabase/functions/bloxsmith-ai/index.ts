@@ -693,7 +693,7 @@ function buildSystem(mode: string, context: unknown, preferences?: Preferences):
     if (prefs) support.push(prefs);
     return support.join("\n\n");
   }
-  const parts = [mode === "agent" ? AGENT_SYSTEM : BASE_SYSTEM];
+  const parts = [mode === "agent" ? (AGENT_SYSTEM + "\n\n" + QUALITY_RULES) : BASE_SYSTEM_FULL];
   if (MODE_SYSTEM[mode]) parts.push(`TASK MODE (${mode}): ${MODE_SYSTEM[mode]}`);
 
   const prefs = buildPreferences(preferences);
