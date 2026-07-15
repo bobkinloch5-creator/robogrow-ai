@@ -8,7 +8,7 @@ import Navbar from "@/components/Navbar";
 import { Sparkles, Zap, TrendingUp, MessageSquare } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 
-const PLUGIN_VERSION = "3.18.1";
+const PLUGIN_VERSION = "3.19.0";
 const pluginDownloadUrl = `/Bloxsmith.lua?v=${PLUGIN_VERSION}`;
 
 const Dashboard = () => {
