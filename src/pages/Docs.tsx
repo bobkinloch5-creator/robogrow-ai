@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Puzzle } from "lucide-react";
 
-const pluginDownloadUrl = "/Bloxsmith.lua?v=3.18.1";
+const PLUGIN_VERSION = "3.18.1";
+const pluginDownloadUrl = `/Bloxsmith.lua?v=${PLUGIN_VERSION}`;
 
 const Docs = () => {
   return (
@@ -25,6 +26,7 @@ const Docs = () => {
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm mb-3">
                 <Puzzle className="h-3.5 w-3.5 text-primary" />
                 Single-file plugin — no Rojo required
+                <span className="ml-1 rounded-full bg-primary/15 text-primary px-2 py-0.5 font-mono text-[10px]">v{PLUGIN_VERSION}</span>
               </div>
               <h2 className="text-2xl font-bold mb-1">Download Bloxsmith for Roblox Studio</h2>
               <p className="text-muted-foreground max-w-xl">
@@ -35,7 +37,7 @@ const Docs = () => {
             <a href={pluginDownloadUrl} download="Bloxsmith.lua" className="shrink-0">
               <Button size="lg" className="bg-gradient-primary shadow-glow text-lg px-8 h-14">
                 <Download className="mr-2 h-5 w-5" />
-                Download Plugin (.lua)
+                Download Plugin (.lua) · v{PLUGIN_VERSION}
               </Button>
             </a>
           </div>
