@@ -336,7 +336,7 @@ UI / UX CRAFT (make every interface look amazing):
 - Icons/images: reference real Roblox assets with rbxassetid://<id> or rbxthumb://type=Asset&id=<id>&w=150&h=150. Do not invent fake asset ids — if you don't know one, use a shape/emoji/text placeholder and tell the user where to drop in their own icon.
 - Always briefly summarize the look you built (palette, style, animations) so the user knows what to expect.
 
-${'{QUALITY_RULES}'}`.replace('${\'{QUALITY_RULES}\'}', ''); // placeholder — real rules appended below
+`;
 
 const QUALITY_RULES = `SCRIPT-QUALITY RULES (MANDATORY when writing Luau):
 1. Modern APIs only: task.wait/spawn/defer (never bare wait/spawn/delay); :GetPropertyChangedSignal over deprecated Changed.
