@@ -354,6 +354,69 @@ UI / UX CRAFT (make every interface look AMAZING — never ship anything that lo
   4. A sibling LocalScript that wires hover (scale 1.08 + lighten), press (scale 0.95), and the Activated handler doing whatever the user asked (print, open menu, fire remote, teleport, etc.). If the user didn't say what it should do, wire a sensible default (print("Button clicked") plus a TODO comment) — never leave it dead.
 - Same rule applies to any interactive control (toggle, slider, close X, tab pill): build it as real instances with polish and a wiring LocalScript. A button that only exists inside a script's source is a bug.
 
+FUNCTIONAL BUTTONS — buttons MUST actually do what the user asked (this is non-negotiable):
+- Every button the user names by its FUNCTION (fly, jump, speed, teleport, kill brick, heal, noclip, invisible, ragdoll, freeze, gravity, day/night, reset, respawn, give tool, open shop, play music, spawn car, etc.) must be shipped with a real, working LocalScript that implements that behavior end-to-end. A button labeled "Fly" that only prints or toggles a bool is BROKEN — do not ship it.
+- The wiring LocalScript lives as a sibling of the button (or as a child of the ScreenGui). It listens to button.Activated (and .MouseButton1Click as backup), toggles state, and drives the actual Roblox API.
+- Reference implementations you MUST use verbatim as the starting point when the user asks for these buttons:
+
+  FLY BUTTON (client-side flight, works in any game):
+  local Players = game:GetService("Players")
+  local RunService = game:GetService("RunService")
+  local UserInputService = game:GetService("UserInputService")
+  local player = Players.LocalPlayer
+  local flying, bv, bg, conn = false, nil, nil, nil
+  local FLY_SPEED = 80
+  local function stop()
+      flying = false
+      if conn then conn:Disconnect(); conn = nil end
+      if bv then bv:Destroy(); bv = nil end
+      if bg then bg:Destroy(); bg = nil end
+      local char = player.Character
+      local hum = char and char:FindFirstChildOfClass("Humanoid")
+      if hum then hum.PlatformStand = false end
+  end
+  local function start()
+      local char = player.Character or player.CharacterAdded:Wait()
+      local hrp = char:WaitForChild("HumanoidRootPart")
+      local hum = char:WaitForChild("Humanoid")
+      flying = true
+      hum.PlatformStand = true
+      bv = Instance.new("BodyVelocity"); bv.MaxForce = Vector3.new(1e5,1e5,1e5); bv.Velocity = Vector3.zero; bv.Parent = hrp
+      bg = Instance.new("BodyGyro"); bg.MaxTorque = Vector3.new(1e5,1e5,1e5); bg.P = 1e4; bg.CFrame = hrp.CFrame; bg.Parent = hrp
+      conn = RunService.RenderStepped:Connect(function()
+          if not flying or not bv or not bg then return end
+          local cam = workspace.CurrentCamera
+          local move = Vector3.zero
+          if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
+          if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
+          if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
+          if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
+          if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+          if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move -= Vector3.new(0,1,0) end
+          bv.Velocity = (move.Magnitude > 0 and move.Unit or Vector3.zero) * FLY_SPEED
+          bg.CFrame = cam.CFrame
+      end)
+      player.CharacterAdded:Connect(stop)
+  end
+  flyBtn.Activated:Connect(function() if flying then stop(); flyBtn.Text = "✈ FLY" else start(); flyBtn.Text = "🛑 STOP" end end)
+
+  SPEED BUTTON: toggle humanoid.WalkSpeed between 16 and a boosted value (e.g. 60).
+  JUMP BUTTON: toggle humanoid.JumpPower/UseJumpPower or JumpHeight (boosted vs default 50/7.2).
+  NOCLIP BUTTON: RunService.Stepped loop setting every BasePart in char.CanCollide=false while enabled.
+  TELEPORT BUTTON: hrp.CFrame = CFrame.new(targetPosition) (or player.Character:PivotTo(...)); use a stored target or a text input.
+  HEAL BUTTON: humanoid.Health = humanoid.MaxHealth.
+  RESET BUTTON: humanoid.Health = 0 (or player:LoadCharacter() on the server via RemoteEvent).
+  INVISIBLE BUTTON: iterate character parts, set Transparency (and accessory Handle.Transparency) 0<->1, LocalTransparencyModifier for viewmodel.
+  MUSIC BUTTON: Instance.new("Sound") in SoundService, set SoundId, Looped=true, :Play()/:Pause() on toggle.
+  DAY/NIGHT BUTTON: Lighting.ClockTime = 6 or 20 (or tween).
+  GIVE TOOL BUTTON: server RemoteEvent → clone a Tool from ReplicatedStorage into player.Backpack.
+  SPAWN <thing> BUTTON: server RemoteEvent → clone template from ReplicatedStorage, PivotTo near player HRP.
+
+- If the requested behavior is server-authoritative (giving tools, spawning parts, changing other players, saving data), wire the button to fire a RemoteEvent and ALSO create the ServerScript in ServerScriptService that validates and performs the action. Never stop halfway — no orphan RemoteEvents.
+- The button's Text/label must update to reflect state (e.g. "✈ FLY" ↔ "🛑 STOP FLY", green when off / red when on), and hover/press tweens from the UI rules still apply.
+- Rule of thumb: if a user pressed the button in Play mode right now, the described effect MUST happen. If it wouldn't, you haven't finished the build.
+
+
 
 
 
