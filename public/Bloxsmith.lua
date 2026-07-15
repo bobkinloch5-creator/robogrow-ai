@@ -35,10 +35,28 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.22.0"
+Config.Version = "3.22.2"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.22.2",
+		date = "2026-07-15",
+		title = "Clearer Toggles",
+		changes = {
+			"IMPROVED: On/off switches in Settings now show what they control right on the button (e.g. ‘🟢 Stream replies live — ON (tap to turn off)’) instead of just ‘ON / OFF’, so it's always clear what each toggle does.",
+		},
+	},
+
+	{
+		version = "3.22.1",
+		date = "2026-07-15",
+		title = "Streaming Fix",
+		changes = {
+			"FIXED: Chats no longer get stuck on ‘working on your request…’. Live streaming is now OFF by default (enable it in Settings › Speed only once your backend fully supports streaming jobs), polling only runs when streaming is on, and a stall guard means the poll can never hang forever.",
+		},
+	},
+
 	{
 		version = "3.22.0",
 		date = "2026-07-15",
@@ -758,7 +776,7 @@ function AIService:request(opts, callbacks)
 	-- backend replies with a job envelope; otherwise we transparently fall back to
 	-- the classic one-shot reply, so older backends keep working unchanged.
 	local streamPref = self.plugin:GetSetting(Config.Settings.Stream)
-	local wantStream = (streamPref == nil) or (streamPref == true)
+	local wantStream = (streamPref == true) -- opt-in: OFF unless the user turns it on, so the proven one-shot path is always the default
 	local payload = {
 		mode = opts.mode or "chat",
 		prompt = opts.prompt,
@@ -811,7 +829,7 @@ function AIService:request(opts, callbacks)
 	-- If the backend accepted this as a streaming job, poll it and push partial
 	-- text to the UI as it arrives so replies start showing almost immediately
 	-- instead of only after the whole generation finishes.
-	if result.ok and type(result.jobId) == "string" and result.jobId ~= "" then
+	if wantStream and result.ok and type(result.jobId) == "string" and result.jobId ~= "" then
 		result = self:_pollJob(result, callbacks)
 	end
 
@@ -837,8 +855,9 @@ function AIService:_pollJob(initial, callbacks)
 		return { ok = true, reply = acc ~= "" and acc or initial.reply, actions = initial.actions }
 	end
 
-	local deadline = os.clock() + 150
+	local deadline = os.clock() + 180
 	local misses = 0
+	local lastProgress = os.clock()
 	while os.clock() < deadline do
 		if callbacks.isCancelled and callbacks.isCancelled() then
 			return { ok = false, cancelled = true, error = "Cancelled." }
@@ -858,6 +877,7 @@ function AIService:_pollJob(initial, callbacks)
 			misses = 0
 			if type(p.partial) == "string" and #p.partial > #acc then
 				acc = p.partial
+				lastProgress = os.clock()
 				if callbacks.onPartial then
 					callbacks.onPartial(acc)
 				end
@@ -869,6 +889,15 @@ function AIService:_pollJob(initial, callbacks)
 				local finalReply = (type(p.reply) == "string" and p.reply ~= "") and p.reply or acc
 				return { ok = true, reply = finalReply, actions = p.actions, provider = p.provider, mode = p.mode }
 			end
+		end
+		-- Stall guard: if the job stops making progress and never signals
+		-- completion, never spin forever — return whatever streamed in, or fail
+		-- with a clear message, so the UI is never stuck on "working on your request…".
+		if os.clock() - lastProgress > 25 then
+			if acc ~= "" then
+				return { ok = true, reply = acc, actions = nil }
+			end
+			return { ok = false, retryable = false, error = "The streaming response stalled — the backend never sent a completion. Turn OFF Settings › Speed › ‘Stream replies live’, or finish streaming job support on your backend (see §11 of the backend prompt)." }
 		end
 	end
 
@@ -4942,8 +4971,11 @@ function App:togglePref(parent, label, settingKey, default, desc)
 	local btn = button("", { Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = C.Panel, TextColor3 = C.Text })
 	stroke(C.Border).Parent = btn
 	btn.Parent = parent
+	btn.TextXAlignment = Enum.TextXAlignment.Left
 	local function render()
-		btn.Text = state and "🟢  ON  —  tap to turn off" or "⚪  OFF  —  tap to turn on"
+		-- Put the setting's name right on the button so it always says what it
+		-- controls, not just "ON/OFF".
+		btn.Text = (state and "🟢  " or "⚪  ") .. label .. "  —  " .. (state and "ON  (tap to turn off)" or "OFF  (tap to turn on)")
 		btn.BackgroundColor3 = state and C.AccentDim or C.Panel
 	end
 	render()
@@ -5011,7 +5043,7 @@ function App:buildSettingsView(parent)
 
 	-- Speed
 	Create("TextLabel", { Text = "⚡ Speed", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
-	self:togglePref(view, "Stream replies live", Config.Settings.Stream, true, "When ON, Bloxsmith shows the AI's reply as it's being written instead of waiting for the whole thing, so long builds feel far faster. Needs a backend that supports streaming jobs; if it doesn't, Bloxsmith automatically falls back to normal replies.")
+	self:togglePref(view, "Stream replies live", Config.Settings.Stream, false, "OFF by default. When ON, Bloxsmith shows the AI's reply as it's being written for a much faster feel — but only turn it on once your backend fully supports streaming jobs (see §11 of the backend prompt), otherwise replies can stall. If unsure, leave this OFF.")
 
 	-- Connection
 	Create("TextLabel", { Text = "🔌 Connection", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
