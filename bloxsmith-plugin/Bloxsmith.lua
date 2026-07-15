@@ -2990,33 +2990,21 @@ function App:addCodeBlock(parent, block, order)
 		Parent = panel,
 	})
 
-	local insert = button("＋ Insert into Studio", { LayoutOrder = 2, BackgroundColor3 = C.AccentDim })
-	insert.Parent = panel
-	insert.Activated:Connect(function()
-		insert.Text = "Inserting…"
-		local action = Parser.blockToAction(block, order)
-		local res = self.deps.apply:applyActions({ action }, "Bloxsmith insert script")
-		if res.ok and (res.applied or 0) > 0 then
-			local where = action.path or "ServerScriptService"
-			self:toast(("✓ Added '%s' to %s (open Explorer to see it). Ctrl+Z to undo."):format(action.name or "script", where), "success")
-			insert.Text = "✓ Inserted into " .. where
-		else
-			self:toast("Insert failed: " .. (res.error or "unknown"), "error")
-			insert.Text = "＋ Retry insert"
-		end
-	end)
+	-- Single primary action:
+	--   • Lua / Luau code  → run it in Studio (with undo record)
+	--   • Anything else    → insert it into the appropriate Studio location
+	local isLua = (not block.lang) or block.lang == "" or block.lang == "lua" or block.lang == "luau"
 
-	-- Always give an execute option for Lua/Luau script blocks.
-	if not block.lang or block.lang == "lua" or block.lang == "luau" or block.lang == "" then
-		local execute = button("⚡ Execute / Run Code", { LayoutOrder = 3, BackgroundColor3 = C.Accent })
+	if isLua then
+		local execute = button("⚡ Run in Studio", { LayoutOrder = 2, BackgroundColor3 = C.Accent })
 		execute.Parent = panel
 		execute.Activated:Connect(function()
-			execute.Text = "Executing…"
+			execute.Text = "Running…"
 			execute.Active = false
 			task.spawn(function()
 				local ChangeHistoryService = game:GetService("ChangeHistoryService")
-				local recordId = ChangeHistoryService:TryBeginRecording("Bloxsmith execute code")
-				
+				local recordId = ChangeHistoryService:TryBeginRecording("Bloxsmith run code")
+
 				local ok, err = pcall(function()
 					local fn, loadErr = loadstring(block.source)
 					if not fn then
@@ -3025,28 +3013,28 @@ function App:addCodeBlock(parent, block, order)
 					setfenv(fn, getfenv(0))
 					fn()
 				end)
-				
+
 				if recordId then
 					ChangeHistoryService:FinishRecording(recordId, Enum.FinishRecordingOperation.Commit)
 				end
-				
+
 				execute.Active = true
 				if ok then
-					self:toast("✓ Executed successfully. Ctrl+Z to undo.", "success")
-					execute.Text = "⚡ Executed"
+					self:toast("✓ Ran successfully. Ctrl+Z to undo.", "success")
+					execute.Text = "✓ Done"
 					if self._activeFixBtn then
 						self._activeFixBtn:Destroy()
 						self._activeFixBtn = nil
 					end
 				else
-					self:toast("Execution failed: " .. tostring(err), "error")
-					execute.Text = "⚡ Retry Execution"
-					warn("[Bloxsmith Exec Error]:", err)
+					self:toast("Run failed: " .. tostring(err), "error")
+					execute.Text = "⚡ Retry Run"
+					warn("[Bloxsmith Run Error]:", err)
 
 					if self._activeFixBtn then
 						self._activeFixBtn:Destroy()
 					end
-					local fixBtn = button("🔧 Auto-Fix Exec Error with AI", { LayoutOrder = 4, BackgroundColor3 = C.Warning })
+					local fixBtn = button("🔧 Auto-Fix with AI", { LayoutOrder = 3, BackgroundColor3 = C.Warning })
 					fixBtn.Parent = panel
 					self._activeFixBtn = fixBtn
 					fixBtn.Activated:Connect(function()
@@ -3056,6 +3044,22 @@ function App:addCodeBlock(parent, block, order)
 					end)
 				end
 			end)
+		end)
+	else
+		local insert = button("＋ Insert into Studio", { LayoutOrder = 2, BackgroundColor3 = C.Accent })
+		insert.Parent = panel
+		insert.Activated:Connect(function()
+			insert.Text = "Inserting…"
+			local action = Parser.blockToAction(block, order)
+			local res = self.deps.apply:applyActions({ action }, "Bloxsmith insert script")
+			if res.ok and (res.applied or 0) > 0 then
+				local where = action.path or "ServerScriptService"
+				self:toast(("✓ Added '%s' to %s. Ctrl+Z to undo."):format(action.name or "script", where), "success")
+				insert.Text = "✓ Inserted into " .. where
+			else
+				self:toast("Insert failed: " .. (res.error or "unknown"), "error")
+				insert.Text = "＋ Retry insert"
+			end
 		end)
 	end
 end
