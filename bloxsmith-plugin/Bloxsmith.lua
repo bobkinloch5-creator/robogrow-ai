@@ -35,10 +35,164 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.9.3"
+Config.Version = "3.18.1"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.18.1",
+		date = "2026-07-15",
+		title = "Friendly Coloured Theme",
+		changes = {
+			"IMPROVED: A friendlier, cleaner, cartoony redesign — soft coloured periwinkle-blue surfaces (not white, not black) across the background, panels and chat bubbles, a cheerful sky-blue to cyan accent, a rounded playful heading/button font (Fredoka), chunkier rounded corners, roomier spacing and crisper outlines. Button text stays high-contrast on every colour.",
+		},
+	},
+
+	{
+		version = "3.17.0",
+		date = "2026-07-15",
+		title = "Game-Engine Mode",
+		changes = {
+			"NEW: Bloxsmith now works like a game engine — for full-game requests it designs systems first (genre, core loop, key systems, progression, win/lose), then builds the whole game organized into ReplicatedStorage/ServerScriptService/StarterPlayer with data-driven Config modules, reusing what already exists. Added a '🎮 Design a full game' quick action.",
+		},
+	},
+
+	{
+		version = "3.16.0",
+		date = "2026-07-15",
+		title = "Real Terrain Fills",
+		changes = {
+			"NEW: Terrain fills — Bloxsmith can now paint real Roblox Terrain across your whole baseplate in a single action (e.g. 'fill the whole area with snow'). It auto-detects the baseplate/working area and covers the ENTIRE ground with the chosen material (Snow, Grass, Sand, Rock, Water, Ice and more) instead of dropping one part. Undoable with one Ctrl+Z.",
+		},
+	},
+
+	{
+		version = "3.15.0",
+		date = "2026-07-15",
+		title = "Autonomous Build Mode",
+		changes = {
+			"NEW: Autonomous mode — a switch in Settings › Autonomy. When ON, Bloxsmith applies its entire build plan automatically without waiting for you to approve each step. The live checklist still ticks off every action and the whole build stays a single Ctrl+Z undo. Turn it OFF (the default) to review and approve steps manually.",
+		},
+	},
+
+	{
+		version = "3.14.1",
+		date = "2026-07-15",
+		title = "Even More Game Systems",
+		changes = {
+			"NEW: Added 13 more one-tap game systems — Level & XP, Emote menu, Tycoon, Pet system, Loot crates, Gamepass & products, Quests & achievements, Trading, NPC dialogue, Vehicle spawner, Plot claiming, Weather system and Minimap.",
+		},
+	},
+
+	{
+		version = "3.14.0",
+		date = "2026-07-15",
+		title = "More Game Systems, One Tap",
+		changes = {
+			"NEW: Expanded the quick-action bar with many more one-tap game systems — Shop, Inventory, Data save/load, Sprint & stamina, Checkpoint obby, Weapons & combat, Round system, Team selector, Background music and Health & damage — alongside the existing Lobby, Leaderboard, Day-night, Teleport pads and Coin pickups.",
+			"NOTE: Bloxsmith already builds full GUIs and nested instance trees, particles/fire/smoke/sparkles/beams/trails/lights (auto-hosted so they render), sounds, and TweenService-driven animations — and every build applies as a single Ctrl+Z undo.",
+		},
+	},
+
+	{
+		version = "3.13.3",
+		date = "2026-07-15",
+		title = "Coloured Background",
+		changes = {
+			"COLOUR: Warmed the backgrounds from near-black to deep violet-tinted dark surfaces, so the panel carries the accent's colour instead of looking flat black — while keeping text crisp and high-contrast.",
+		},
+	},
+
+	{
+		version = "3.13.2",
+		date = "2026-07-15",
+		title = "Smaller Footprint",
+		changes = {
+			"SMALLER: Reduced the default window size (420×560 → 340×460), narrowed the sidebar, and shrank the nav rows and title for a more compact, space-efficient panel.",
+		},
+	},
+
+	{
+		version = "3.13.1",
+		date = "2026-07-15",
+		title = "Cleaner Composer",
+		changes = {
+			"REMOVED: The small wand icon button next to Send (it showed as a missing-glyph box in Studio's font). Prompt optimizing is still available via the Optimize tab, and the input box now widens to fill the reclaimed space.",
+		},
+	},
+
+	{
+		version = "3.13.0",
+		date = "2026-07-15",
+		title = "Violet Theme & Compact Layout",
+		changes = {
+			"NEW LOOK: Refreshed the entire palette to graphite surfaces with a violet→indigo accent, and tightened spacing, button heights and font sizes for a smaller, cleaner, more premium interface.",
+		},
+	},
+
+	{
+		version = "3.12.1",
+		date = "2026-07-15",
+		title = "Cleaner, More Premium UI",
+		changes = {
+			"POLISH: Softened panel borders into subtle hairlines, added more breathing room, and rounded corners for a cleaner, more premium feel — without adding any visual clutter.",
+		},
+	},
+
+	{
+		version = "3.12.0",
+		date = "2026-07-15",
+		title = "Per-Step Approval",
+		changes = {
+			"NEW: Per-action approve/skip — tap any step in a build plan to exclude it, then Approve applies only the steps you kept. Skipped steps are marked and left untouched, and once applied the checklist locks.",
+			"CLEANUP: Removed an unused RequestTimeout config value.",
+		},
+	},
+
+	{
+		version = "3.11.0",
+		date = "2026-07-15",
+		title = "Whole-GUI Generation (Nested Children)",
+		changes = {
+			"NEW: create_instance now accepts a nested `children` array, so Bloxsmith can build an ENTIRE hierarchy in one step — a full loading screen, main menu or HUD (ScreenGui > Frame > UICorner, UIGradient, UIListLayout, TextLabels, TextButtons…) — instead of many fragile path-based steps. Every level gets the same rich property coercion, and GUI trees are still auto-redirected into a ScreenGui under StarterGui so they always render. (The backend must emit children to use this fully.)",
+		},
+	},
+
+	{
+		version = "3.10.0",
+		date = "2026-07-15",
+		title = "Diff Preview, Attributes & Tags",
+		changes = {
+			"NEW: Diff preview before Apply — every build-plan step that creates or replaces a script now has a '🔍 Preview changes' toggle showing a color-coded line diff (green additions, red removals) against the current script, so you see exactly what will change before approving.",
+			"NEW: set_attribute, add_tag and remove_tag actions — Bloxsmith can now set instance Attributes and CollectionService tags, not just properties (the backend must emit these to use them fully).",
+			"IMPROVED: Color parsing now understands rgb(...) and hsl(...) strings in addition to hex codes and color names.",
+			"IMPROVED: Numbered lists (1., 2)…) now render properly in chat replies, matching the existing bullet and header formatting.",
+			"IMPROVED: Internal event system is now list-based — the same handler can connect more than once, disconnecting one no longer silently removes another, and a single failing listener can't break event dispatch.",
+		},
+	},
+
+	{
+		version = "3.9.5",
+		date = "2026-07-15",
+		title = "Richer Property Coercion",
+		changes = {
+			"IMPROVED: Color properties now accept 3-digit hex (#f00) and common color names (red, cyan, purple, orange, pink…), not just full 6-digit hex — so more AI-specified colors apply correctly.",
+			"NEW: CFrame properties now accept position + rotation — pass {x, y, z, rotX, rotY, rotZ} in degrees, or a full 12-number component list — so the AI can orient parts, not just position them.",
+			"NEW: Added coercion for Vector3int16 and Font/FontFace (by Enum.Font name), so those properties now apply instead of being silently ignored.",
+		},
+	},
+
+	{
+		version = "3.9.4",
+		date = "2026-07-15",
+		title = "Reversible Reset & Smarter Property Coercion",
+		changes = {
+			"FIXED: 'Reset Place' now clears objects by unparenting them instead of calling :Destroy(), so the entire wipe is properly reversible with a single Ctrl+Z — matching the in-app 'fully undoable' promise. The old :Destroy() path locked instances and could not be undone.",
+			"IMPROVED: create_instance / set_property now coerce NumberSequence values from tables — either a {start, end} ramp or an array of {time, value} keypoints — so particle/UI transparency and size ramps apply instead of being silently dropped.",
+			"DOCS: Documented the insert_asset action in the ApplyService reference header.",
+		},
+	},
+
 	{
 		version = "3.9.3",
 		date = "2026-07-13",
@@ -364,7 +518,6 @@ Config.DefaultBackendUrl =
 Config.PublishableKey =
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4dmJseGx5YXdub3ppcGVlaG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzOTkzOTAsImV4cCI6MjA2Nzk3NTM5MH0.JxGkpgvBECagn3eMnG1cN1Io2f20bfUmUq5e-vJqJzY"
 
-Config.RequestTimeout = 60
 Config.MaxContextInstances = 400 -- cap hierarchy walk for performance
 Config.MaxSelectionContext = 40 -- how many selected instances the AI can see at once
 
@@ -375,6 +528,7 @@ Config.Settings = {
 	Persona = "bloxsmith_persona",
 	ResponseLength = "bloxsmith_response_length",
 	CustomInstructions = "bloxsmith_custom_instructions",
+	AutoBuild = "bloxsmith_auto_build",
 }
 
 -- Customization options exposed in Settings and sent to the secure backend.
@@ -670,15 +824,24 @@ _modules["Services.ApplyService"] = function()
 	  create_script    { path, name, class, source }
 	  replace_script   { target (full path), source }
 	  create_folder    { path, name }
-	  create_instance  { path, class (ANY creatable Roblox class), name, properties? }
+	  create_instance  { path, class (ANY creatable Roblox class), name, properties?, children? }
 	  set_property      { target, property, value }
 	  rename_instance  { target, name }
 	  delete_instance  { target }
 	  move_instance    { target, path }
+	  insert_asset     { assetId, path, name? }
+	  set_attribute    { target, attribute, value }
+	  add_tag          { target, tag }
+	  remove_tag       { target, tag }
+	  fill_terrain     { material, size?, position?, height? }  -- fills whole baseplate if no size given
 
 	create_instance can build anything Roblox allows — GUIs, parts, models, lights,
 	particles, sounds, constraints, tools and more — with rich property coercion
 	(Color3, Vector2/3, UDim/UDim2, Rect, NumberRange, ColorSequence, Enums, etc.).
+	Pass a nested `children` array (each { class, name?, properties?, children? })
+	to build an ENTIRE hierarchy in one action — e.g. a full loading screen or
+	main menu: ScreenGui > Frame > UICorner, UIGradient, UIListLayout, TextLabels,
+	TextButtons — instead of many fragile path-based steps.
 ]]
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
@@ -795,9 +958,39 @@ function ApplyService:resolvePath(path, createFolders)
 end
 
 -- Parse a color from {r,g,b} (0-255), {number,number,number} (0-1), or "#RRGGBB".
+local NAMED_COLORS = {
+	red = Color3.fromRGB(255, 0, 0), green = Color3.fromRGB(0, 200, 0), blue = Color3.fromRGB(0, 90, 255),
+	white = Color3.fromRGB(255, 255, 255), black = Color3.fromRGB(0, 0, 0), yellow = Color3.fromRGB(255, 221, 0),
+	orange = Color3.fromRGB(255, 140, 0), purple = Color3.fromRGB(150, 60, 230), pink = Color3.fromRGB(255, 105, 180),
+	cyan = Color3.fromRGB(0, 220, 230), magenta = Color3.fromRGB(255, 0, 255), gray = Color3.fromRGB(128, 128, 128),
+	grey = Color3.fromRGB(128, 128, 128), brown = Color3.fromRGB(139, 69, 19), gold = Color3.fromRGB(255, 200, 60),
+}
+
 local function parseColor(value)
 	if type(value) == "string" then
+		local compact = value:lower():gsub("%s+", "")
+		local named = NAMED_COLORS[compact]
+		if named then return named end
+		-- rgb(r,g,b) / rgba(...) with 0-255 components.
+		local cr, cg, cb = compact:match("rgba?%((%d+),(%d+),(%d+)")
+		if cr and cg and cb then
+			return Color3.fromRGB(tonumber(cr), tonumber(cg), tonumber(cb))
+		end
+		-- hsl(h,s%,l%) — hue in degrees, sat/light in percent (converted to HSV).
+		local ch, cs, cl = compact:match("hsla?%((%d+),(%d+)%%?,(%d+)%%?")
+		if ch and cs and cl then
+			local H = (tonumber(ch) % 360) / 360
+			local S = math.clamp(tonumber(cs) / 100, 0, 1)
+			local L = math.clamp(tonumber(cl) / 100, 0, 1)
+			local v = L + S * math.min(L, 1 - L)
+			local sv = (v == 0) and 0 or (2 * (1 - L / v))
+			return Color3.fromHSV(H, sv, v)
+		end
 		local hex = value:gsub("#", "")
+		if #hex == 3 then
+			-- Expand shorthand #RGB -> #RRGGBB.
+			hex = hex:sub(1, 1):rep(2) .. hex:sub(2, 2):rep(2) .. hex:sub(3, 3):rep(2)
+		end
 		if #hex == 6 then
 			local r = tonumber(hex:sub(1, 2), 16)
 			local g = tonumber(hex:sub(3, 4), 16)
@@ -851,7 +1044,28 @@ local function coerceValue(inst, property, value)
 		return UDim.new(value[1] or value.scale or 0, value[2] or value.offset or 0)
 	elseif t == "Vector2int16" and type(value) == "table" then
 		return Vector2int16.new(value[1] or 0, value[2] or 0)
+	elseif t == "Vector3int16" and type(value) == "table" then
+		return Vector3int16.new(value[1] or 0, value[2] or 0, value[3] or 0)
+	elseif t == "Font" and type(value) == "string" then
+		-- Accept an Enum.Font name ("GothamBold") or "Enum.Font.GothamBold".
+		local leaf = string.match(value, "([%w_]+)$") or value
+		local okFont, fontVal = pcall(function() return Font.fromEnum(Enum.Font[leaf]) end)
+		if okFont and fontVal then return fontVal end
+		return existing
 	elseif t == "CFrame" and type(value) == "table" then
+		local n = #value
+		if n >= 12 then
+			return CFrame.new(
+				value[1] or 0, value[2] or 0, value[3] or 0,
+				value[4] or 1, value[5] or 0, value[6] or 0,
+				value[7] or 0, value[8] or 1, value[9] or 0,
+				value[10] or 0, value[11] or 0, value[12] or 1
+			)
+		elseif n >= 6 then
+			-- Position + orientation given as (X, Y, Z, rotX°, rotY°, rotZ°).
+			return CFrame.new(value[1] or 0, value[2] or 0, value[3] or 0)
+				* CFrame.Angles(math.rad(value[4] or 0), math.rad(value[5] or 0), math.rad(value[6] or 0))
+		end
 		return CFrame.new(value[1] or 0, value[2] or 0, value[3] or 0)
 	elseif t == "Rect" and type(value) == "table" then
 		return Rect.new(value[1] or 0, value[2] or 0, value[3] or 0, value[4] or 0)
@@ -871,6 +1085,24 @@ local function coerceValue(inst, property, value)
 		return existing
 	elseif t == "NumberSequence" then
 		if type(value) == "number" then return NumberSequence.new(value) end
+		if type(value) == "table" then
+			-- {startValue, endValue} ramp.
+			if type(value[1]) == "number" and type(value[2]) == "number" and value[3] == nil then
+				return NumberSequence.new(value[1], value[2])
+			end
+			-- Array of {time, value} (or {time=, value=}) keypoints.
+			local kps = {}
+			for _, kp in ipairs(value) do
+				if type(kp) == "table" then
+					local time = kp.time or kp[1]
+					local val = kp.value or kp[2]
+					if type(time) == "number" and type(val) == "number" then
+						table.insert(kps, NumberSequenceKeypoint.new(time, val))
+					end
+				end
+			end
+			if #kps >= 2 then return NumberSequence.new(kps) end
+		end
 		return existing
 	elseif t == "number" then
 		return tonumber(value) or existing
@@ -891,6 +1123,48 @@ local function coerceValue(inst, property, value)
 		end
 	end
 	return value
+end
+
+-- Recursively build a nested instance tree from a spec:
+-- { class|className, name?, properties?, children? }. Lets create_instance
+-- generate an entire GUI / model hierarchy in a single action, applying the
+-- same rich property coercion at every level. Returns (instance) or (nil, err).
+local function buildInstanceTree(spec, parent, depth)
+	depth = depth or 0
+	if depth > 40 then
+		return nil, "nesting too deep (>40 levels)"
+	end
+	if type(spec) ~= "table" then
+		return nil, "child spec must be a table"
+	end
+	local class = spec.class or spec.className or spec.ClassName
+	if type(class) ~= "string" or class == "" then
+		return nil, "child spec requires a class name"
+	end
+	if CREATE_BLACKLIST[class] then
+		return nil, "refused protected/service class: " .. class
+	end
+	local okNew, inst = pcall(Instance.new, class)
+	if not okNew or not inst then
+		return nil, "cannot create class: " .. tostring(class)
+	end
+	inst.Name = sanitizeName(spec.name or class)
+	if type(spec.properties) == "table" then
+		for prop, val in pairs(spec.properties) do
+			pcall(function()
+				inst[prop] = coerceValue(inst, prop, val)
+			end)
+		end
+	end
+	if type(spec.children) == "table" then
+		for _, childSpec in ipairs(spec.children) do
+			buildInstanceTree(childSpec, inst, depth + 1)
+		end
+	end
+	if parent then
+		inst.Parent = parent
+	end
+	return inst
 end
 
 local function assetAccessHint(reason)
@@ -1085,6 +1359,94 @@ local function createEffectHost(effect)
 end
 
 
+-- Map common material words to Enum.Material for terrain fills.
+local TERRAIN_MATERIALS = {
+	snow = Enum.Material.Snow, grass = Enum.Material.Grass, sand = Enum.Material.Sand,
+	rock = Enum.Material.Rock, slate = Enum.Material.Slate, ground = Enum.Material.Ground,
+	mud = Enum.Material.Mud, ice = Enum.Material.Glacier, glacier = Enum.Material.Glacier,
+	water = Enum.Material.Water, concrete = Enum.Material.Concrete, brick = Enum.Material.Brick,
+	asphalt = Enum.Material.Asphalt, basalt = Enum.Material.Basalt, cobblestone = Enum.Material.Cobblestone,
+	leafygrass = Enum.Material.LeafyGrass, limestone = Enum.Material.Limestone, pavement = Enum.Material.Pavement,
+	salt = Enum.Material.Salt, sandstone = Enum.Material.Sandstone, wood = Enum.Material.WoodPlanks,
+}
+
+local function parseTerrainMaterial(value)
+	if type(value) == "string" then
+		local key = value:lower():gsub("%s+", ""):gsub("terrain", "")
+		if TERRAIN_MATERIALS[key] then return TERRAIN_MATERIALS[key] end
+		local ok, mat = pcall(function() return Enum.Material[value] end)
+		if ok and mat then return mat end
+	end
+	return Enum.Material.Snow
+end
+
+local function toVector3(v, defaultY)
+	if typeof(v) == "Vector3" then return v end
+	if type(v) == "table" then
+		local x = tonumber(v.x or v.X or v[1])
+		local y = tonumber(v.y or v.Y or v[2])
+		local z = tonumber(v.z or v.Z or v[3])
+		if x and z then return Vector3.new(x, y or defaultY, z) end
+	end
+	return nil
+end
+
+-- Fill an area with real Roblox Terrain. When no explicit size is given it
+-- auto-detects the baseplate / largest ground part and covers the ENTIRE
+-- working area, so "fill the whole area with snow" paints all of it, not one
+-- tile. Wrapped by applyActions in a single ChangeHistory recording (one undo).
+function ApplyService:fillTerrain(action)
+	local Terrain = workspace.Terrain
+	if not Terrain then
+		return false, "No Terrain object found in Workspace."
+	end
+	local material = parseTerrainMaterial(action.material)
+	local height = tonumber(action.height) or tonumber(action.thickness) or 6
+	local size, cframe
+	local sz = toVector3(action.size, height)
+	local pos = toVector3(action.position, height / 2)
+	if sz then
+		local sy = math.abs(sz.Y) > 0 and math.abs(sz.Y) or height
+		size = Vector3.new(math.max(math.abs(sz.X), 1), sy, math.max(math.abs(sz.Z), 1))
+		cframe = CFrame.new(pos or Vector3.new(0, size.Y / 2, 0))
+	else
+		-- Auto-detect the ground to cover.
+		local base
+		for _, c in ipairs(workspace:GetChildren()) do
+			if c:IsA("BasePart") and (c.Name == "Baseplate" or c.Name == "Base" or c.Name == "Ground") then
+				base = c
+				break
+			end
+		end
+		if not base then
+			local bestArea = 0
+			for _, c in ipairs(workspace:GetChildren()) do
+				if c:IsA("BasePart") then
+					local area = c.Size.X * c.Size.Z
+					if area > bestArea then
+						bestArea = area
+						base = c
+					end
+				end
+			end
+		end
+		if base then
+			size = Vector3.new(base.Size.X, height, base.Size.Z)
+			cframe = base.CFrame * CFrame.new(0, base.Size.Y / 2 + height / 2, 0)
+		else
+			size = Vector3.new(512, height, 512)
+			cframe = CFrame.new(0, height / 2, 0)
+		end
+	end
+	local ok, err = pcall(function()
+		Terrain:FillBlock(cframe, size, material)
+	end)
+	if not ok then
+		return false, "Terrain fill failed: " .. tostring(err)
+	end
+	return true, ("Filled %d x %d area with %s terrain."):format(math.floor(size.X), math.floor(size.Z), material.Name)
+end
+
 -- Apply one action. Returns (ok, message, instance?).
 
 function ApplyService:applyOne(action)
@@ -1107,6 +1469,9 @@ function ApplyService:applyOne(action)
 		folder.Name = name
 		folder.Parent = parent
 		return true, "Created folder " .. folder:GetFullName(), folder
+
+	elseif kind == "fill_terrain" then
+		return self:fillTerrain(action)
 
 	elseif kind == "create_script" then
 		local parent = self:resolvePath(action.path or "ServerScriptService", true)
@@ -1188,6 +1553,20 @@ function ApplyService:applyOne(action)
 				pcall(function()
 					inst[prop] = coerceValue(inst, prop, val)
 				end)
+			end
+		end
+
+		-- Nested children: build an entire hierarchy in one action. Each child
+		-- is { class, name?, properties?, children? } and is built recursively
+		-- with the same coercion, so a full GUI (ScreenGui > Frame > UICorner,
+		-- UIGradient, UIListLayout, TextLabels, TextButtons…) or model can be
+		-- generated in a single step instead of many fragile path-based ones.
+		if type(action.children) == "table" then
+			for _, childSpec in ipairs(action.children) do
+				local child, childErr = buildInstanceTree(childSpec, inst)
+				if not child then
+					Log.warn("create_instance: skipped a child — " .. tostring(childErr))
+				end
 			end
 		end
 
@@ -1317,6 +1696,54 @@ function ApplyService:applyOne(action)
 		local name = target:GetFullName()
 		target.Parent = nil
 		return true, "Deleted " .. name, nil
+
+	elseif kind == "set_attribute" then
+		local target = self:resolvePath(action.target or "", false)
+		if not target then
+			return false, "Could not find target: " .. tostring(action.target)
+		end
+		local attrName = action.attribute or action.name
+		if type(attrName) ~= "string" or attrName == "" then
+			return false, "set_attribute requires an attribute name"
+		end
+		local okSet = pcall(function()
+			target:SetAttribute(attrName, action.value)
+		end)
+		if not okSet then
+			return false, ("Could not set attribute %s on %s (unsupported value type?)"):format(attrName, target:GetFullName())
+		end
+		return true, ("Set attribute %s on %s"):format(attrName, target:GetFullName()), target
+
+	elseif kind == "add_tag" then
+		local target = self:resolvePath(action.target or "", false)
+		if not target then
+			return false, "Could not find target: " .. tostring(action.target)
+		end
+		local tag = action.tag or action.name
+		if type(tag) ~= "string" or tag == "" then
+			return false, "add_tag requires a tag name"
+		end
+		local okTag = pcall(function()
+			game:GetService("CollectionService"):AddTag(target, tag)
+		end)
+		if not okTag then
+			return false, ("Could not add tag %s to %s"):format(tag, target:GetFullName())
+		end
+		return true, ("Tagged %s with '%s'"):format(target:GetFullName(), tag), target
+
+	elseif kind == "remove_tag" then
+		local target = self:resolvePath(action.target or "", false)
+		if not target then
+			return false, "Could not find target: " .. tostring(action.target)
+		end
+		local tag = action.tag or action.name
+		if type(tag) ~= "string" or tag == "" then
+			return false, "remove_tag requires a tag name"
+		end
+		pcall(function()
+			game:GetService("CollectionService"):RemoveTag(target, tag)
+		end)
+		return true, ("Removed tag '%s' from %s"):format(tag, target:GetFullName()), target
 
 	elseif kind == "insert_asset" then
 		local assetId = tonumber(action.assetId or action.id)
@@ -1483,8 +1910,11 @@ function ApplyService:resetPlace(keepBaseplate)
 		end
 		for _, child in ipairs(container:GetChildren()) do
 			if not (protect and protect(child)) then
+				-- Unparent instead of :Destroy() so ChangeHistoryService can fully
+				-- reverse the whole wipe with a single Ctrl+Z. :Destroy() locks the
+				-- instance's parent and is not undoable.
 				local ok = pcall(function()
-					child:Destroy()
+					child.Parent = nil
 				end)
 				if ok then
 					removed += 1
@@ -2235,24 +2665,32 @@ local function pad(px)
 	})
 end
 
-local function stroke(color)
-	return Create("UIStroke", { Color = color or C.Border, Thickness = 1 })
+-- Subtle, semi-transparent hairline borders read cleaner and more premium
+-- than hard 1px outlines, and keep panels from looking boxy/cluttered.
+local function stroke(color, transparency)
+	return Create("UIStroke", {
+		Color = color or C.Border,
+		Thickness = 1.5,
+		Transparency = transparency or 0.3,
+	})
 end
 
 local function button(text, props)
 	props = props or {}
 	local bg = props.BackgroundColor3 or C.Accent
+	-- White label on strong coloured buttons, dark label on light surfaces.
+	local strongBtn = bg == C.Accent or bg == C.Success or bg == C.Warning or bg == C.Error or bg == C.Info
 	local btn = Create("TextButton", {
 		Text = text,
 		Font = Theme.FontBold,
-		TextSize = props.TextSize or 13,
-		TextColor3 = props.TextColor3 or C.Text,
+		TextSize = props.TextSize or 12,
+		TextColor3 = props.TextColor3 or (strongBtn and C.OnColor or C.Text),
 		BackgroundColor3 = bg,
 		AutoButtonColor = true,
-		Size = props.Size or UDim2.new(1, 0, 0, 32),
+		Size = props.Size or UDim2.new(1, 0, 0, 30),
 		BorderSizePixel = 0,
 		LayoutOrder = props.LayoutOrder,
-	}, { corner(UDim.new(0, 6)) })
+	}, { corner(UDim.new(0, 12)) })
 	-- Premium blue → cyan gradient on primary (accent) buttons.
 	if bg == C.Accent then
 		Create("UIGradient", {
@@ -2278,7 +2716,7 @@ function App:toast(message, kind)
 		Text = message,
 		Font = Theme.FontBold,
 		TextSize = 13,
-		TextColor3 = C.Bg,
+		TextColor3 = C.OnColor,
 		BackgroundColor3 = color,
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -2337,7 +2775,7 @@ function App:addBubble(role, text)
 
 	-- Render the reply with code blocks stripped into their own panels.
 	local blocks = Parser.extractBlocks(workingText)
-	local prose = string.gsub(workingText, "```[^\n]*\n([%s%S]-)```", "\n〔 code block below 〕\n")
+	local prose = string.gsub(workingText, "```[^\n]*\n([%s%S]-)```", "\n��� code block below 〕\n")
 	prose = prose:gsub("^%s+", ""):gsub("%s+$", "")
 
 	if prose ~= "" then
@@ -2364,7 +2802,7 @@ function App:addBubble(role, text)
 		local insertAll = button(("＋ Insert all %d files into Studio"):format(#blocks), {
 			LayoutOrder = 3,
 			BackgroundColor3 = C.Success,
-			TextColor3 = C.Bg,
+			TextColor3 = C.OnColor,
 		})
 		insertAll.Parent = holder
 		insertAll.Activated:Connect(function()
@@ -2436,7 +2874,7 @@ function App:addThinkingPanel(parent, thinking, order)
 	header.Activated:Connect(function()
 		expanded = not expanded
 		body.Visible = expanded
-		header.Text = expanded and "💭 Thinking  ▾" or "💭 Thinking  ▸"
+		header.Text = expanded and "💭 Thinking  ▾" or "���� Thinking  ▸"
 	end)
 end
 
@@ -2838,6 +3276,85 @@ function App:stopActiveBuild()
 	self:toast("Build stopped.", "warning")
 end
 
+-- Split text into lines for diffing.
+local function splitLines(s)
+	local lines = {}
+	for line in (tostring(s or "") .. "\n"):gmatch("(.-)\n") do
+		table.insert(lines, line)
+	end
+	return lines
+end
+
+-- Standard LCS line diff -> array of { t = "same"|"add"|"del", text = line }.
+local function computeLineDiff(oldSrc, newSrc)
+	local a, b = splitLines(oldSrc), splitLines(newSrc)
+	local n, m = #a, #b
+	local lcs = {}
+	for i = 1, n + 1 do
+		lcs[i] = {}
+		for j = 1, m + 1 do
+			lcs[i][j] = 0
+		end
+	end
+	for i = n, 1, -1 do
+		for j = m, 1, -1 do
+			if a[i] == b[j] then
+				lcs[i][j] = lcs[i + 1][j + 1] + 1
+			else
+				lcs[i][j] = math.max(lcs[i + 1][j], lcs[i][j + 1])
+			end
+		end
+	end
+	local out = {}
+	local i, j = 1, 1
+	while i <= n and j <= m do
+		if a[i] == b[j] then
+			table.insert(out, { t = "same", text = a[i] })
+			i, j = i + 1, j + 1
+		elseif lcs[i + 1][j] >= lcs[i][j + 1] then
+			table.insert(out, { t = "del", text = a[i] })
+			i = i + 1
+		else
+			table.insert(out, { t = "add", text = b[j] })
+			j = j + 1
+		end
+	end
+	while i <= n do
+		table.insert(out, { t = "del", text = a[i] })
+		i = i + 1
+	end
+	while j <= m do
+		table.insert(out, { t = "add", text = b[j] })
+		j = j + 1
+	end
+	return out
+end
+
+-- Render a line diff into colored Roblox RichText (green add / red del / dim same).
+local function renderDiffRichText(diff)
+	if #diff == 0 then
+		return '<font color="#60708e">(no changes)</font>'
+	end
+	local MAXLINES = 300
+	local parts, shown = {}, 0
+	for _, d in ipairs(diff) do
+		if shown >= MAXLINES then
+			table.insert(parts, '<font color="#60708e">… diff truncated …</font>')
+			break
+		end
+		local text = tostring(d.text):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+		if d.t == "add" then
+			table.insert(parts, ('<font color="#34d399">+ %s</font>'):format(text))
+		elseif d.t == "del" then
+			table.insert(parts, ('<font color="#f87171">- %s</font>'):format(text))
+		else
+			table.insert(parts, ('<font color="#60708e">  %s</font>'):format(text))
+		end
+		shown = shown + 1
+	end
+	return table.concat(parts, "\n")
+end
+
 -- Human-readable one-line summary of a single agent action, for the plan checklist.
 local function describeAction(a)
 	local kind = a.action or "change"
@@ -2847,11 +3364,15 @@ local function describeAction(a)
 		replace_script = "Replace script",
 		create_folder = "Create folder",
 		create_instance = "Create " .. tostring(a.class or "instance"),
+		fill_terrain = "Fill area with " .. tostring(a.material or "terrain"),
 		set_property = "Set " .. tostring(a.property or "property"),
 		rename_instance = "Rename",
 		delete_instance = "Delete",
 		move_instance = "Move",
 		insert_asset = "Insert asset",
+		set_attribute = "Set attribute",
+		add_tag = "Add tag",
+		remove_tag = "Remove tag",
 	}
 	local label = map[kind] or tostring(kind)
 	if name ~= "" then
@@ -2875,7 +3396,7 @@ function App:proposeAgentActions(actions)
 	}, { corner(UDim.new(0, 8)), pad(10), stroke(C.Accent) })
 	Create("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = holder })
 	Create("TextLabel", {
-		Text = ("🤖 Build plan — %d step(s). Approve to apply:"):format(#actions),
+		Text = ("🤖 Build plan — %d step(s). Tap a step to skip it, then approve:"):format(#actions),
 		Font = Theme.FontBold,
 		TextSize = 13,
 		TextColor3 = C.Text,
@@ -2887,26 +3408,100 @@ function App:proposeAgentActions(actions)
 		Parent = holder,
 	})
 
-	-- Live checklist: one row per action, ticked off as the build applies.
+	-- Live checklist: one row per action, ticked off as the build applies. Each
+	-- create/replace-script step gets a "Preview changes" toggle that shows a
+	-- color-coded line diff against the current script before you approve.
 	local rows = {}
+	local selected = {}
+	local applied = false
 	for i, a in ipairs(actions) do
-		rows[i] = Create("TextLabel", {
-			Text = ("☐  %d. %s"):format(i, describeAction(a)),
-			Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim,
-			BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
-			AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = i, Parent = holder,
+		local baseOrder = i * 10
+		selected[i] = true
+		-- Each row is a toggle: tap to skip/include this step before approving.
+		rows[i] = Create("TextButton", {
+			Text = ("☑  %d. %s"):format(i, describeAction(a)),
+			Font = Theme.Font, TextSize = 12, TextColor3 = C.Text,
+			BackgroundTransparency = 1, AutoButtonColor = false, TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = baseOrder, Parent = holder,
 		})
+		rows[i].Activated:Connect(function()
+			if applied then return end
+			selected[i] = not selected[i]
+			rows[i].Text = ("%s  %d. %s"):format(selected[i] and "☑" or "☐", i, describeAction(a))
+			rows[i].TextColor3 = selected[i] and C.Text or C.TextDim
+		end)
+
+		if type(a.source) == "string" and (a.action == "replace_script" or a.action == "create_script") then
+			local previewBtn = button("🔍 Preview changes", {
+				LayoutOrder = baseOrder + 1, BackgroundColor3 = C.PanelAlt, TextSize = 11,
+				Size = UDim2.new(0, 160, 0, 22),
+			})
+			previewBtn.Parent = holder
+
+			local diffPanel = Create("Frame", {
+				BackgroundColor3 = C.Bg, Visible = false,
+				Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+				LayoutOrder = baseOrder + 2, Parent = holder,
+			}, { corner(UDim.new(0, 6)), pad(8), stroke(C.Border) })
+			local diffLabel = Create("TextLabel", {
+				RichText = true, Text = "", Font = Theme.FontMono, TextSize = 12,
+				TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true,
+				TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
+				AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = diffPanel,
+			})
+
+			local built = false
+			previewBtn.Activated:Connect(function()
+				if not built then
+					built = true
+					local newSrc = a.source or ""
+					local oldSrc = ""
+					pcall(function()
+						local target = self.deps.apply:resolvePath(a.target or "", false)
+						if target and target:IsA("LuaSourceContainer") then
+							oldSrc = target.Source
+						end
+					end)
+					local oldLines, newLines = splitLines(oldSrc), splitLines(newSrc)
+					if #oldLines > 800 or #newLines > 800 then
+						diffLabel.Text = ('<font color="#60708e">Script too large to diff inline — replacing %d line(s) with %d line(s).</font>'):format(#oldLines, #newLines)
+					else
+						diffLabel.Text = renderDiffRichText(computeLineDiff(oldSrc, newSrc))
+					end
+				end
+				diffPanel.Visible = not diffPanel.Visible
+				previewBtn.Text = diffPanel.Visible and "🔽 Hide changes" or "🔍 Preview changes"
+			end)
+		end
 	end
 
-	local approve = button("✓ Approve & Apply", { BackgroundColor3 = C.Success, TextColor3 = C.Bg, LayoutOrder = #actions + 1 })
+	local approve = button("✓ Approve & Apply", { BackgroundColor3 = C.Success, TextColor3 = C.OnColor, LayoutOrder = (#actions + 1) * 10 })
 	approve.Parent = holder
-	approve.Activated:Connect(function()
+	local function runApply()
+		-- Only apply the steps still checked; skipped steps are left untouched.
+		local selectedActions, indexMap = {}, {}
+		for i, a in ipairs(actions) do
+			if selected[i] then
+				table.insert(selectedActions, a)
+				indexMap[#selectedActions] = i
+			else
+				rows[i].Text = ("⊘  %d. %s (skipped)"):format(i, describeAction(actions[i]))
+				rows[i].TextColor3 = C.TextDim
+			end
+		end
+		if #selectedActions == 0 then
+			self:toast("Select at least one step to apply.", "warning")
+			return
+		end
+		applied = true
 		approve.Text = "Applying…"
 		approve.Active = false
-		local res = self.deps.apply:applyActions(actions, "Bloxsmith agent task")
+		local res = self.deps.apply:applyActions(selectedActions, "Bloxsmith agent task")
 		local results = res.results or {}
-		for i, row in ipairs(rows) do
-			local r = results[i]
+		for k, r in ipairs(results) do
+			local i = indexMap[k]
+			local row = rows[i]
 			if r and r.ok then
 				row.Text = ("✅  %d. %s"):format(i, describeAction(actions[i]))
 				row.TextColor3 = C.Success
@@ -2919,12 +3514,22 @@ function App:proposeAgentActions(actions)
 			self:toast(("Applied %d step(s). Ctrl+Z to undo."):format(#(res.created or {})), "success")
 			approve.Text = "✓ Applied"
 		else
-			self:toast(("Applied %d of %d — check output."):format(res.applied or 0, #actions), "warning")
+			self:toast(("Applied %d of %d selected — check output."):format(res.applied or 0, #selectedActions), "warning")
 			approve.Text = "Applied with issues"
 		end
 		-- Auto-fix loop: if the build produced runtime errors, offer a one-tap fix.
 		self:offerAutoFix()
-	end)
+	end
+	approve.Activated:Connect(runApply)
+
+	-- Autonomous mode: if the developer flipped the switch in Settings, apply the
+	-- whole plan automatically without waiting for manual approval. It still runs
+	-- as one Ctrl+Z undo, and the checklist ticks off live so every step is visible.
+	if self.deps.ai.plugin:GetSetting(Config.Settings.AutoBuild) == true then
+		approve.Text = "🤖 Auto-applying…"
+		self:toast("Autonomous mode on — building automatically…", "info")
+		task.defer(runApply)
+	end
 end
 
 -- If a runtime error appeared right after a build, surface a one-tap AI fix.
@@ -3049,11 +3654,35 @@ function App:buildChatView(parent)
 	Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), Parent = quickRow })
 	local quickActions = {
 		{ "🔧 Fix latest error", "__fix__" },
+		{ "🎮 Design a full game", "Act like a game engine: choose the genre, then design the core loop, key systems, progression and win/lose conditions, and build the ENTIRE game organized into ReplicatedStorage/ServerScriptService/StarterPlayer with data-driven Config modules. Reuse anything that already exists.", "generate_system" },
 		{ "🏛 Build a lobby", "Build a polished game lobby with a spawn area, decorated environment and a play button UI.", "generate_system" },
 		{ "🏆 Leaderboard", "Add a global leaderboard using OrderedDataStore that tracks player wins.", "generate_system" },
 		{ "🌗 Day-night cycle", "Add a smooth continuous day-night cycle that animates Lighting.ClockTime.", "generate_system" },
 		{ "🚪 Teleport pads", "Create two linked teleport pads that move the player between them on touch.", "generate_system" },
 		{ "💰 Coin pickups", "Add collectable coins that give the player points and respawn after a short delay.", "generate_system" },
+		{ "🛒 Shop system", "Create a shop system with purchasable items, server-validated currency handling and a polished UI.", "generate_system" },
+		{ "🎒 Inventory", "Build a server-authoritative inventory system with add/remove/equip and a client UI.", "generate_system" },
+		{ "💾 Data save/load", "Add DataStore-based save/load so player data (coins, level, inventory) persists between sessions, with pcall retries, session locking, autosave and BindToClose.", "generate_system" },
+		{ "🏃 Sprint & stamina", "Add a sprint system bound to Shift with a depleting and regenerating stamina bar UI.", "generate_system" },
+		{ "🏁 Checkpoint obby", "Build a checkpoint/obby system that saves the player's last stage and respawns them there.", "generate_system" },
+		{ "⚔️ Weapons & combat", "Build a server-authoritative melee combat system with a sword tool, damage and cooldowns.", "generate_system" },
+		{ "🎯 Round system", "Add a round-based match system with intermission, a countdown timer, arena teleport and win detection.", "generate_system" },
+		{ "👥 Team selector", "Create a team selection menu that assigns players to teams with colored spawns.", "generate_system" },
+		{ "🔊 Background music", "Add background music using a SoundGroup with a mute toggle in the UI.", "generate_system" },
+		{ "❤️ Health & damage", "Add a health/damage system with a custom health bar UI and damage zones.", "generate_system" },
+		{ "📈 Level & XP", "Add a level and XP system where players earn XP, level up with a progress bar UI, and progress persists via DataStore.", "generate_system" },
+		{ "🎭 Emote menu", "Create an emote menu where players can play animation emotes bound to hotkeys.", "generate_system" },
+		{ "🏭 Tycoon", "Build a tycoon with a dropper that spawns cash parts, a collector that awards money, and buyable upgrade buttons.", "generate_system" },
+		{ "🐾 Pet system", "Build a pet system where players can hatch, equip and follow pets, saved via DataStore.", "generate_system" },
+		{ "🎁 Loot crates", "Add a loot crate system with server-rolled weighted random rewards and an opening animation UI.", "generate_system" },
+		{ "🎫 Gamepass & products", "Add Roblox gamepass and developer product purchases handled server-side via MarketplaceService and ProcessReceipt.", "generate_system" },
+		{ "🧭 Quests & achievements", "Add a quest and achievement system that tracks objectives, rewards completion, and persists via DataStore.", "generate_system" },
+		{ "🤝 Trading", "Build a secure player-to-player trading system with both-side confirmation and full server validation.", "generate_system" },
+		{ "🤖 NPC dialogue", "Create an interactive NPC with a dialogue UI and branching responses.", "generate_system" },
+		{ "🚗 Vehicle spawner", "Add a vehicle spawner that spawns a drivable car for the player from a spawn button.", "generate_system" },
+		{ "🏠 Plot claiming", "Build a plot/base claiming system where each player owns a plot with a claim door.", "generate_system" },
+		{ "🌦️ Weather system", "Add a dynamic weather system that cycles between clear, rain and fog with matching particles and lighting.", "generate_system" },
+		{ "🗺️ Minimap", "Add a minimap UI that tracks the player's position and nearby points of interest.", "generate_system" },
 	}
 	for i, qa in ipairs(quickActions) do
 		local chip = button(qa[1], { Size = UDim2.new(0, 128, 1, 0), BackgroundColor3 = C.PanelAlt, TextSize = 11 })
@@ -3118,113 +3747,10 @@ function App:buildChatView(parent)
 		ClearTextOnFocus = false,
 		MultiLine = true,
 		TextWrapped = true,
-		Size = UDim2.new(1, -104, 1, 0),
+		Size = UDim2.new(1, -72, 1, 0),
 		Position = UDim2.new(0, 0, 0, 0),
 		Parent = inputRow,
 	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
-
-	self.wandBtn = button("🪄", { Size = UDim2.new(0, 32, 1, 0), BackgroundColor3 = C.PanelAlt })
-	self.wandBtn.Position = UDim2.new(1, -100, 0, 0)
-	self.wandBtn.Parent = inputRow
-	self.wandBtn.Activated:Connect(function()
-		if self.busy then return end
-		local text = self.input.Text
-		local cleanText = text:gsub("^%s+", ""):gsub("%s+$", "")
-		if cleanText == "" then
-			self:toast("Type a prompt to optimize first.", "warning")
-			return
-		end
-
-		self.busy = true
-		self.wandBtn.Text = "⏳"
-		self.sendBtn.Active = false
-		self.sendBtn.BackgroundColor3 = C.PanelAlt
-		local grad = self.sendBtn:FindFirstChildOfClass("UIGradient")
-		if grad then
-			grad.Enabled = false
-		end
-		self.input.Editable = false
-
-		-- Bump a generation token so a delayed emote-revert from a previous
-		-- click can never stomp on a newer click's button state.
-		self._wandFlashGen = (self._wandFlashGen or 0) + 1
-		local wandGen = self._wandFlashGen
-
-		-- Flashes emoteText on the wand button for a moment, then settles back
-		-- to the default 🪄 — but only if a newer click hasn't started since.
-		local function flashWand(emoteText)
-			self.wandBtn.Text = emoteText
-			task.delay(0.9, function()
-				if self._wandFlashGen == wandGen then
-					self.wandBtn.Text = "🪄"
-				end
-			end)
-		end
-
-		task.spawn(function()
-			-- "optimize_prompt" was never a mode the backend understood, so this
-			-- request either errored or exhausted its retries in the background —
-			-- which is why the wand got stuck on the hourglass and never produced
-			-- anything. Route it through "chat" (a mode the backend does support)
-			-- with an instruction that asks the model to rewrite the prompt, and
-			-- pcall the whole thing so a failure can never leave the button stuck.
-			local callOk, result = pcall(function()
-				return self.deps.ai:request({
-					mode = "chat",
-					messages = {
-						{
-							role = "user",
-							content = "Rewrite the following Roblox Studio AI prompt to be clearer, more specific, "
-								.. "and more likely to produce the intended result. Respond with ONLY the improved "
-								.. "prompt text — no explanations, no quotes, no preamble.\n\nOriginal prompt:\n"
-								.. cleanText,
-						},
-					},
-					context = "",
-				})
-			end)
-
-			self.busy = false
-			self.sendBtn.Active = true
-			self.sendBtn.BackgroundColor3 = C.Accent
-			local gradAfter = self.sendBtn:FindFirstChildOfClass("UIGradient")
-			if gradAfter then
-				gradAfter.Enabled = true
-			end
-			self.input.Editable = true
-
-			if not callOk then
-				Log.error("Prompt optimization crashed:", result)
-				flashWand("😕")
-				self:toast("Optimization failed. Please try again.", "error")
-				return
-			end
-
-			if result.ok then
-				local reply = result.reply or ""
-				local _, afterThinking = Parser.extractThinking(reply)
-				if type(afterThinking) == "string" then
-					reply = afterThinking
-				end
-				local _, cleanedReply, foundBlock = Parser.extractActions(reply)
-				if foundBlock then
-					reply = cleanedReply
-				end
-				reply = reply:gsub("^%s+", ""):gsub("%s+$", "")
-				if reply == "" then
-					flashWand("😕")
-					self:toast("Optimization returned nothing — please try again.", "error")
-					return
-				end
-				self.input.Text = reply
-				flashWand("✨")
-				self:toast("Prompt optimized!", "success")
-			else
-				flashWand("😕")
-				self:toast(result.error or "Optimization failed.", "error")
-			end
-		end)
-	end)
 
 	self.sendBtn = button("Send", { Size = UDim2.new(0, 64, 1, 0) })
 	self.sendBtn.Position = UDim2.new(1, -64, 0, 0)
@@ -3898,7 +4424,7 @@ function App:buildToolboxView(parent)
 		TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false,
 		Size = UDim2.new(1, -74, 1, 0), Parent = idRow,
 	}, { corner(UDim.new(0, 6)), pad(6), stroke(C.Border) })
-	local idBtn = button("Insert", { Size = UDim2.new(0, 66, 1, 0), BackgroundColor3 = C.Success, TextColor3 = C.Bg })
+	local idBtn = button("Insert", { Size = UDim2.new(0, 66, 1, 0), BackgroundColor3 = C.Success, TextColor3 = C.OnColor })
 	idBtn.Position = UDim2.new(1, -66, 0, 0)
 	idBtn.Parent = idRow
 
@@ -4257,6 +4783,30 @@ end
 
 
 
+-- A labelled ON/OFF switch that persists a boolean plugin setting.
+function App:togglePref(parent, label, settingKey, default, desc)
+	Create("TextLabel", { Text = label, Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Text, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 18), Parent = parent })
+	local stored = self.deps.ai.plugin:GetSetting(settingKey)
+	local state = (stored == nil) and (default == true) or (stored == true)
+	local btn = button("", { Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = C.Panel, TextColor3 = C.Text })
+	stroke(C.Border).Parent = btn
+	btn.Parent = parent
+	local function render()
+		btn.Text = state and "🟢  ON  —  tap to turn off" or "⚪  OFF  —  tap to turn on"
+		btn.BackgroundColor3 = state and C.AccentDim or C.Panel
+	end
+	render()
+	btn.Activated:Connect(function()
+		state = not state
+		self.deps.ai.plugin:SetSetting(settingKey, state)
+		render()
+		self:toast(label .. ": " .. (state and "ON" or "OFF"), state and "success" or "info")
+	end)
+	if desc and desc ~= "" then
+		Create("TextLabel", { Text = desc, Font = Theme.Font, TextSize = 11, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = parent })
+	end
+end
+
 -- A labelled control that cycles through a list of options on click and
 -- persists the chosen value to a plugin setting.
 function App:cyclePref(parent, label, settingKey, options, default)
@@ -4304,6 +4854,10 @@ function App:buildSettingsView(parent)
 
 	Create("TextLabel", { Text = "Personality, length and custom instructions shape every AI reply and are sent securely with each request.", Font = Theme.Font, TextSize = 11, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
 
+	-- Autonomy
+	Create("TextLabel", { Text = "🤖 Autonomy", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
+	self:togglePref(view, "Autonomous build mode", Config.Settings.AutoBuild, false, "When ON, Bloxsmith applies its whole build plan automatically without waiting for you to approve each step. The live checklist still ticks off every action, and each build is a single Ctrl+Z undo. Turn OFF (default) to review and approve steps first.")
+
 	-- Connection
 	Create("TextLabel", { Text = "🔌 Connection", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
 
@@ -4322,7 +4876,7 @@ function App:buildSettingsView(parent)
 	Create("TextLabel", { Text = "⚠️ Danger Zone", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Error, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
 	Create("TextLabel", { Text = "Refresh place — permanently removes ALL scripts, models, GUIs and assets across Workspace, ServerScriptService, ReplicatedStorage, StarterGui, StarterPlayer, Lighting and more. The Baseplate is kept. Undo the whole wipe with Ctrl+Z.", Font = Theme.Font, TextSize = 12, TextColor3 = C.TextDim, BackgroundTransparency = 1, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), Parent = view })
 
-	local resetBtn = button("🔄 Refresh place (keep Baseplate)", { Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = C.Error, TextColor3 = C.Bg })
+	local resetBtn = button("🔄 Refresh place (keep Baseplate)", { Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = C.Error, TextColor3 = C.OnColor })
 	resetBtn.Parent = view
 	local armed = false
 	local resetToken = 0
@@ -4431,19 +4985,19 @@ function App:mount(gui)
 	Create("UIListLayout", { Padding = UDim.new(0, 6), Parent = self.toastHolder })
 
 	-- Sidebar
-	local sidebar = Create("Frame", { BackgroundColor3 = C.Sidebar, Size = UDim2.new(0, 118, 1, 0), BorderSizePixel = 0, Parent = gui })
+	local sidebar = Create("Frame", { BackgroundColor3 = C.Sidebar, Size = UDim2.new(0, 104, 1, 0), BorderSizePixel = 0, Parent = gui })
 	Create("UIListLayout", { Padding = UDim.new(0, 4), Parent = sidebar })
 	pad(8).Parent = sidebar
 
-	Create("TextLabel", { Text = "🔨 Bloxsmith", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = sidebar })
+	Create("TextLabel", { Text = "🔨 Bloxsmith", Font = Theme.FontBold, TextSize = 13, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 20), Parent = sidebar })
 	Create("TextLabel", { Text = ("v%s"):format(Config.Version), Font = Theme.Font, TextSize = 11, TextColor3 = C.TextFaint, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 14), Parent = sidebar })
 
 	-- Content area
-	local content = Create("Frame", { BackgroundColor3 = C.Bg, Size = UDim2.new(1, -118, 1, 0), Position = UDim2.new(0, 118, 0, 0), BorderSizePixel = 0, Parent = gui }, { pad(10) })
+	local content = Create("Frame", { BackgroundColor3 = C.Bg, Size = UDim2.new(1, -104, 1, 0), Position = UDim2.new(0, 104, 0, 0), BorderSizePixel = 0, Parent = gui }, { pad(8) })
 
 	local nav = { "Chat", "Tools", "Toolbox", "Analysis", "Health", "Errors", "Changelog", "Settings" }
 	for _, name in ipairs(nav) do
-		local b = button(name, { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.Sidebar, TextColor3 = C.TextDim })
+		local b = button(name, { Size = UDim2.new(1, 0, 0, 26), BackgroundColor3 = C.Sidebar, TextColor3 = C.TextDim })
 		b.Parent = sidebar
 		b.Activated:Connect(function()
 			self:selectView(name)
@@ -4602,39 +5156,42 @@ _modules["UI.Theme"] = function()
 local Theme = {}
 
 Theme.Color = {
-	-- Deep navy surfaces (match the website's premium blue theme)
-	Bg = Color3.fromRGB(9, 12, 22),
-	BgAlt = Color3.fromRGB(13, 17, 30),
-	Panel = Color3.fromRGB(18, 24, 40),
-	PanelAlt = Color3.fromRGB(24, 32, 52),
-	Border = Color3.fromRGB(38, 50, 78),
-	Sidebar = Color3.fromRGB(11, 15, 27),
+	-- Friendly, cartoony COLOURED surfaces — soft periwinkle (not white, not black)
+	Bg = Color3.fromRGB(218, 227, 255),
+	BgAlt = Color3.fromRGB(203, 216, 252),
+	Panel = Color3.fromRGB(238, 243, 255),
+	PanelAlt = Color3.fromRGB(221, 231, 252),
+	Border = Color3.fromRGB(176, 195, 240),
+	Sidebar = Color3.fromRGB(207, 219, 252),
 
-	Text = Color3.fromRGB(236, 242, 255),
-	TextDim = Color3.fromRGB(148, 163, 196),
-	TextFaint = Color3.fromRGB(96, 110, 142),
+	Text = Color3.fromRGB(38, 47, 74),
+	TextDim = Color3.fromRGB(98, 112, 146),
+	TextFaint = Color3.fromRGB(144, 158, 190),
 
-	-- Electric blue → cyan accent
-	Accent = Color3.fromRGB(45, 121, 255),
-	Accent2 = Color3.fromRGB(34, 211, 238),
-	AccentDim = Color3.fromRGB(28, 64, 128),
+	-- Cheerful sky-blue → cyan accent
+	Accent = Color3.fromRGB(80, 140, 255),
+	Accent2 = Color3.fromRGB(110, 205, 255),
+	AccentDim = Color3.fromRGB(190, 214, 255),
 
-	UserBubble = Color3.fromRGB(22, 45, 82),
-	AiBubble = Color3.fromRGB(18, 24, 40),
+	-- White label for use on strong coloured buttons
+	OnColor = Color3.fromRGB(255, 255, 255),
 
-	Success = Color3.fromRGB(52, 211, 153),
-	Warning = Color3.fromRGB(251, 191, 36),
-	Error = Color3.fromRGB(248, 113, 113),
-	Info = Color3.fromRGB(56, 189, 248),
+	UserBubble = Color3.fromRGB(197, 220, 255),
+	AiBubble = Color3.fromRGB(238, 243, 255),
+
+	Success = Color3.fromRGB(46, 204, 113),
+	Warning = Color3.fromRGB(247, 169, 40),
+	Error = Color3.fromRGB(240, 90, 110),
+	Info = Color3.fromRGB(99, 132, 246),
 }
 
-Theme.Font = Enum.Font.Gotham
+Theme.Font = Enum.Font.GothamMedium
 Theme.FontMedium = Enum.Font.GothamMedium
-Theme.FontBold = Enum.Font.GothamBold
+Theme.FontBold = Enum.Font.FredokaOne
 Theme.FontMono = Enum.Font.Code
 
 Theme.Pad = 10
-Theme.Radius = UDim.new(0, 8)
+Theme.Radius = UDim.new(0, 14)
 
 function Theme.severityColor(sev)
 	sev = string.lower(sev or "")
@@ -4940,6 +5497,12 @@ function Parser.toRichText(text, opts)
 				local indent, btext = line:match("^(%s*)[%-%*%+]%s+(.*)$")
 				if btext then
 					lines[i] = indent .. "• " .. btext
+				else
+					-- Numbered lists: "1. ", "2) " -> keep the number with a space.
+					local nindent, num, ntext = line:match("^(%s*)(%d+)[%.%)]%s+(.*)$")
+					if num then
+						lines[i] = nindent .. num .. ". " .. ntext
+					end
 				end
 			end
 		end
@@ -4975,18 +5538,31 @@ function Signal.new()
 end
 
 function Signal:Connect(fn)
-	local handlers = self._handlers
-	handlers[fn] = true
+	assert(type(fn) == "function", "Signal:Connect expects a function")
+	local conn = { fn = fn, connected = true }
+	table.insert(self._handlers, conn)
 	return {
 		Disconnect = function()
-			handlers[fn] = nil
+			conn.connected = false
+			for i, c in ipairs(self._handlers) do
+				if c == conn then
+					table.remove(self._handlers, i)
+					break
+				end
+			end
 		end,
 	}
 end
 
 function Signal:Fire(...)
-	for fn in pairs(self._handlers) do
-		task.spawn(fn, ...)
+	-- Iterate a snapshot so a handler that connects/disconnects during dispatch
+	-- can't corrupt the loop; each handler runs in its own thread so one error
+	-- can't stop the rest.
+	local snapshot = table.clone(self._handlers)
+	for _, conn in ipairs(snapshot) do
+		if conn.connected then
+			task.spawn(conn.fn, ...)
+		end
 	end
 end
 
@@ -5034,10 +5610,10 @@ local widgetInfo = DockWidgetPluginGuiInfo.new(
 	Enum.InitialDockState.Right,
 	false, -- start closed
 	false,
-	420, -- default width
-	560, -- default height
-	340, -- min width
-	400 -- min height
+	340, -- default width
+	460, -- default height
+	300, -- min width
+	360 -- min height
 )
 local widget = plugin:CreateDockWidgetPluginGui("BloxsmithMain", widgetInfo)
 widget.Title = "Bloxsmith — AI Copilot"
