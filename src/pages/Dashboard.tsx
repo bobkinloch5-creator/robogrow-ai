@@ -119,14 +119,17 @@ const Dashboard = () => {
 
         {/* AI Builder Card */}
         <Card className="bg-gradient-hero p-8 border-border/50 shadow-elegant mb-8">
-          <h2 className="text-2xl font-bold mb-4">Start Building with AI</h2>
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-2xl font-bold">Start Building with AI</h2>
+            <span className="rounded-full bg-primary/15 text-primary px-2 py-0.5 font-mono text-xs">Plugin v{PLUGIN_VERSION}</span>
+          </div>
           <p className="text-muted-foreground mb-6">
             Connect the Bloxsmith plugin in Roblox Studio to start creating games with AI
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <a href={pluginDownloadUrl} download="Bloxsmith.lua">
               <Button className="bg-background text-primary hover:bg-background/90 w-full">
-                Download Plugin (.lua)
+                Download Plugin (.lua) · v{PLUGIN_VERSION}
               </Button>
             </a>
             <a href="/docs">
