@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_jobs: {
+        Row: {
+          actions: Json | null
+          created_at: string
+          done: boolean
+          error: string | null
+          job_id: string
+          mode: string | null
+          partial: string
+          provider: string | null
+          reply: string | null
+          roblox_user_id: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json | null
+          created_at?: string
+          done?: boolean
+          error?: string | null
+          job_id: string
+          mode?: string | null
+          partial?: string
+          provider?: string | null
+          reply?: string | null
+          roblox_user_id: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json | null
+          created_at?: string
+          done?: boolean
+          error?: string | null
+          job_id?: string
+          mode?: string | null
+          partial?: string
+          provider?: string | null
+          reply?: string | null
+          roblox_user_id?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       allowed_roblox_users: {
         Row: {
           created_at: string

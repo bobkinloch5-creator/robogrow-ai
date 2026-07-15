@@ -35,10 +35,28 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.21.0"
+Config.Version = "3.22.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.22.0",
+		date = "2026-07-15",
+		title = "Live Streaming Replies",
+		changes = {
+			"NEW: Streaming replies — turn on Settings › Speed › ‘Stream replies live’ and Bloxsmith shows the AI's answer as it's written instead of making you wait for the whole generation, so long builds feel dramatically faster. It needs a backend that supports streaming jobs; if the backend doesn't, Bloxsmith automatically falls back to normal replies with no change in behaviour.",
+		},
+	},
+
+	{
+		version = "3.21.1",
+		date = "2026-07-15",
+		title = "Faster Generation",
+		changes = {
+			"FIXED: Generation is much faster and no longer hangs for minutes. Timed-out requests are no longer re-run up to 5 times (which stacked huge waits) — they now retry once and, if still too big, tell you to build in smaller steps. The context sent to the AI is lighter (200 instances) so it generates quicker, and retry delays are shorter and capped.",
+		},
+	},
+
 	{
 		version = "3.21.0",
 		date = "2026-07-15",
@@ -518,8 +536,8 @@ Config.DefaultBackendUrl =
 Config.PublishableKey =
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nZHlob2lscGdwbXl5cXVsY2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzU3MzUsImV4cCI6MjA3Nzg1MTczNX0.LpDaw0P-Pr-ika8I0opI5nfhyav9EjYahsOo1O7YDqM"
 
-Config.MaxContextInstances = 400 -- cap hierarchy walk for performance
-Config.MaxSelectionContext = 40 -- how many selected instances the AI can see at once
+Config.MaxContextInstances = 200 -- cap hierarchy walk for performance (smaller payload = faster generations)
+Config.MaxSelectionContext = 25 -- how many selected instances the AI can see at once
 
 -- Persisted setting keys
 Config.Settings = {
@@ -529,6 +547,7 @@ Config.Settings = {
 	ResponseLength = "bloxsmith_response_length",
 	CustomInstructions = "bloxsmith_custom_instructions",
 	AutoBuild = "bloxsmith_auto_build",
+	Stream = "bloxsmith_stream",
 }
 
 -- Customization options exposed in Settings and sent to the secure backend.
@@ -563,6 +582,7 @@ local AIService = {}
 AIService.__index = AIService
 
 local MAX_RETRIES = 4 -- total attempts = MAX_RETRIES + 1 (was 2 — bigger generations need more chances)
+local MAX_TIMEOUT_RETRIES = 1 -- a timeout re-runs the whole slow generation, so retry it at most once instead of burning minutes
 local RETRYABLE_STATUS = { [408] = true, [409] = true, [429] = true, [500] = true, [502] = true, [503] = true, [504] = true, [522] = true, [524] = true }
 -- 408/522/524 added: Cloudflare timeout-style statuses that show up on slow/large generations.
 
@@ -655,6 +675,7 @@ function AIService:_attempt(body)
 		return {
 			ok = false,
 			retryable = true,
+			timedOut = looksLikeTimeout and true or nil,
 			error = looksLikeTimeout
 				and "The request timed out — this can happen on larger generations. Retrying automatically…"
 				or "Network error. Enable HTTP requests (allow the permission prompt) and check the backend URL in Settings.",
@@ -698,7 +719,12 @@ function AIService:_attempt(body)
 		return { ok = false, retryable = false, error = decoded.error, resetAt = decoded.resetAt }
 	end
 
-	if type(decoded.reply) ~= "string" or decoded.reply == "" then
+	-- Streaming (job-polling) envelope: a backend that supports streaming answers
+	-- immediately with a jobId (and optional partial text) instead of a finished
+	-- reply. We treat that as a successful first step and poll for the rest below.
+	local hasJob = type(decoded.jobId) == "string" and decoded.jobId ~= ""
+
+	if not hasJob and (type(decoded.reply) ~= "string" or decoded.reply == "") then
 		return {
 			ok = false,
 			retryable = true,
@@ -712,6 +738,10 @@ function AIService:_attempt(body)
 		actions = decoded.actions,
 		provider = decoded.provider,
 		mode = decoded.mode,
+		jobId = decoded.jobId,
+		status = decoded.status,
+		partial = decoded.partial,
+		done = decoded.done,
 	}
 end
 
@@ -721,8 +751,14 @@ end
 	result = { ok = bool, reply = string?, actions = table?, error = string? }
 	Yields — always call from within task.spawn / a coroutine.
 ]]
-function AIService:request(opts)
+function AIService:request(opts, callbacks)
 	opts = opts or {}
+	callbacks = callbacks or {}
+	-- Streaming is opt-in via the user's setting and only actually engages if the
+	-- backend replies with a job envelope; otherwise we transparently fall back to
+	-- the classic one-shot reply, so older backends keep working unchanged.
+	local streamPref = self.plugin:GetSetting(Config.Settings.Stream)
+	local wantStream = (streamPref == nil) or (streamPref == true)
 	local payload = {
 		mode = opts.mode or "chat",
 		prompt = opts.prompt,
@@ -730,6 +766,7 @@ function AIService:request(opts)
 		context = opts.context,
 		preferences = opts.preferences or self:getPreferences(),
 		robloxUserId = getRobloxUserId(),
+		stream = wantStream,
 	}
 
 	local ok, body = pcall(function()
@@ -740,23 +777,107 @@ function AIService:request(opts)
 	end
 
 	local result
+	local attemptsMade = 0
+	local timeoutRetries = 0
 	for attempt = 0, MAX_RETRIES do
+		attemptsMade = attempt + 1
 		result = self:_attempt(body)
 		if result.ok or not result.retryable then
 			break
 		end
+		-- Retrying a timeout just re-runs the same slow generation from scratch,
+		-- so cap timeout retries hard rather than stacking minutes of waiting.
+		if result.timedOut then
+			timeoutRetries = timeoutRetries + 1
+			if timeoutRetries > MAX_TIMEOUT_RETRIES then
+				break
+			end
+		end
 		if attempt < MAX_RETRIES then
-			local backoff = 1.2 * (2 ^ attempt) -- was 0.8 — gives slow/large generations more room to finish
+			local backoff = math.min(6, 0.6 * (2 ^ attempt)) -- quick, capped backoff so hiccups don't feel slow
 			Log.warn(("Transient failure, retrying in %.1fs (attempt %d/%d)…"):format(backoff, attempt + 1, MAX_RETRIES))
 			task.wait(backoff)
 		end
 	end
 
 	if not result.ok and result.retryable then
-		result.error = (result.error or "Request failed") .. (" (failed after %d attempts)"):format(MAX_RETRIES + 1)
+		if result.timedOut then
+			result.error = "That request timed out — it's too big to finish in one go. Try building it in smaller steps (one system at a time) and it'll generate much faster."
+		else
+			result.error = (result.error or "Request failed") .. (" (failed after %d attempts)"):format(attemptsMade)
+		end
+	end
+
+	-- If the backend accepted this as a streaming job, poll it and push partial
+	-- text to the UI as it arrives so replies start showing almost immediately
+	-- instead of only after the whole generation finishes.
+	if result.ok and type(result.jobId) == "string" and result.jobId ~= "" then
+		result = self:_pollJob(result, callbacks)
 	end
 
 	return result
+end
+
+-- Polls a streaming job until it finishes (or is cancelled / times out), calling
+-- callbacks.onPartial(text) with the accumulated reply as it grows. Roblox's
+-- HttpService can't read a live HTTP stream, so streaming is implemented as
+-- short polling against the same backend with a { poll = jobId } body.
+function AIService:_pollJob(initial, callbacks)
+	callbacks = callbacks or {}
+	local jobId = initial.jobId
+	local acc = type(initial.partial) == "string" and initial.partial or ""
+	if acc ~= "" and callbacks.onPartial then
+		callbacks.onPartial(acc)
+	end
+
+	local encodeOk, pollBody = pcall(function()
+		return HttpService:JSONEncode({ poll = jobId, robloxUserId = getRobloxUserId() })
+	end)
+	if not encodeOk then
+		return { ok = true, reply = acc ~= "" and acc or initial.reply, actions = initial.actions }
+	end
+
+	local deadline = os.clock() + 150
+	local misses = 0
+	while os.clock() < deadline do
+		if callbacks.isCancelled and callbacks.isCancelled() then
+			return { ok = false, cancelled = true, error = "Cancelled." }
+		end
+		task.wait(0.6)
+		local p = self:_attempt(pollBody)
+		if not p.ok then
+			-- Tolerate a few transient poll hiccups before giving up.
+			misses = misses + 1
+			if not p.retryable or misses > 5 then
+				if acc ~= "" then
+					return { ok = true, reply = acc, actions = nil }
+				end
+				return p
+			end
+		else
+			misses = 0
+			if type(p.partial) == "string" and #p.partial > #acc then
+				acc = p.partial
+				if callbacks.onPartial then
+					callbacks.onPartial(acc)
+				end
+			end
+			local finished = p.done == true
+				or p.status == "done"
+				or p.status == "complete"
+			if finished then
+				local finalReply = (type(p.reply) == "string" and p.reply ~= "") and p.reply or acc
+				return { ok = true, reply = finalReply, actions = p.actions, provider = p.provider, mode = p.mode }
+			end
+		end
+	end
+
+	-- Polling window elapsed — return whatever we streamed so the user still gets
+	-- the partial result rather than nothing.
+	if acc ~= "" then
+		return { ok = true, reply = acc, actions = nil }
+	end
+	return { ok = false, retryable = false, error = "The streaming response didn't finish in time. Try again, or build in smaller steps." }
 end
 
 --[[
@@ -2931,6 +3052,23 @@ function App:startThinking()
 		end
 	end)
 
+	-- Live streaming: stop the phase animation and show the reply text as it
+	-- arrives (with a blinking cursor) so the user sees progress immediately.
+	handle.stream = function(text)
+		running = false
+		if not (status and status.Parent) then
+			return
+		end
+		local shown = tostring(text or "")
+		if #shown > 1200 then
+			shown = "…" .. string.sub(shown, #shown - 1199)
+		end
+		status.Text = "✍️ " .. shown .. " ▍"
+		if self.chatScroll then
+			self.chatScroll.CanvasPosition = Vector2.new(0, 1e6)
+		end
+	end
+
 	handle.stop = function()
 		running = false
 		if holder and holder.Parent then
@@ -3130,6 +3268,15 @@ function App:send(promptText, mode)
 			mode = mode or self.mode,
 			messages = optimizedMessages,
 			context = context,
+		}, {
+			onPartial = function(text)
+				if thinkingHandle and not thinkingHandle.cancelled and thinkingHandle.stream then
+					thinkingHandle.stream(text)
+				end
+			end,
+			isCancelled = function()
+				return thinkingHandle.cancelled == true
+			end,
 		})
 		-- If the user cancelled/stopped while the request was in flight, discard
 		-- the result entirely — the UI was already freed by the stop handler.
@@ -4301,7 +4448,7 @@ function App:buildToolsView(parent)
 	end
 
 	-- Prompt presets — save the current description and re-run it later.
-	local savePreset = button("💾 Save prompt as preset", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
+	local savePreset = button("�� Save prompt as preset", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.PanelAlt, TextSize = 12 })
 	savePreset.Parent = view
 	local presetHolder = Create("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = view })
 	Create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = presetHolder })
@@ -4861,6 +5008,10 @@ function App:buildSettingsView(parent)
 	-- Autonomy
 	Create("TextLabel", { Text = "🤖 Autonomy", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
 	self:togglePref(view, "Autonomous build mode", Config.Settings.AutoBuild, false, "When ON, Bloxsmith applies its whole build plan automatically without waiting for you to approve each step. The live checklist still ticks off every action, and each build is a single Ctrl+Z undo. Turn OFF (default) to review and approve steps first.")
+
+	-- Speed
+	Create("TextLabel", { Text = "⚡ Speed", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
+	self:togglePref(view, "Stream replies live", Config.Settings.Stream, true, "When ON, Bloxsmith shows the AI's reply as it's being written instead of waiting for the whole thing, so long builds feel far faster. Needs a backend that supports streaming jobs; if it doesn't, Bloxsmith automatically falls back to normal replies.")
 
 	-- Connection
 	Create("TextLabel", { Text = "🔌 Connection", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
