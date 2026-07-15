@@ -1403,6 +1403,128 @@ function jsonError(msg: string, status: number, extra?: Record<string, unknown>)
   });
 }
 
+// ---- Streaming job protocol -------------------------------------------------
+// The plugin (v3.22+) can render replies as they're written by starting a job
+// and short-polling the same endpoint. Roblox HttpService can't read live SSE,
+// so state is stored in the ai_jobs table between polls.
+type JobPatch = Partial<{
+  status: string;
+  partial: string;
+  reply: string;
+  actions: unknown;
+  provider: string;
+  mode: string;
+  error: string;
+  done: boolean;
+}>;
+
+async function updateJob(jobId: string, patch: JobPatch): Promise<void> {
+  try {
+    const sb = getServiceClient();
+    await sb
+      .from("ai_jobs")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("job_id", jobId);
+  } catch (err) {
+    console.error("updateJob failed:", err);
+  }
+}
+
+async function handleJobPoll(jobId: string, robloxUserId: number): Promise<Response> {
+  if (!jobId || typeof jobId !== "string") return jsonError("Missing jobId.", 400);
+  try {
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("ai_jobs")
+      .select("job_id, roblox_user_id, status, partial, reply, actions, provider, mode, error, done")
+      .eq("job_id", jobId)
+      .maybeSingle();
+    if (error || !data) return jsonError("Job not found.", 404);
+    // Scope job to the Roblox user that created it (0 = unknown, skip check).
+    if (robloxUserId > 0 && Number(data.roblox_user_id) > 0 && Number(data.roblox_user_id) !== robloxUserId) {
+      return jsonError("Job not found.", 404);
+    }
+    const payload: Record<string, unknown> = {
+      jobId,
+      status: data.status,
+      partial: data.partial ?? "",
+      done: !!data.done,
+    };
+    if (data.done) {
+      if (data.error) {
+        return jsonError(data.error, 500, { jobId, status: "error", done: true });
+      }
+      payload.reply = data.reply ?? "";
+      payload.actions = data.actions ?? null;
+      payload.provider = data.provider ?? null;
+      payload.mode = data.mode ?? null;
+    }
+    return new Response(JSON.stringify(payload), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("handleJobPoll failed:", err);
+    return jsonError("Failed to load job.", 500);
+  }
+}
+
+// Runs the normal (non-streaming) generation in the background by calling this
+// same function via HTTP with `stream:false`, then writes the final result to
+// the ai_jobs row. Uses EdgeRuntime.waitUntil so the initial response returns
+// immediately.
+function startJobInBackground(jobId: string, body: unknown): void {
+  const bg = (async () => {
+    try {
+      await updateJob(jobId, { status: "streaming", partial: "Bloxsmith is working on your request…" });
+
+      const base = Deno.env.get("SUPABASE_URL");
+      const anon = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+      if (!base) throw new Error("SUPABASE_URL missing");
+
+      const res = await fetch(`${base}/functions/v1/bloxsmith-ai`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": anon,
+          "Authorization": `Bearer ${anon}`,
+        },
+        body: JSON.stringify({ ...(body as Record<string, unknown>), stream: false, poll: undefined }),
+      });
+      const text = await res.text();
+      let data: Record<string, unknown> = {};
+      try { data = JSON.parse(text); } catch (_) { /* keep empty */ }
+
+      if (!res.ok) {
+        const msg = typeof data.error === "string" ? data.error : `Generation failed (${res.status}).`;
+        await updateJob(jobId, { status: "error", done: true, error: msg });
+        return;
+      }
+
+      const reply = typeof data.reply === "string" ? data.reply : "";
+      await updateJob(jobId, {
+        status: "done",
+        done: true,
+        partial: reply,
+        reply,
+        actions: data.actions ?? null,
+        provider: typeof data.provider === "string" ? data.provider : undefined,
+        mode: typeof data.mode === "string" ? data.mode : undefined,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Background job failed:", err);
+      await updateJob(jobId, { status: "error", done: true, error: msg });
+    }
+  })();
+
+  try {
+    // deno-lint-ignore no-explicit-any
+    const er: any = (globalThis as any).EdgeRuntime;
+    if (er && typeof er.waitUntil === "function") er.waitUntil(bg);
+  } catch (_) { /* ignore — bg still runs */ }
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonError("Method not allowed", 405);
