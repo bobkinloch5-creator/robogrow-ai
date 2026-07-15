@@ -516,7 +516,7 @@ Config.DefaultBackendUrl =
 
 -- Publishable (anon) key — safe to embed; grants no privileged access.
 Config.PublishableKey =
-	"eyJhbGciOiJIUzI1NiIsInJlZiI6Im1nZHlob2lscGdwbXl5cXVsY2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzU3MzUsImV4cCI6MjA3Nzg1MTczNX0.LpDaw0P-Pr-ika8I0opI5nfhyav9EjYahsOo1O7YDqM"
+	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nZHlob2lscGdwbXl5cXVsY2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzU3MzUsImV4cCI6MjA3Nzg1MTczNX0.LpDaw0P-Pr-ika8I0opI5nfhyav9EjYahsOo1O7YDqM"
 
 Config.MaxContextInstances = 400 -- cap hierarchy walk for performance
 Config.MaxSelectionContext = 40 -- how many selected instances the AI can see at once
