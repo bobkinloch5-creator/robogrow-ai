@@ -776,7 +776,9 @@ function AIService:request(opts, callbacks)
 	-- backend replies with a job envelope; otherwise we transparently fall back to
 	-- the classic one-shot reply, so older backends keep working unchanged.
 	local streamPref = self.plugin:GetSetting(Config.Settings.Stream)
-	local wantStream = (streamPref == true) -- opt-in: OFF unless the user turns it on, so the proven one-shot path is always the default
+	-- Streaming is ON by default in 3.23.0+ now that the backend job pipeline is
+	-- verified end-to-end. Users who explicitly turned it OFF stay OFF.
+	local wantStream = (streamPref ~= false)
 	local payload = {
 		mode = opts.mode or "chat",
 		prompt = opts.prompt,
