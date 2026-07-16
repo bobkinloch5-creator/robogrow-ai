@@ -35,10 +35,20 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.22.2"
+Config.Version = "3.23.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.23.0",
+		date = "2026-07-16",
+		title = "Streaming On by Default",
+		changes = {
+			"IMPROVED: 'Stream replies live' is now ON by default — the backend streaming-job pipeline is verified end-to-end, so long generations feel dramatically faster with progressive text as the model writes. You can still turn it off in Settings › Speed.",
+			"IMPROVED: Streaming preference now reads as ON when unset (fresh installs get the fast path immediately) instead of only when explicitly toggled on.",
+		},
+	},
+
 	{
 		version = "3.22.2",
 		date = "2026-07-15",
