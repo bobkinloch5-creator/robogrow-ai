@@ -35,10 +35,20 @@ _modules["Config"] = function()
 local Config = {}
 
 Config.Name = "Bloxsmith"
-Config.Version = "3.22.2"
+Config.Version = "3.23.0"
 
 -- Changelog shown inside the plugin (newest first).
 Config.Changelog = {
+	{
+		version = "3.23.0",
+		date = "2026-07-16",
+		title = "Streaming On by Default",
+		changes = {
+			"IMPROVED: 'Stream replies live' is now ON by default — the backend streaming-job pipeline is verified end-to-end, so long generations feel dramatically faster with progressive text as the model writes. You can still turn it off in Settings › Speed.",
+			"IMPROVED: Streaming preference now reads as ON when unset (fresh installs get the fast path immediately) instead of only when explicitly toggled on.",
+		},
+	},
+
 	{
 		version = "3.22.2",
 		date = "2026-07-15",
@@ -776,7 +786,9 @@ function AIService:request(opts, callbacks)
 	-- backend replies with a job envelope; otherwise we transparently fall back to
 	-- the classic one-shot reply, so older backends keep working unchanged.
 	local streamPref = self.plugin:GetSetting(Config.Settings.Stream)
-	local wantStream = (streamPref == true) -- opt-in: OFF unless the user turns it on, so the proven one-shot path is always the default
+	-- Streaming is ON by default in 3.23.0+ now that the backend job pipeline is
+	-- verified end-to-end. Users who explicitly turned it OFF stay OFF.
+	local wantStream = (streamPref ~= false)
 	local payload = {
 		mode = opts.mode or "chat",
 		prompt = opts.prompt,
@@ -5043,7 +5055,7 @@ function App:buildSettingsView(parent)
 
 	-- Speed
 	Create("TextLabel", { Text = "⚡ Speed", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
-	self:togglePref(view, "Stream replies live", Config.Settings.Stream, false, "OFF by default. When ON, Bloxsmith shows the AI's reply as it's being written for a much faster feel — but only turn it on once your backend fully supports streaming jobs (see §11 of the backend prompt), otherwise replies can stall. If unsure, leave this OFF.")
+	self:togglePref(view, "Stream replies live", Config.Settings.Stream, true, "ON by default. Bloxsmith shows the AI's reply as it's being written for a much faster feel. Turn OFF only if you're pointing at a custom backend that doesn't implement streaming jobs.")
 
 	-- Connection
 	Create("TextLabel", { Text = "🔌 Connection", Font = Theme.FontBold, TextSize = 15, TextColor3 = C.Accent, BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Parent = view })
